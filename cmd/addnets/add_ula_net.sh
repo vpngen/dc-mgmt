@@ -9,17 +9,17 @@ echo "dbname: $DBNAME"
 SCHEMA=${SCHEMA:-$(cat ${CONFDIR}/brigades_schema)}
 echo "schema: $SCHEMA"
 
-cgnat_net="$1"
+ula_net="$1"
 
-if [ "x" = "x${cgnat_net}" ]; then
-    echo "Usage: $0 <cgnat_net/cidr>"
+if [ "x" = "x${ula_net}" ]; then
+    echo "Usage: $0 <ula_net/cidr>"
     exit 1
 fi
 
-psql -d ${DBNAME} \
+ON_ERROR_STOP=yes psql -d ${DBNAME} \
     --set schema_name=${SCHEMA} \
-    --set cgnat_net=${cgnat_net} <<EOF
+    --set ula_net=${ula_net} <<EOF
 BEGIN;
-INSERT INTO :"schema_name".ipv4_cgnat_nets (ipv4_net) VALUES (:'cgnat_net');
+INSERT INTO :"schema_name".ipv6_ula_nets (ipv6_net) VALUES (:'ula_net');
 COMMIT;
 EOF

@@ -17,7 +17,7 @@ if [ "x" = "x${ipv4_net}" -o "x" = "x${gateway}" ]; then
     exit 1
 fi
 
-psql -d ${DBNAME} \
+ON_ERROR_STOP=yes psql -d ${DBNAME} \
     --set schema_name=${SCHEMA} \
     --set ipv4_net=${ipv4_net} \
     --set gateway=${gateway}/32 <<EOF

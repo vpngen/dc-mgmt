@@ -47,6 +47,11 @@ CREATE TABLE :"schema_brigades_name".ipv6_ula_nets (
     ipv6_net cidr_ula PRIMARY KEY NOT NULL
 );
 
+-- Keydesk nets.
+CREATE TABLE :"schema_brigades_name".ipv6_keydesk_nets (
+    ipv6_net cidr_ula PRIMARY KEY NOT NULL
+);
+
 CREATE TABLE :"schema_pairs_name".pairs (
     pair_id             uuid PRIMARY KEY NOT NULL,
     control_ip          inet UNIQUE NOT NULL,
@@ -80,15 +85,11 @@ CREATE VIEW :"schema_brigades_name".active_pairs AS
         pairs.control_ip, 
         COUNT(pairs_endpoints_ipv4.*)-COUNT(brigades.*) AS free_slots 
     FROM 
-        :"schema_pairs_name".pairs, 
-        :"schema_pairs_name".pairs_endpoints_ipv4, 
-        :"schema_brigades_name".brigades
+        :"schema_pairs_name".pairs 
+        JOIN :"schema_pairs_name".pairs_endpoints_ipv4 ON pairs_endpoints_ipv4.pair_id=pairs.pair_id
+        LEFT JOIN :"schema_brigades_name".brigades ON brigades.pair_id=pairs.pair_id
     WHERE
             pairs.is_active
-        AND
-            pairs_endpoints_ipv4.pair_id=pairs.pair_id
-        AND
-            brigades.pair_id=pairs.pair_id
     GROUP BY pairs.pair_id
     HAVING
         COUNT(pairs_endpoints_ipv4.*)-COUNT(brigades.*) > 0
@@ -100,14 +101,11 @@ CREATE VIEW :"schema_brigades_name".free_slots AS
         pairs.control_ip,
         pairs_endpoints_ipv4.endpoint_ipv4
     FROM 
-        :"schema_pairs_name".pairs, 
-        :"schema_pairs_name".pairs_endpoints_ipv4, 
-        :"schema_brigades_name".brigades
+        :"schema_pairs_name".pairs
+        JOIN :"schema_pairs_name".pairs_endpoints_ipv4 ON pairs_endpoints_ipv4.pair_id=pairs.pair_id
+        LEFT JOIN :"schema_brigades_name".brigades ON brigades.pair_id=pairs.pair_id
     WHERE
-            pairs_endpoints_ipv4.pair_id=pairs.pair_id
-        AND
-            brigades.pair_id=pairs.pair_id
-        AND NOT EXISTS (
+        NOT EXISTS (
             SELECT
             FROM :"schema_pairs_name".pairs_endpoints_ipv4
             WHERE endpoint_ipv4=brigades.endpoint_ipv4
@@ -121,7 +119,7 @@ GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA :"schema_brigades_name
 
 CREATE ROLE :"brigades_dbuser" WITH LOGIN;
 GRANT USAGE ON SCHEMA :"schema_brigades_name" TO :"brigades_dbuser";
-GRANT SELECT ON :"schema_brigades_name".ipv4_cgnat_nets, :"schema_brigades_name".ipv6_ula_nets TO :"brigades_dbuser";
+GRANT SELECT ON :"schema_brigades_name".ipv4_cgnat_nets, :"schema_brigades_name".ipv6_ula_nets, :"schema_brigades_name".ipv6_keydesk_nets TO :"brigades_dbuser";
 GRANT SELECT,UPDATE ON :"schema_brigades_name".active_pairs, :"schema_brigades_name".free_slots TO :"brigades_dbuser";
 GRANT SELECT,UPDATE,INSERT,DELETE ON :"schema_brigades_name".brigades TO :"brigades_dbuser";
 

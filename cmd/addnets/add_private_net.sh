@@ -16,7 +16,7 @@ if [ "x" = "x${private_net}" ]; then
     exit 1
 fi
 
-psql -d ${DBNAME} \
+ON_ERROR_STOP=yes psql -d ${DBNAME} \
     --set schema_name=${SCHEMA} \
     --set private_net=${private_net} <<EOF
 BEGIN;
