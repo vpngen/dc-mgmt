@@ -23,42 +23,43 @@ CREATE DOMAIN inet_ula_64 AS inet CHECK (family(value) = 6 AND value << cidr 'fd
 
 -- Goes to `meta` schema, information for brigade creation.
 
-CREATE SCHEMA :schema_name;
+CREATE SCHEMA :"schema_pairs_name";
+CREATE SCHEMA :"schema_brigades_name";
 
 -- External assignet nets.
-CREATE TABLE :schema_name.ipv4_nets (
+CREATE TABLE :"schema_pairs_name".ipv4_nets (
     ipv4_net cidr_ipv4 PRIMARY KEY NOT NULL,
-    gateway  inet_ipv4_endpoint
+    gateway  inet_ipv4_endpoint CHECK (gateway << ipv4_net)
+);
+
+-- Internal nets for infra. Control points range.
+CREATE TABLE :"schema_pairs_name".private_cidr_nets (
+    ipv4_net cidr_private PRIMARY KEY NOT NULL
 );
 
 -- CGNAT nets for clients.
-CREATE TABLE :schema_name.ipv4_cgnat_nets (
+CREATE TABLE :"schema_brigades_name".ipv4_cgnat_nets (
     ipv4_net cidr_cgnat PRIMARY KEY NOT NULL
 );
 
 -- ULA nets for clients.
-CREATE TABLE :schema_name.ipv6_ula_nets (
-    ipv4_net cidr_ula PRIMARY KEY NOT NULL
+CREATE TABLE :"schema_brigades_name".ipv6_ula_nets (
+    ipv6_net cidr_ula PRIMARY KEY NOT NULL
 );
 
--- Internal nets for infra. Control points range.
-CREATE TABLE :schema_name.private_cidr_nets (
-    ipv4_net cidr_private PRIMARY KEY NOT NULL
-);
-
-CREATE TABLE :schema_name.pairs (
+CREATE TABLE :"schema_pairs_name".pairs (
     pair_id             uuid PRIMARY KEY NOT NULL,
     control_ip          inet UNIQUE NOT NULL,
     is_active           bool NOT NULL
 );
 
-CREATE TABLE :schema_name.pairs_endpoints_ipv4 (
+CREATE TABLE :"schema_pairs_name".pairs_endpoints_ipv4 (
     pair_id            uuid NOT NULL,
     endpoint_ipv4      inet_ipv4_endpoint UNIQUE NOT NULL,
-    FOREIGN KEY (pair_id) REFERENCES :schema_name.pairs (pair_id)
+    FOREIGN KEY (pair_id) REFERENCES :"schema_pairs_name".pairs (pair_id)
 );
 
-CREATE TABLE :schema_name.brigades (
+CREATE TABLE :"schema_brigades_name".brigades (
     brigade_id          uuid PRIMARY KEY NOT NULL,
     pair_id             uuid NOT NULL,
     brigadier           text UNIQUE NOT NULL,
@@ -69,20 +70,22 @@ CREATE TABLE :schema_name.brigades (
     ipv4_cgnat          inet_cgnat_24 NOT NULL,
     ipv6_ula            inet_ula_64 NOT NULL,
     person              json NOT NULL,
-    FOREIGN KEY (pair_id) REFERENCES :schema_name.pairs (pair_id),
-    FOREIGN KEY (endpoint_ipv4) REFERENCES :schema_name.pairs_endpoints_ipv4 (endpoint_ipv4)
+    FOREIGN KEY (pair_id) REFERENCES :"schema_pairs_name".pairs (pair_id),
+    FOREIGN KEY (endpoint_ipv4) REFERENCES :"schema_pairs_name".pairs_endpoints_ipv4 (endpoint_ipv4)
 );
 
-CREATE VIEW :schema_name.active_pairs AS 
+CREATE VIEW :"schema_brigades_name".active_pairs AS 
     SELECT 
         pairs.pair_id, 
         pairs.control_ip, 
         COUNT(pairs_endpoints_ipv4.*)-COUNT(brigades.*) AS free_slots 
     FROM 
-        :schema_name.pairs, 
-        :schema_name.pairs_endpoints_ipv4, 
-        :schema_name.brigades
+        :"schema_pairs_name".pairs, 
+        :"schema_pairs_name".pairs_endpoints_ipv4, 
+        :"schema_brigades_name".brigades
     WHERE
+            pairs.is_active
+        AND
             pairs_endpoints_ipv4.pair_id=pairs.pair_id
         AND
             brigades.pair_id=pairs.pair_id
@@ -90,5 +93,36 @@ CREATE VIEW :schema_name.active_pairs AS
     HAVING
         COUNT(pairs_endpoints_ipv4.*)-COUNT(brigades.*) > 0
 ;
+
+CREATE VIEW :"schema_brigades_name".free_slots AS 
+    SELECT
+        pairs.pair_id,
+        pairs.control_ip,
+        pairs_endpoints_ipv4.endpoint_ipv4
+    FROM 
+        :"schema_pairs_name".pairs, 
+        :"schema_pairs_name".pairs_endpoints_ipv4, 
+        :"schema_brigades_name".brigades
+    WHERE
+            pairs_endpoints_ipv4.pair_id=pairs.pair_id
+        AND
+            brigades.pair_id=pairs.pair_id
+        AND NOT EXISTS (
+            SELECT
+            FROM :"schema_pairs_name".pairs_endpoints_ipv4
+            WHERE endpoint_ipv4=brigades.endpoint_ipv4
+        )
+;
+
+CREATE ROLE :"pairs_dbuser" WITH LOGIN;
+GRANT USAGE ON SCHEMA :"schema_pairs_name" TO :"pairs_dbuser";
+GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA :"schema_pairs_name" TO :"pairs_dbuser";
+GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA :"schema_brigades_name" TO :"pairs_dbuser";
+
+CREATE ROLE :"brigades_dbuser" WITH LOGIN;
+GRANT USAGE ON SCHEMA :"schema_brigades_name" TO :"brigades_dbuser";
+GRANT SELECT ON :"schema_brigades_name".ipv4_cgnat_nets, :"schema_brigades_name".ipv6_ula_nets TO :"brigades_dbuser";
+GRANT SELECT,UPDATE ON :"schema_brigades_name".active_pairs, :"schema_brigades_name".free_slots TO :"brigades_dbuser";
+GRANT SELECT,UPDATE,INSERT,DELETE ON :"schema_brigades_name".brigades TO :"brigades_dbuser";
 
 COMMIT;
