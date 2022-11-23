@@ -112,6 +112,18 @@ CREATE VIEW :"schema_brigades_name".free_slots AS
         )
 ;
 
+CREATE TABLE :"schema_pairs_name".pairs_queue (
+    queue_id serial PRIMARY KEY,
+    payload json NOT NULL,
+    error json
+);
+
+CREATE TABLE :"schema_brigades_name".brigades_queue (
+    queue_id serial PRIMARY KEY,
+    payload json NOT NULL,
+    error json
+);
+
 CREATE ROLE :"pairs_dbuser" WITH LOGIN;
 GRANT USAGE ON SCHEMA :"schema_pairs_name" TO :"pairs_dbuser";
 GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA :"schema_pairs_name" TO :"pairs_dbuser";
