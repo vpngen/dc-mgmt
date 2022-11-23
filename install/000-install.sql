@@ -52,6 +52,7 @@ CREATE TABLE :"schema_brigades_name".ipv6_keydesk_nets (
     ipv6_net cidr_ula PRIMARY KEY NOT NULL
 );
 
+-- Virtual machines pairs.
 CREATE TABLE :"schema_pairs_name".pairs (
     pair_id             uuid PRIMARY KEY NOT NULL,
     control_ip          inet UNIQUE NOT NULL,
@@ -111,6 +112,57 @@ CREATE VIEW :"schema_brigades_name".free_slots AS
             WHERE endpoint_ipv4=brigades.endpoint_ipv4
         )
 ;
+
+CREATE VIEW :"schema_pairs_name".ipv4_nets_weight AS (
+    SELECT
+        ipv4_nets.ipv4_net,
+        ipv4_nets.gateway,
+        2^masklen(ipv4_nets.ipv4_net) - COUNT(pairs_endpoints_ipv4.*) - 2 AS weight
+    FROM
+        :"schema_pairs_name".ipv4_nets
+        LEFT JOIN :"schema_pairs_name".pairs_endpoints_ipv4 ON pairs_endpoints_ipv4.endpoint_ipv4 << ipv4_nets.ipv4_net
+    GROUP BY ipv4_nets.ipv4_net
+);
+
+CREATE VIEW :"schema_pairs_name".private_cidr_nets_weight AS (
+    SELECT
+        private_cidr_nets.ipv4_net,
+        2^masklen(private_cidr_nets.ipv4_net) - COUNT(pairs.*) - 2 AS weight
+    FROM
+        :"schema_pairs_name".private_cidr_nets
+        LEFT JOIN :"schema_pairs_name".pairs ON pairs.control_ip << private_cidr_nets.ipv4_net
+    GROUP BY private_cidr_nets.ipv4_net
+);
+
+CREATE VIEW :"schema_brigades_name".ipv4_cgnat_nets_weight AS (
+    SELECT
+        ipv4_cgnat_nets.ipv4_net,
+        2^(24 - masklen(ipv4_cgnat_nets.ipv4_net)) - COUNT(brigades.*) AS weight 
+    FROM
+        :"schema_brigades_name".ipv4_cgnat_nets
+        LEFT JOIN :"schema_brigades_name".brigades ON brigades.ipv4_cgnat << ipv4_cgnat_nets.ipv4_net
+    GROUP BY ipv4_cgnat_nets.ipv4_net
+);
+
+CREATE VIEW :"schema_brigades_name".ipv6_ula_nets_weight AS (
+    SELECT
+        ipv6_ula_nets.ipv6_net,
+        2^(64-masklen(ipv6_ula_nets.ipv6_net)) - COUNT(brigades.*) AS weight 
+    FROM
+        :"schema_brigades_name".ipv6_ula_nets
+        LEFT JOIN :"schema_brigades_name".brigades ON brigades.ipv6_ula << ipv6_ula_nets.ipv6_net
+    GROUP BY ipv6_ula_nets.ipv6_net
+);
+
+CREATE VIEW :"schema_brigades_name".ipv6_keydesk_nets_iweight AS (
+    SELECT
+        ipv6_keydesk_nets.ipv6_net,
+        COUNT(brigades.*) AS iweight
+    FROM
+        :"schema_brigades_name".ipv6_keydesk_nets
+        LEFT JOIN :"schema_brigades_name".brigades ON brigades.keydesk_ipv6 << ipv6_keydesk_nets.ipv6_net
+    GROUP BY ipv6_keydesk_nets.ipv6_net
+);
 
 CREATE TABLE :"schema_pairs_name".pairs_queue (
     queue_id serial PRIMARY KEY,
