@@ -2,7 +2,7 @@
 
 set -e
 
-CONFDIR=${CONFDIR:-"/etc"}
+CONFDIR=${CONFDIR:-"/etc/vpngen"}
 echo "confdir: ${CONFDIR}"
 DBNAME=${DBNAME:-$(cat ${CONFDIR}/dbname)}
 echo "dbname: $DBNAME"
