@@ -120,6 +120,23 @@ VALUES
 			$10
 		)
 `
+
+	sqlFetchBrigade = `
+SELECT
+	meta_brigades.brigade_id,
+	meta_brigades.brigadier,
+	meta_brigades.endpoint_ipv4,
+	meta_brigades.dns_ipv4,
+	meta_brigades.dns_ipv6,
+	meta_brigades.keydesk_ipv6,
+	meta_brigades.ipv4_cgnat,
+	meta_brigades.ipv6_ula,
+	meta_brigades.person,
+	meta_brigades.control_ip
+FROM %s
+WHERE
+	meta_brigades.brigade_id=$1
+`
 )
 
 type brigadeOpts struct {
@@ -185,8 +202,6 @@ func createBrigade(db *pgxpool.Pool, schema string, opts *brigadeOpts) error {
 	if err != nil {
 		return fmt.Errorf("begin: %w", err)
 	}
-
-	//schema := (pgx.Identifier{schema}).Sanitize()
 
 	rows, err := tx.Query(ctx, fmt.Sprintf(sqlGetBrigades, (pgx.Identifier{schema, "brigades"}.Sanitize())))
 	if err != nil {
@@ -354,6 +369,54 @@ func createBrigade(db *pgxpool.Pool, schema string, opts *brigadeOpts) error {
 }
 
 func requestBrigade(db *pgxpool.Pool, schema string, opts *brigadeOpts) ([]byte, error) {
+	ctx := context.Background()
+
+	tx, err := db.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("begin: %w", err)
+	}
+
+	var (
+		brigade_id    []byte
+		fullname      string
+		endpoint_ipv4 netip.Addr
+		dns_ipv4      netip.Addr
+		dns_ipv6      netip.Addr
+		keydesk_ipv6  netip.Addr
+		ipv4_cgnat    netip.Prefix
+		ipv6_ula      netip.Prefix
+		person        string
+		control_ip    netip.Addr
+	)
+
+	err = tx.QueryRow(ctx,
+		fmt.Sprintf(sqlFetchBrigade,
+			(pgx.Identifier{schema, "meta_brigades"}.Sanitize()),
+		),
+		opts.id,
+	).Scan(
+		&brigade_id,
+		&fullname,
+		&endpoint_ipv4,
+		&dns_ipv4,
+		&dns_ipv6,
+		&keydesk_ipv6,
+		&ipv4_cgnat,
+		&ipv6_ula,
+		&person,
+		&control_ip,
+	)
+	if err != nil {
+		tx.Rollback(ctx)
+
+		return nil, fmt.Errorf("brigade query: %w", err)
+	}
+
+	err = tx.Commit(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("commit: %w", err)
+	}
+
 	return nil, nil
 }
 

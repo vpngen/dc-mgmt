@@ -117,6 +117,26 @@ CREATE VIEW :"schema_brigades_name".slots AS
         )
 ;
 
+CREATE VIEW :"schema_brigades_name".meta_brigades AS 
+    SELECT
+        brigades.pair_id,
+        brigades.brigade_id,
+    	brigades.brigadier,
+    	brigades.endpoint_ipv4,
+    	brigades.dns_ipv4,
+    	brigades.dns_ipv6,
+    	brigades.keydesk_ipv6,
+    	brigades.ipv4_cgnat,
+    	brigades.ipv6_ula,
+    	brigades.person,
+		pairs.control_ip
+    FROM
+        :"schema_brigades_name".brigades,
+        :"schema_pairs_name".pairs
+    WHERE
+        pairs.pair_id=brigades.pair_id
+;
+
 CREATE VIEW :"schema_pairs_name".ipv4_nets_weight AS (
     SELECT
         ipv4_nets.id,
