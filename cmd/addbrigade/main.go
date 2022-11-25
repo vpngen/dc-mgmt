@@ -230,6 +230,9 @@ func createBrigade(db *pgxpool.Pool, schema string, opts *brigadeOpts) error {
 	for {
 		addr := user.RandomAddrIPv4(cgnat_gnet)
 		cgnat_net = netip.PrefixFrom(addr, BrigadeCgnatPrefix)
+		if cgnat_net.Masked().Addr() == addr || user.LastPrefixIPv6(cgnat_net.Masked()) == addr {
+			continue
+		}
 		if _, ok := cgnat[cgnat_net.Masked().Addr().String()]; !ok {
 			break
 		}
