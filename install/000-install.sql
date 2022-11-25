@@ -28,27 +28,32 @@ CREATE SCHEMA :"schema_brigades_name";
 
 -- External assignet nets.
 CREATE TABLE :"schema_pairs_name".ipv4_nets (
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
     ipv4_net cidr_ipv4 PRIMARY KEY NOT NULL,
     gateway  inet_ipv4_endpoint CHECK (gateway << ipv4_net)
 );
 
 -- Internal nets for infra. Control points range.
 CREATE TABLE :"schema_pairs_name".private_cidr_nets (
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
     ipv4_net cidr_private PRIMARY KEY NOT NULL
 );
 
 -- CGNAT nets for clients.
 CREATE TABLE :"schema_brigades_name".ipv4_cgnat_nets (
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
     ipv4_net cidr_cgnat PRIMARY KEY NOT NULL
 );
 
 -- ULA nets for clients.
 CREATE TABLE :"schema_brigades_name".ipv6_ula_nets (
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
     ipv6_net cidr_ula PRIMARY KEY NOT NULL
 );
 
 -- Keydesk nets.
 CREATE TABLE :"schema_brigades_name".ipv6_keydesk_nets (
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
     ipv6_net cidr_ula PRIMARY KEY NOT NULL
 );
 
@@ -83,8 +88,7 @@ CREATE TABLE :"schema_brigades_name".brigades (
 CREATE VIEW :"schema_brigades_name".active_pairs AS 
     SELECT 
         pairs.pair_id, 
-        pairs.control_ip, 
-        COUNT(pairs_endpoints_ipv4.*)-COUNT(brigades.*) AS free_slots 
+        COUNT(pairs_endpoints_ipv4.*)-COUNT(brigades.*) AS free_slots_count
     FROM 
         :"schema_pairs_name".pairs 
         JOIN :"schema_pairs_name".pairs_endpoints_ipv4 ON pairs_endpoints_ipv4.pair_id=pairs.pair_id
@@ -96,7 +100,7 @@ CREATE VIEW :"schema_brigades_name".active_pairs AS
         COUNT(pairs_endpoints_ipv4.*)-COUNT(brigades.*) > 0
 ;
 
-CREATE VIEW :"schema_brigades_name".free_slots AS 
+CREATE VIEW :"schema_brigades_name".slots AS 
     SELECT
         pairs.pair_id,
         pairs.control_ip,
@@ -115,6 +119,7 @@ CREATE VIEW :"schema_brigades_name".free_slots AS
 
 CREATE VIEW :"schema_pairs_name".ipv4_nets_weight AS (
     SELECT
+        ipv4_nets.id,
         ipv4_nets.ipv4_net,
         ipv4_nets.gateway,
         2^masklen(ipv4_nets.ipv4_net) - COUNT(pairs_endpoints_ipv4.*) - 2 AS weight
@@ -122,32 +127,38 @@ CREATE VIEW :"schema_pairs_name".ipv4_nets_weight AS (
         :"schema_pairs_name".ipv4_nets
         LEFT JOIN :"schema_pairs_name".pairs_endpoints_ipv4 ON pairs_endpoints_ipv4.endpoint_ipv4 << ipv4_nets.ipv4_net
     GROUP BY ipv4_nets.ipv4_net
+    HAVING 2^masklen(ipv4_nets.ipv4_net) - COUNT(pairs_endpoints_ipv4.*) - 2 > 0
 );
 
 CREATE VIEW :"schema_pairs_name".private_cidr_nets_weight AS (
     SELECT
+        private_cidr_nets.id,
         private_cidr_nets.ipv4_net,
         2^masklen(private_cidr_nets.ipv4_net) - COUNT(pairs.*) - 2 AS weight
     FROM
         :"schema_pairs_name".private_cidr_nets
         LEFT JOIN :"schema_pairs_name".pairs ON pairs.control_ip << private_cidr_nets.ipv4_net
     GROUP BY private_cidr_nets.ipv4_net
+    HAVING 2^masklen(private_cidr_nets.ipv4_net) - COUNT(pairs.*) - 2 > 0
 );
 
 CREATE VIEW :"schema_brigades_name".ipv4_cgnat_nets_weight AS (
     SELECT
+        ipv4_cgnat_nets.id,
         ipv4_cgnat_nets.ipv4_net,
         2^(24 - masklen(ipv4_cgnat_nets.ipv4_net)) - COUNT(brigades.*) AS weight 
     FROM
         :"schema_brigades_name".ipv4_cgnat_nets
         LEFT JOIN :"schema_brigades_name".brigades ON brigades.ipv4_cgnat << ipv4_cgnat_nets.ipv4_net
     GROUP BY ipv4_cgnat_nets.ipv4_net
+    HAVING 2^(24 - masklen(ipv4_cgnat_nets.ipv4_net)) - COUNT(brigades.*) > 0
 );
 
-CREATE VIEW :"schema_brigades_name".ipv6_ula_nets_weight AS (
+CREATE VIEW :"schema_brigades_name".ipv6_ula_nets_iweight AS (
     SELECT
+        ipv6_ula_nets.id,
         ipv6_ula_nets.ipv6_net,
-        2^(64-masklen(ipv6_ula_nets.ipv6_net)) - COUNT(brigades.*) AS weight 
+        COUNT(brigades.*) AS iweight 
     FROM
         :"schema_brigades_name".ipv6_ula_nets
         LEFT JOIN :"schema_brigades_name".brigades ON brigades.ipv6_ula << ipv6_ula_nets.ipv6_net
@@ -156,6 +167,7 @@ CREATE VIEW :"schema_brigades_name".ipv6_ula_nets_weight AS (
 
 CREATE VIEW :"schema_brigades_name".ipv6_keydesk_nets_iweight AS (
     SELECT
+        ipv6_keydesk_nets.id,
         ipv6_keydesk_nets.ipv6_net,
         COUNT(brigades.*) AS iweight
     FROM
@@ -184,7 +196,7 @@ GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA :"schema_brigades_name
 CREATE ROLE :"brigades_dbuser" WITH LOGIN;
 GRANT USAGE ON SCHEMA :"schema_brigades_name" TO :"brigades_dbuser";
 GRANT SELECT ON :"schema_brigades_name".ipv4_cgnat_nets, :"schema_brigades_name".ipv6_ula_nets, :"schema_brigades_name".ipv6_keydesk_nets TO :"brigades_dbuser";
-GRANT SELECT,UPDATE ON :"schema_brigades_name".active_pairs, :"schema_brigades_name".free_slots TO :"brigades_dbuser";
+GRANT SELECT,UPDATE ON :"schema_brigades_name".active_pairs, :"schema_brigades_name".slots TO :"brigades_dbuser";
 GRANT SELECT,UPDATE,INSERT,DELETE ON :"schema_brigades_name".brigades TO :"brigades_dbuser";
 
 COMMIT;
