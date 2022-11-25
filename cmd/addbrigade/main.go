@@ -44,7 +44,6 @@ const (
 const (
 	sqlGetBrigades = `
 SELECT
-	endpoint_ipv4,
 	keydesk_ipv6,
 	ipv4_cgnat,
 	ipv6_ula
@@ -209,7 +208,7 @@ func createBrigade(db *pgxpool.Pool, schema string, opts *brigadeOpts) error {
 	)
 
 	_, err = pgx.ForEachRow(rows, []any{&keydesk_ipv6, &ipv4_cgnat, &ipv6_ula}, func() error {
-		fmt.Fprintf(os.Stderr, "Brigade:\nkeydesk_ipv6: %v\n ipv4_cgnat: %v\nipv6_ula: %v\n", keydesk_ipv6, ipv4_cgnat, ipv6_ula)
+		//fmt.Fprintf(os.Stderr, "Brigade:\n  keydesk_ipv6: %v\n  ipv4_cgnat: %v\n  ipv6_ula: %v\n", keydesk_ipv6, ipv4_cgnat, ipv6_ula)
 
 		kd6[keydesk_ipv6.String()] = struct{}{}
 		cgnat[ipv4_cgnat.Masked().Addr().String()] = struct{}{}

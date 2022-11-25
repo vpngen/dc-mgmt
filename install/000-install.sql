@@ -92,7 +92,7 @@ CREATE VIEW :"schema_brigades_name".active_pairs AS
     FROM 
         :"schema_pairs_name".pairs 
         JOIN :"schema_pairs_name".pairs_endpoints_ipv4 ON pairs_endpoints_ipv4.pair_id=pairs.pair_id
-        LEFT JOIN :"schema_brigades_name".brigades ON brigades.pair_id=pairs.pair_id
+        LEFT JOIN :"schema_brigades_name".brigades ON brigades.endpoint_ipv4=pairs_endpoints_ipv4.endpoint_ipv4
     WHERE
             pairs.is_active
     GROUP BY pairs.pair_id
@@ -108,7 +108,7 @@ CREATE VIEW :"schema_brigades_name".slots AS
     FROM 
         :"schema_pairs_name".pairs
         JOIN :"schema_pairs_name".pairs_endpoints_ipv4 ON pairs_endpoints_ipv4.pair_id=pairs.pair_id
-        LEFT JOIN :"schema_brigades_name".brigades ON brigades.pair_id=pairs.pair_id
+        LEFT JOIN :"schema_brigades_name".brigades ON brigades.endpoint_ipv4=pairs_endpoints_ipv4.endpoint_ipv4
     WHERE
         NOT EXISTS (
             SELECT
