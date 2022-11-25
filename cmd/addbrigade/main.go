@@ -92,6 +92,35 @@ FROM %s
 ORDER BY id, iweight ASC
 LIMIT 1
 `
+
+	sqlCreateBrigade = `
+INSERT INTO %s
+		(
+			brigade_id,  
+			pair_id,    
+			brigadier,           
+			endpoint_ipv4,       
+			dns_ipv4,            
+			dns_ipv6,            
+			keydesk_ipv6,        
+			ipv4_cgnat,          
+			ipv6_ula,            
+			person              
+		)
+VALUES 
+		(
+			$1,
+			$2,
+			$3,
+			$4,
+			$5,
+			$6,
+			$7,
+			$8,
+			$9,
+			$10
+		)
+`
 )
 
 type brigadeOpts struct {
@@ -197,7 +226,7 @@ func createBrigade(db *pgxpool.Pool, schema string, opts *brigadeOpts) error {
 	// pick up a less used pair
 
 	var (
-		pair_id            []byte
+		pair_id            string
 		pair_endpoint_ipv4 netip.Addr
 		pair_control_ip    netip.Addr
 	)
@@ -230,7 +259,7 @@ func createBrigade(db *pgxpool.Pool, schema string, opts *brigadeOpts) error {
 	for {
 		addr := user.RandomAddrIPv4(cgnat_gnet)
 		cgnat_net = netip.PrefixFrom(addr, BrigadeCgnatPrefix)
-		if cgnat_net.Masked().Addr() == addr || user.LastPrefixIPv6(cgnat_net.Masked()) == addr {
+		if cgnat_net.Masked().Addr() == addr || user.LastPrefixIPv4(cgnat_net.Masked()) == addr {
 			continue
 		}
 		if _, ok := cgnat[cgnat_net.Masked().Addr().String()]; !ok {
@@ -296,6 +325,27 @@ func createBrigade(db *pgxpool.Pool, schema string, opts *brigadeOpts) error {
 
 	fmt.Fprintf(os.Stderr, "keydesk_gnet: %s keydesk: %s\n", keydesk_gnet, keydesk)
 
+	// create brigade
+
+	_, err = tx.Exec(ctx,
+		fmt.Sprintf(sqlCreateBrigade, (pgx.Identifier{schema, "brigades"}.Sanitize())),
+		opts.id,
+		pair_id,
+		opts.name,
+		pair_endpoint_ipv4.String(),
+		cgnat_net.Addr().String(),
+		ula_net.Addr().String(),
+		keydesk.String(),
+		cgnat_net.String(),
+		ula_net.String(),
+		opts.person,
+	)
+	if err != nil {
+		tx.Rollback(ctx)
+
+		return fmt.Errorf("create brigade: %w", err)
+	}
+
 	err = tx.Commit(ctx)
 	if err != nil {
 		return fmt.Errorf("commit: %w", err)
@@ -334,24 +384,24 @@ func parseArgs() (*brigadeOpts, error) {
 	opts := &brigadeOpts{}
 
 	// brigadeID must be base32 decodable.
-	id, err := base32.StdEncoding.WithPadding(base32.NoPadding).DecodeString(*brigadeID)
+	buf, err := base32.StdEncoding.WithPadding(base32.NoPadding).DecodeString(*brigadeID)
 	if err != nil {
 		return nil, fmt.Errorf("id base32: %s: %w", *brigadeID, err)
 	}
 
-	_, err = uuid.FromBytes(id)
+	id, err := uuid.FromBytes(buf)
 	if err != nil {
 		return nil, fmt.Errorf("id uuid: %s: %w", *brigadeID, err)
 	}
 
-	opts.id = *brigadeID
+	opts.id = id.String()
 
 	// brigadierName must be not empty and must be a valid UTF8 string
 	if *brigadierName == "" {
 		return nil, ErrEmptyBrigadierName
 	}
 
-	buf, err := base64.StdEncoding.DecodeString(*brigadierName)
+	buf, err = base64.StdEncoding.DecodeString(*brigadierName)
 	if err != nil {
 		return nil, fmt.Errorf("brigadier name: %w", err)
 	}
