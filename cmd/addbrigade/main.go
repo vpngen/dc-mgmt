@@ -1,10 +1,12 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/base32"
 	"encoding/base64"
 	"encoding/binary"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -22,19 +24,27 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"golang.org/x/crypto/ssh"
+
 	"github.com/vpngen/keydesk/user"
 	"github.com/vpngen/wordsgens/namesgenerator"
 )
 
 const (
-	dbnameFilename     = "dbname"
-	schemaNameFilename = "schema"
-	etcDefaultPath     = "/etc/vpngen"
+	dbnameFilename       = "dbname"
+	schemaNameFilename   = "schema"
+	sshkeyFilename       = "id_ecdsa"
+	sshkeyRemoteUsername = "_serega_"
+	etcDefaultPath       = "/etc/vpngen"
+	spawnerExecutable    = "/opt/spawner/spawn_brigade.sh"
 )
 
-const maxPostgresqlNameLen = 63
+const (
+	maxPostgresqlNameLen = 63
+	postgresqlSocket     = "/var/run/postgresql"
+)
 
-const postgresqlSocket = "/var/run/postgresql"
+const sshTimeOut = time.Duration(5 * time.Second)
 
 const (
 	BrigadeCgnatPrefix = 24
@@ -173,6 +183,11 @@ func main() {
 		log.Fatalf("Can't read configs: %s\n", err)
 	}
 
+	sshconf, err := createSSHConfig(confDir)
+	if err != nil {
+		log.Fatalf("Can't create ssh configs: %s\n", err)
+	}
+
 	db, err := createDBPool(dbname)
 	if err != nil {
 		log.Fatalf("Can't create db pool: %s\n", err)
@@ -184,7 +199,7 @@ func main() {
 	}
 
 	// wgconfx = chunked (wgconf + keydesk IP)
-	wgconfx, err := requestBrigade(db, schema, opts)
+	wgconfx, err := requestBrigade(db, schema, sshconf, opts)
 	if err != nil {
 		log.Fatalf("Can't request brigade: %s\n", err)
 	}
@@ -368,7 +383,7 @@ func createBrigade(db *pgxpool.Pool, schema string, opts *brigadeOpts) error {
 	return nil
 }
 
-func requestBrigade(db *pgxpool.Pool, schema string, opts *brigadeOpts) ([]byte, error) {
+func requestBrigade(db *pgxpool.Pool, schema string, sshconf *ssh.ClientConfig, opts *brigadeOpts) ([]byte, error) {
 	ctx := context.Background()
 
 	tx, err := db.Begin(ctx)
@@ -385,7 +400,7 @@ func requestBrigade(db *pgxpool.Pool, schema string, opts *brigadeOpts) ([]byte,
 		keydesk_ipv6  netip.Addr
 		ipv4_cgnat    netip.Prefix
 		ipv6_ula      netip.Prefix
-		person        string
+		pjson         []byte
 		control_ip    netip.Addr
 	)
 
@@ -403,7 +418,7 @@ func requestBrigade(db *pgxpool.Pool, schema string, opts *brigadeOpts) ([]byte,
 		&keydesk_ipv6,
 		&ipv4_cgnat,
 		&ipv6_ula,
-		&person,
+		&pjson,
 		&control_ip,
 	)
 	if err != nil {
@@ -416,6 +431,51 @@ func requestBrigade(db *pgxpool.Pool, schema string, opts *brigadeOpts) ([]byte,
 	if err != nil {
 		return nil, fmt.Errorf("commit: %w", err)
 	}
+
+	person := &namesgenerator.Person{}
+	err = json.Unmarshal(pjson, &person)
+	if err != nil {
+		return nil, fmt.Errorf("person: %w", err)
+	}
+
+	cmd := fmt.Sprintf("%s %s %s %s %s %s %s %s %s %s %s %s",
+		spawnerExecutable,
+		base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(brigade_id),
+		endpoint_ipv4,
+		ipv4_cgnat,
+		ipv6_ula,
+		dns_ipv4,
+		dns_ipv6,
+		keydesk_ipv6,
+		base64.StdEncoding.WithPadding(base64.StdPadding).EncodeToString([]byte(fullname)),
+		base64.StdEncoding.WithPadding(base64.StdPadding).EncodeToString([]byte(person.Name)),
+		base64.StdEncoding.WithPadding(base64.StdPadding).EncodeToString([]byte(person.Desc)),
+		base64.StdEncoding.WithPadding(base64.StdPadding).EncodeToString([]byte(person.URL)),
+	)
+
+	fmt.Fprintf(os.Stderr, "%s#%s:22 -> %s\n", sshkeyRemoteUsername, control_ip, cmd)
+
+	client, err := ssh.Dial("tcp", fmt.Sprintf("%s:22", control_ip), sshconf)
+	if err != nil {
+		return nil, fmt.Errorf("ssh dial: %w", err)
+	}
+	defer client.Close()
+
+	session, err := client.NewSession()
+	if err != nil {
+		return nil, fmt.Errorf("ssh session: %w", err)
+	}
+	defer session.Close()
+
+	var b bytes.Buffer
+
+	session.Stdout = &b
+
+	if err := session.Run(cmd); err != nil {
+		return nil, fmt.Errorf("ssh run: %w", err)
+	}
+
+	fmt.Println(b.String())
 
 	return nil, nil
 }
@@ -554,4 +614,30 @@ func readConfigs(path string) (string, string, error) {
 	}
 
 	return string(dbname), string(schema), nil
+}
+
+func createSSHConfig(path string) (*ssh.ClientConfig, error) {
+	// var hostKey ssh.PublicKey
+
+	key, err := os.ReadFile(filepath.Join(path, sshkeyFilename))
+	if err != nil {
+		return nil, fmt.Errorf("read private key: %w", err)
+	}
+
+	signer, err := ssh.ParsePrivateKey(key)
+	if err != nil {
+		return nil, fmt.Errorf("parse private key: %w", err)
+	}
+
+	config := &ssh.ClientConfig{
+		User: sshkeyRemoteUsername,
+		Auth: []ssh.AuthMethod{
+			ssh.PublicKeys(signer),
+		},
+		// HostKeyCallback: ssh.FixedHostKey(hostKey),
+		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		Timeout:         sshTimeOut,
+	}
+
+	return config, nil
 }

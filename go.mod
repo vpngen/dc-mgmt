@@ -7,6 +7,7 @@ require (
 	github.com/jackc/pgx/v5 v5.1.1
 	github.com/vpngen/keydesk v0.0.0-20221122224034-d17192369bca
 	github.com/vpngen/wordsgens v0.0.0-20221023201324-185e9e3d78c7
+	golang.org/x/crypto v0.1.0
 )
 
 require (
@@ -32,7 +33,6 @@ require (
 	github.com/vpngen/vpngine v0.0.0-20220907144237-dd0649935bc7 // indirect
 	go.mongodb.org/mongo-driver v1.10.2 // indirect
 	go.uber.org/atomic v1.10.0 // indirect
-	golang.org/x/crypto v0.1.0 // indirect
 	golang.org/x/sync v0.0.0-20220923202941-7f9b1623fab7 // indirect
 	golang.org/x/sys v0.1.0 // indirect
 	golang.org/x/text v0.4.0 // indirect
