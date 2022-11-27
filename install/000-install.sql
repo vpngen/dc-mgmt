@@ -212,11 +212,13 @@ CREATE ROLE :"pairs_dbuser" WITH LOGIN;
 GRANT USAGE ON SCHEMA :"schema_pairs_name" TO :"pairs_dbuser";
 GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA :"schema_pairs_name" TO :"pairs_dbuser";
 GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA :"schema_brigades_name" TO :"pairs_dbuser";
+GRANT USAGE,SELECT,UPDATE ON ALL SEQUENCES IN SCHEMA :"schema_brigades_name" TO :"pairs_dbuser";
 
-CREATE ROLE :"brigades_dbuser" WITH LOGIN;
+--CREATE ROLE :"brigades_dbuser" WITH LOGIN;
 GRANT USAGE ON SCHEMA :"schema_brigades_name" TO :"brigades_dbuser";
 GRANT SELECT ON :"schema_brigades_name".ipv4_cgnat_nets, :"schema_brigades_name".ipv6_ula_nets, :"schema_brigades_name".ipv6_keydesk_nets TO :"brigades_dbuser";
 GRANT SELECT,UPDATE ON :"schema_brigades_name".active_pairs, :"schema_brigades_name".slots TO :"brigades_dbuser";
 GRANT SELECT,UPDATE,INSERT,DELETE ON :"schema_brigades_name".brigades TO :"brigades_dbuser";
+GRANT USAGE,SELECT,UPDATE ON ALL SEQUENCES IN SCHEMA :"schema_brigades_name"  TO :"brigades_dbuser";
 
 COMMIT;

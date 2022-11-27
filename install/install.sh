@@ -17,7 +17,7 @@ echo "brigades user: $BRIGADES_DBUSER"
 
 set -x
 
-psql -v -d ${DBNAME} \
+sudo -i -u postgres psql -v -d ${DBNAME} \
     --set schema_pairs_name=${SCHEMA_PAIRS} \
     --set schema_brigades_name=${SCHEMA_BRIGADES} \
     --set pairs_dbuser=${PAIRS_DBUSER} \
