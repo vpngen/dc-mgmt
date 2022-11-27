@@ -1,10 +1,13 @@
 
 ### TODO
 
+* Split pairs and brigades
 * Deploy
 * Chunked output
 * Brigade creation queue
 * Hostkey verification
 * IP-blocks verification trigger
+
+* Add syslog to all ssh scripts. Or it's own logs
 
 ### Done
