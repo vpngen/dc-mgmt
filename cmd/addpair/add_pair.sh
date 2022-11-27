@@ -2,7 +2,7 @@
 
 set -e
 
-CONFDIR=${CONFDIR:-"/etc/vpngen"}
+CONFDIR=${CONFDIR:-"/etc/vgrealm"}
 echo "confdir: ${CONFDIR}"
 DBNAME=${DBNAME:-$(cat ${CONFDIR}/dbname)}
 echo "dbname: $DBNAME"

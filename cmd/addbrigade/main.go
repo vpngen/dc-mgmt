@@ -35,7 +35,7 @@ const (
 	schemaNameFilename   = "schema"
 	sshkeyFilename       = "id_ecdsa"
 	sshkeyRemoteUsername = "_serega_"
-	etcDefaultPath       = "/etc/vpngen"
+	etcDefaultPath       = "/etc/vgrealm"
 	spawnerExecutable    = "/opt/spawner/spawn_brigade.sh"
 )
 
