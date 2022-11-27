@@ -36,7 +36,6 @@ const (
 	sshkeyFilename       = "id_ecdsa"
 	sshkeyRemoteUsername = "_serega_"
 	etcDefaultPath       = "/etc/vgrealm"
-	spawnerExecutable    = "/opt/spawner/spawn_brigade.sh"
 )
 
 const (
@@ -438,8 +437,7 @@ func requestBrigade(db *pgxpool.Pool, schema string, sshconf *ssh.ClientConfig, 
 		return nil, fmt.Errorf("person: %w", err)
 	}
 
-	cmd := fmt.Sprintf("%s %s %s %s %s %s %s %s %s %s %s %s",
-		spawnerExecutable,
+	cmd := fmt.Sprintf("%s %s %s %s %s %s %s %s %s %s %s",
 		base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(brigade_id),
 		endpoint_ipv4,
 		ipv4_cgnat,
