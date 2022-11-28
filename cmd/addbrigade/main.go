@@ -481,17 +481,22 @@ func requestBrigade(db *pgxpool.Pool, schema string, sshconf *ssh.ClientConfig, 
 	}
 	defer session.Close()
 
-	var b bytes.Buffer
+	var b, e bytes.Buffer
 
 	session.Stdout = &b
+	session.Stderr = &e
 
 	if err := session.Run(cmd); err != nil {
+		fmt.Fprintf(os.Stderr, "session errors:\n%s\n", e.String())
+
 		return nil, "", fmt.Errorf("ssh run: %w", err)
 	}
 
 	//	wgconfx, err := io.ReadAll(httputil.NewChunkedReader(&b))
 	wgconfx, err := io.ReadAll(&b)
 	if err != nil {
+		fmt.Fprintf(os.Stderr, "readed data:\n%s\n", wgconfx)
+
 		return nil, "", fmt.Errorf("chunk read: %w", err)
 	}
 
