@@ -492,8 +492,7 @@ func requestBrigade(db *pgxpool.Pool, schema string, sshconf *ssh.ClientConfig, 
 		return nil, "", fmt.Errorf("ssh run: %w", err)
 	}
 
-	//	wgconfx, err := io.ReadAll(httputil.NewChunkedReader(&b))
-	wgconfx, err := io.ReadAll(&b)
+	wgconfx, err := io.ReadAll(httputil.NewChunkedReader(&b))
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "readed data:\n%s\n", wgconfx)
 
