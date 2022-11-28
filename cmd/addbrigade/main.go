@@ -13,6 +13,7 @@ import (
 	"io"
 	"log"
 	"math/rand"
+	"net/http/httputil"
 	"net/netip"
 	"net/url"
 	"os"
@@ -167,12 +168,14 @@ var (
 )
 
 func main() {
+	var w io.WriteCloser
+
 	confDir := os.Getenv("CONFDIR")
 	if confDir == "" {
 		confDir = etcDefaultPath
 	}
 
-	opts, err := parseArgs()
+	chunked, opts, err := parseArgs()
 	if err != nil {
 		log.Fatalf("Can't parse args: %s\n", err)
 	}
@@ -198,14 +201,26 @@ func main() {
 	}
 
 	// wgconfx = chunked (wgconf + keydesk IP)
-	wgconfx, err := requestBrigade(db, schema, sshconf, opts)
+	wgconfx, keydesk, err := requestBrigade(db, schema, sshconf, opts)
 	if err != nil {
 		log.Fatalf("Can't request brigade: %s\n", err)
 	}
 
-	_, err = os.Stdout.Write(wgconfx)
+	switch chunked {
+	case true:
+		w = httputil.NewChunkedWriter(os.Stdout)
+	default:
+		w = os.Stdout
+	}
+
+	_, err = fmt.Fprintln(w, keydesk)
 	if err != nil {
-		log.Fatalf("Can't print brigade: %s\n", err)
+		log.Fatalf("Can't print memo: %s\n", err)
+	}
+
+	_, err = w.Write(wgconfx)
+	if err != nil {
+		log.Fatalf("Can't print wgconfx: %s\n", err)
 	}
 }
 
@@ -382,12 +397,12 @@ func createBrigade(db *pgxpool.Pool, schema string, opts *brigadeOpts) error {
 	return nil
 }
 
-func requestBrigade(db *pgxpool.Pool, schema string, sshconf *ssh.ClientConfig, opts *brigadeOpts) ([]byte, error) {
+func requestBrigade(db *pgxpool.Pool, schema string, sshconf *ssh.ClientConfig, opts *brigadeOpts) ([]byte, string, error) {
 	ctx := context.Background()
 
 	tx, err := db.Begin(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("begin: %w", err)
+		return nil, "", fmt.Errorf("begin: %w", err)
 	}
 
 	var (
@@ -423,18 +438,18 @@ func requestBrigade(db *pgxpool.Pool, schema string, sshconf *ssh.ClientConfig, 
 	if err != nil {
 		tx.Rollback(ctx)
 
-		return nil, fmt.Errorf("brigade query: %w", err)
+		return nil, "", fmt.Errorf("brigade query: %w", err)
 	}
 
 	err = tx.Commit(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("commit: %w", err)
+		return nil, "", fmt.Errorf("commit: %w", err)
 	}
 
 	person := &namesgenerator.Person{}
 	err = json.Unmarshal(pjson, &person)
 	if err != nil {
-		return nil, fmt.Errorf("person: %w", err)
+		return nil, "", fmt.Errorf("person: %w", err)
 	}
 
 	cmd := fmt.Sprintf("%s %s %s %s %s %s %s %s %s %s %s",
@@ -455,13 +470,13 @@ func requestBrigade(db *pgxpool.Pool, schema string, sshconf *ssh.ClientConfig, 
 
 	client, err := ssh.Dial("tcp", fmt.Sprintf("%s:22", control_ip), sshconf)
 	if err != nil {
-		return nil, fmt.Errorf("ssh dial: %w", err)
+		return nil, "", fmt.Errorf("ssh dial: %w", err)
 	}
 	defer client.Close()
 
 	session, err := client.NewSession()
 	if err != nil {
-		return nil, fmt.Errorf("ssh session: %w", err)
+		return nil, "", fmt.Errorf("ssh session: %w", err)
 	}
 	defer session.Close()
 
@@ -470,12 +485,16 @@ func requestBrigade(db *pgxpool.Pool, schema string, sshconf *ssh.ClientConfig, 
 	session.Stdout = &b
 
 	if err := session.Run(cmd); err != nil {
-		return nil, fmt.Errorf("ssh run: %w", err)
+		return nil, "", fmt.Errorf("ssh run: %w", err)
 	}
 
-	fmt.Println(b.String())
+	//	wgconfx, err := io.ReadAll(httputil.NewChunkedReader(&b))
+	wgconfx, err := io.ReadAll(&b)
+	if err != nil {
+		return nil, "", fmt.Errorf("chunk read: %w", err)
+	}
 
-	return nil, nil
+	return wgconfx, keydesk_ipv6.String(), nil
 }
 
 func createDBPool(dbname string) (*pgxpool.Pool, error) {
@@ -492,12 +511,13 @@ func createDBPool(dbname string) (*pgxpool.Pool, error) {
 	return pool, nil
 }
 
-func parseArgs() (*brigadeOpts, error) {
+func parseArgs() (bool, *brigadeOpts, error) {
 	brigadeID := flag.String("id", "", "brigadier_id")
 	brigadierName := flag.String("name", "", "brigadierName :: base64")
 	personName := flag.String("person", "", "personName :: base64")
 	personDesc := flag.String("desc", "", "personDesc :: base64")
 	personURL := flag.String("url", "", "personURL :: base64")
+	chunked := flag.Bool("ch", false, "chunked output")
 
 	flag.Parse()
 
@@ -506,88 +526,88 @@ func parseArgs() (*brigadeOpts, error) {
 	// brigadeID must be base32 decodable.
 	buf, err := base32.StdEncoding.WithPadding(base32.NoPadding).DecodeString(*brigadeID)
 	if err != nil {
-		return nil, fmt.Errorf("id base32: %s: %w", *brigadeID, err)
+		return false, nil, fmt.Errorf("id base32: %s: %w", *brigadeID, err)
 	}
 
 	id, err := uuid.FromBytes(buf)
 	if err != nil {
-		return nil, fmt.Errorf("id uuid: %s: %w", *brigadeID, err)
+		return false, nil, fmt.Errorf("id uuid: %s: %w", *brigadeID, err)
 	}
 
 	opts.id = id.String()
 
 	// brigadierName must be not empty and must be a valid UTF8 string
 	if *brigadierName == "" {
-		return nil, ErrEmptyBrigadierName
+		return false, nil, ErrEmptyBrigadierName
 	}
 
 	buf, err = base64.StdEncoding.DecodeString(*brigadierName)
 	if err != nil {
-		return nil, fmt.Errorf("brigadier name: %w", err)
+		return false, nil, fmt.Errorf("brigadier name: %w", err)
 	}
 
 	if !utf8.Valid(buf) {
-		return nil, ErrInvalidBrigadierName
+		return false, nil, ErrInvalidBrigadierName
 	}
 
 	opts.name = string(buf)
 
 	// personName must be not empty and must be a valid UTF8 string
 	if *personName == "" {
-		return nil, ErrEmptyPersonName
+		return false, nil, ErrEmptyPersonName
 	}
 
 	buf, err = base64.StdEncoding.DecodeString(*personName)
 	if err != nil {
-		return nil, fmt.Errorf("person name: %w", err)
+		return false, nil, fmt.Errorf("person name: %w", err)
 	}
 
 	if !utf8.Valid(buf) {
-		return nil, ErrInvalidPersonName
+		return false, nil, ErrInvalidPersonName
 	}
 
 	opts.person.Name = string(buf)
 
 	// personDesc must be not empty and must be a valid UTF8 string
 	if *personDesc == "" {
-		return nil, ErrEmptyPersonDesc
+		return false, nil, ErrEmptyPersonDesc
 	}
 
 	buf, err = base64.StdEncoding.DecodeString(*personDesc)
 	if err != nil {
-		return nil, fmt.Errorf("person desc: %w", err)
+		return false, nil, fmt.Errorf("person desc: %w", err)
 	}
 
 	if !utf8.Valid(buf) {
-		return nil, ErrInvalidPersonDesc
+		return false, nil, ErrInvalidPersonDesc
 	}
 
 	opts.person.Desc = string(buf)
 
 	// personURL must be not empty and must be a valid UTF8 string
 	if *personURL == "" {
-		return nil, ErrEmptyPersonURL
+		return false, nil, ErrEmptyPersonURL
 	}
 
 	buf, err = base64.StdEncoding.DecodeString(*personURL)
 	if err != nil {
-		return nil, fmt.Errorf("person url: %w", err)
+		return false, nil, fmt.Errorf("person url: %w", err)
 	}
 
 	if !utf8.Valid(buf) {
-		return nil, ErrInvalidPersonURL
+		return false, nil, ErrInvalidPersonURL
 	}
 
 	u := string(buf)
 
 	_, err = url.Parse(u)
 	if err != nil {
-		return nil, fmt.Errorf("parse person url: %w", err)
+		return false, nil, fmt.Errorf("parse person url: %w", err)
 	}
 
 	opts.person.URL = u
 
-	return opts, nil
+	return *chunked, opts, nil
 }
 
 func readConfigs(path string) (string, string, error) {
