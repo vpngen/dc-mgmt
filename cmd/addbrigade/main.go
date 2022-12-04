@@ -453,7 +453,7 @@ func requestBrigade(db *pgxpool.Pool, schema string, sshconf *ssh.ClientConfig, 
 		return nil, "", fmt.Errorf("person: %w", err)
 	}
 
-	cmd := fmt.Sprintf("%s %s %s %s %s %s %s %s %s %s %s chunked",
+	cmd := fmt.Sprintf("spawn %s %s %s %s %s %s %s %s %s %s %s chunked",
 		base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(brigade_id),
 		endpoint_ipv4,
 		ipv4_cgnat,
