@@ -91,13 +91,13 @@ func main() {
 	// attention! id - uuid-style string.
 	control_ip, err := removeBrigade(db, schema, id)
 	if err != nil {
-		log.Fatalf("%s: Can't create brigade: %s\n", exe, err)
+		log.Fatalf("%s: Can't remove brigade: %s\n", exe, err)
 	}
 
 	// attention! brigadeID - base32-style.
 	output, err := revokeBrigade(db, schema, sshconf, brigadeID, control_ip)
 	if err != nil {
-		log.Fatalf("%s: Can't request brigade: %s\n", exe, err)
+		log.Fatalf("%s: Can't revoke brigade: %s\n", exe, err)
 	}
 
 	switch chunked {
