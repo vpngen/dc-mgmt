@@ -65,36 +65,39 @@ func main() {
 		confDir = etcDefaultPath
 	}
 
+	executable, _ := os.Executable()
+	exe := filepath.Base(executable)
+
 	chunked, brigadeID, id, err := parseArgs()
 	if err != nil {
-		log.Fatalf("Can't parse args: %s\n", err)
+		log.Fatalf("%s: Can't parse args: %s\n", exe, err)
 	}
 
 	dbname, schema, err := readConfigs(confDir)
 	if err != nil {
-		log.Fatalf("Can't read configs: %s\n", err)
+		log.Fatalf("%s: Can't read configs: %s\n", exe, err)
 	}
 
 	sshconf, err := createSSHConfig(confDir)
 	if err != nil {
-		log.Fatalf("Can't create ssh configs: %s\n", err)
+		log.Fatalf("%s: Can't create ssh configs: %s\n", exe, err)
 	}
 
 	db, err := createDBPool(dbname)
 	if err != nil {
-		log.Fatalf("Can't create db pool: %s\n", err)
+		log.Fatalf("%s: Can't create db pool: %s\n", exe, err)
 	}
 
 	// attention! id - uuid-style string.
 	control_ip, err := removeBrigade(db, schema, id)
 	if err != nil {
-		log.Fatalf("Can't create brigade: %s\n", err)
+		log.Fatalf("%s: Can't create brigade: %s\n", exe, err)
 	}
 
 	// attention! brigadeID - base32-style.
 	output, err := revokeBrigade(db, schema, sshconf, brigadeID, control_ip)
 	if err != nil {
-		log.Fatalf("Can't request brigade: %s\n", err)
+		log.Fatalf("%s: Can't request brigade: %s\n", exe, err)
 	}
 
 	switch chunked {
@@ -107,7 +110,7 @@ func main() {
 
 	_, err = w.Write(output)
 	if err != nil {
-		log.Fatalf("Can't print output: %s\n", err)
+		log.Fatalf("%s: Can't print output: %s\n", exe, err)
 	}
 }
 

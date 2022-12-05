@@ -11,9 +11,9 @@ fi
 cmd=${1}; shift
 basedir=$(dirname $0)
 
-if [ "xadd" = "x${cmd}" ]; then
+if [ "xaddbrigade" = "x${cmd}" ]; then
     ${basedir}/addbrigade $@
-elif [ "xdel" = "x${cmd}" ]; then
+elif [ "xdelbrigade" = "x${cmd}" ]; then
     ${basedir}/delbrigade $@
 else
     echo "Unknown command: ${cmd}"

@@ -175,35 +175,38 @@ func main() {
 		confDir = etcDefaultPath
 	}
 
+	executable, _ := os.Executable()
+	exe := filepath.Base(executable)
+
 	chunked, opts, err := parseArgs()
 	if err != nil {
-		log.Fatalf("Can't parse args: %s\n", err)
+		log.Fatalf("%s: Can't parse args: %s\n", exe, err)
 	}
 
 	dbname, schema, err := readConfigs(confDir)
 	if err != nil {
-		log.Fatalf("Can't read configs: %s\n", err)
+		log.Fatalf("%s: Can't read configs: %s\n", exe, err)
 	}
 
 	sshconf, err := createSSHConfig(confDir)
 	if err != nil {
-		log.Fatalf("Can't create ssh configs: %s\n", err)
+		log.Fatalf("%s: Can't create ssh configs: %s\n", exe, err)
 	}
 
 	db, err := createDBPool(dbname)
 	if err != nil {
-		log.Fatalf("Can't create db pool: %s\n", err)
+		log.Fatalf("%s: Can't create db pool: %s\n", exe, err)
 	}
 
 	err = createBrigade(db, schema, opts)
 	if err != nil {
-		log.Fatalf("Can't create brigade: %s\n", err)
+		log.Fatalf("%s: Can't create brigade: %s\n", exe, err)
 	}
 
 	// wgconfx = chunked (wgconf + keydesk IP)
 	wgconfx, keydesk, err := requestBrigade(db, schema, sshconf, opts)
 	if err != nil {
-		log.Fatalf("Can't request brigade: %s\n", err)
+		log.Fatalf("%s: Can't request brigade: %s\n", exe, err)
 	}
 
 	switch chunked {
@@ -216,12 +219,12 @@ func main() {
 
 	_, err = fmt.Fprintln(w, keydesk)
 	if err != nil {
-		log.Fatalf("Can't print memo: %s\n", err)
+		log.Fatalf("%s: Can't print memo: %s\n", exe, err)
 	}
 
 	_, err = w.Write(wgconfx)
 	if err != nil {
-		log.Fatalf("Can't print wgconfx: %s\n", err)
+		log.Fatalf("%s: Can't print wgconfx: %s\n", exe, err)
 	}
 }
 
