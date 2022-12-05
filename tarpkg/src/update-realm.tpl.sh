@@ -8,7 +8,7 @@ SSH_API_USER=${SSH_API_USER:="_valera_"}
 
 FORCE_INSTALL=$1
 
-if [ -n ${FORCE_INSTALL} -a "x" != "x${FORCE_INSTALL}" ]; then
+if [ "x" != "x${FORCE_INSTALL}" ]; then
         export DEBIAN_FRONTEND=noninteractive
         apt-get update; apt-get dist-upgrade -y; apt-get autoremove -y
         apt-get install -q -y --no-install-recommends postgresql postgresql-contrib
@@ -25,7 +25,7 @@ awk '/^__PAYLOAD_BEGINS__/ { print NR + 1; exit 0; }' $0 | xargs -I {} tail -n +
 
 # Init database
 
-if [ -n $FORCE_INSTALL -a "x" != "x${FORCE_INSTALL}" ]; then
+if [ "x" != "x${FORCE_INSTALL}" ]; then
         sudo -i -u postgres psql <<EOF
 CREATE DATABASE ${DBNAME};
 EOF
@@ -34,7 +34,7 @@ fi
 
 # Install realm-admin
 
-if [ -n $FORCE_INSTALL -a "x" != "x${FORCE_INSTALL}" ]; then
+if [ "x" != "x${FORCE_INSTALL}" ]; then
         useradd -p "*" -m "${REALM_ADMIN}"
         chmod 700 "/home/${REALM_ADMIN}"
 
@@ -58,7 +58,7 @@ install -o root -g "${REALM_ADMIN}" -m 050 "${INSTALL_DIR}/bin/addbrigade" /opt/
 install -o root -g "${REALM_ADMIN}" -m 050 "${INSTALL_DIR}/bin/delbrigade" /opt/vgrealm/cmd
 
 
-if [ -n $FORCE_INSTALL -a "x" != "x${FORCE_INSTALL}" ]; then
+if [ "x" != "x${FORCE_INSTALL}" ]; then
         useradd -p "*" -m "${SSH_API_USER}"
         chmod 700 "/home/${SSH_API_USER}"
 
