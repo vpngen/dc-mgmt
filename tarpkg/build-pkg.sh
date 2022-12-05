@@ -14,9 +14,9 @@ cp realm-admin/cmd/addpair/*.sh bin/
 cp realm-admin/cmd/*.sh bin/
 cp -r realm-admin/install .
 
-cp -f realm-deploy/src/_valera_ .
+cp -f realm-deploy/tarpkg/src/_valera_ .
 
-rm -f /data/extract-realm.sh
+rm -f /data/update-realm.sh
 cp -f realm-admin/tarpkg/src/update-realm.tpl.sh /data/update-realm.sh
 
 echo "command=\"sudo -u vgrealm -g vgrealm /opt/vgrealm/cmd/ssh_command.sh \${SSH_ORIGINAL_COMMAND}\",no-port-forwarding,no-X11-forwarding,no-agent-forwarding,no-pty ${AUTH_KEY}" > authorized_keys
