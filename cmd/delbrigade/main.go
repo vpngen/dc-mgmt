@@ -108,6 +108,10 @@ func main() {
 		w = os.Stdout
 	}
 
+	if output == nil {
+		output = []byte{}
+	}
+
 	_, err = w.Write(output)
 	if err != nil {
 		log.Fatalf("%s: Can't print output: %s\n", exe, err)
@@ -195,14 +199,14 @@ func revokeBrigade(db *pgxpool.Pool, schema string, sshconf *ssh.ClientConfig, b
 		return nil, fmt.Errorf("ssh run: %w", err)
 	}
 
-	wgconfx, err := io.ReadAll(httputil.NewChunkedReader(&b))
+	output, err := io.ReadAll(httputil.NewChunkedReader(&b))
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "readed data:\n%s\n", wgconfx)
+		fmt.Fprintf(os.Stderr, "readed data:\n%s\n", output)
 
 		return nil, fmt.Errorf("chunk read: %w", err)
 	}
 
-	return wgconfx, nil
+	return output, nil
 }
 
 func createDBPool(dbname string) (*pgxpool.Pool, error) {

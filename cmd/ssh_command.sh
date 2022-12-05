@@ -3,9 +3,13 @@
 # interpret first argument as command
 # pass rest args to scripts
 
-if [ $# -eq 0 ]; then 
-    echo "Usage: $0 <command> <args...>"
+printdef() {
+    echo "Usage: <command> <args...>"
     exit 1
+}
+
+if [ $# -eq 0 ]; then 
+    printdef
 fi
 
 cmd=${1}; shift
@@ -17,6 +21,5 @@ elif [ "xdelbrigade" = "x${cmd}" ]; then
     ${basedir}/delbrigade $@
 else
     echo "Unknown command: ${cmd}"
-    echo "Usage: $0 <command> <args...>"
-    exit 1
+    printdef
 fi
