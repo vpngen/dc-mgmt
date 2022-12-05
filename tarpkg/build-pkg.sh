@@ -14,7 +14,7 @@ cp realm-admin/cmd/addpair/*.sh bin/
 cp realm-admin/cmd/*.sh bin/
 cp -r realm-admin/install .
 
-cp -f realm-deploy/tarpkg/src/_valera_ .
+cp -f realm-admin/tarpkg/src/_valera_ .
 
 rm -f /data/update-realm.sh
 cp -f realm-admin/tarpkg/src/update-realm.tpl.sh /data/update-realm.sh
