@@ -5,9 +5,9 @@ go 1.19
 require (
 	github.com/google/uuid v1.3.0
 	github.com/jackc/pgx/v5 v5.1.1
-	github.com/vpngen/keydesk v0.0.0-20221122224034-d17192369bca
-	github.com/vpngen/wordsgens v0.0.0-20221023201324-185e9e3d78c7
-	golang.org/x/crypto v0.1.0
+	github.com/vpngen/keydesk v0.0.0-20221207012403-5d11e9296fcd
+	github.com/vpngen/wordsgens v0.0.0-20221207004108-93481a4776f9
+	golang.org/x/crypto v0.3.0
 )
 
 require (
@@ -34,7 +34,7 @@ require (
 	go.mongodb.org/mongo-driver v1.10.2 // indirect
 	go.uber.org/atomic v1.10.0 // indirect
 	golang.org/x/sync v0.0.0-20220923202941-7f9b1623fab7 // indirect
-	golang.org/x/sys v0.1.0 // indirect
+	golang.org/x/sys v0.3.0 // indirect
 	golang.org/x/text v0.4.0 // indirect
 	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20220504211119-3d4a969bb56b // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
