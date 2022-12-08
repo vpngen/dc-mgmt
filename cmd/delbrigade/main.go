@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/base32"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -56,6 +57,8 @@ const (
 	WHERE brigade_id=$1
 	`
 )
+
+var errInlalidArgs = errors.New("invalid args")
 
 func main() {
 	var w io.WriteCloser
@@ -224,23 +227,38 @@ func createDBPool(dbname string) (*pgxpool.Pool, error) {
 }
 
 func parseArgs() (bool, string, string, error) {
-	brigadeID := flag.String("id", "", "brigadier_id")
+	brigadeID := flag.String("id", "", "brigadier_id in base32 form")
+	brigadeUUID := flag.String("uuid", "", "brigadier_id in uuid form")
 	chunked := flag.Bool("ch", false, "chunked output")
 
 	flag.Parse()
 
-	// brigadeID must be base32 decodable.
-	buf, err := base32.StdEncoding.WithPadding(base32.NoPadding).DecodeString(*brigadeID)
-	if err != nil {
-		return false, "", "", fmt.Errorf("id base32: %s: %w", *brigadeID, err)
-	}
+	switch {
+	case *brigadeID != "" && *brigadeUUID == "":
+		// brigadeID must be base32 decodable.
+		buf, err := base32.StdEncoding.WithPadding(base32.NoPadding).DecodeString(*brigadeID)
+		if err != nil {
+			return false, "", "", fmt.Errorf("id base32: %s: %w", *brigadeID, err)
+		}
 
-	id, err := uuid.FromBytes(buf)
-	if err != nil {
-		return false, "", "", fmt.Errorf("id uuid: %s: %w", *brigadeID, err)
-	}
+		id, err := uuid.FromBytes(buf)
+		if err != nil {
+			return false, "", "", fmt.Errorf("id uuid: %s: %w", *brigadeID, err)
+		}
 
-	return *chunked, *brigadeID, id.String(), nil
+		return *chunked, *brigadeID, id.String(), nil
+	case *brigadeUUID != "" && *brigadeID == "":
+		id, err := uuid.Parse(*brigadeUUID)
+		if err != nil {
+			return false, "", "", fmt.Errorf("id uuid: %s: %w", *brigadeID, err)
+		}
+
+		bid := base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(id[:])
+
+		return *chunked, bid, id.String(), nil
+	default:
+		return false, "", "", fmt.Errorf("both ids: %w", errInlalidArgs)
+	}
 }
 
 func readConfigs(path string) (string, string, error) {
