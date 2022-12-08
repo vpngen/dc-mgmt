@@ -78,6 +78,26 @@ ORDER BY pair_id DESC
 LIMIT 1
 `
 
+	sqlPickPairForcedIP = `
+SELECT
+	pair_id,
+	control_ip,
+	endpoint_ipv4
+FROM %s
+WHERE
+	pair_id = (
+		SELECT 
+			pair_id 
+		FROM %s 
+		ORDER BY free_slots_count DESC 
+		LIMIT 1
+		)
+AND
+	control_ip=$1
+ORDER BY pair_id DESC
+LIMIT 1
+`
+
 	sqlPickCGNATNet = `
 SELECT 
 	ipv4_net
@@ -150,9 +170,10 @@ WHERE
 )
 
 type brigadeOpts struct {
-	id     string
-	name   string
-	person namesgenerator.Person
+	id      string
+	name    string
+	forceIP netip.Addr
+	person  namesgenerator.Person
 }
 
 // Args errors.
@@ -278,7 +299,13 @@ func createBrigade(db *pgxpool.Pool, schema string, opts *brigadeOpts) error {
 		pair_control_ip    netip.Addr
 	)
 
-	err = tx.QueryRow(ctx, fmt.Sprintf(sqlPickPair, (pgx.Identifier{schema, "slots"}.Sanitize()), (pgx.Identifier{schema, "active_pairs"}.Sanitize()))).Scan(&pair_id, &pair_control_ip, &pair_endpoint_ipv4)
+	switch opts.forceIP {
+	case netip.Addr{}:
+		err = tx.QueryRow(ctx, fmt.Sprintf(sqlPickPair, (pgx.Identifier{schema, "slots"}.Sanitize()), (pgx.Identifier{schema, "active_pairs"}.Sanitize()))).Scan(&pair_id, &pair_control_ip, &pair_endpoint_ipv4)
+	default:
+		err = tx.QueryRow(ctx, fmt.Sprintf(sqlPickPairForcedIP, (pgx.Identifier{schema, "slots"}.Sanitize()), (pgx.Identifier{schema, "active_pairs"}.Sanitize())), opts.forceIP).Scan(&pair_id, &pair_control_ip, &pair_endpoint_ipv4)
+	}
+
 	if err != nil {
 		tx.Rollback(ctx)
 
@@ -526,6 +553,7 @@ func parseArgs() (bool, *brigadeOpts, error) {
 	personDesc := flag.String("desc", "", "personDesc :: base64")
 	personURL := flag.String("url", "", "personURL :: base64")
 	chunked := flag.Bool("ch", false, "chunked output")
+	nodeIP := flag.String("ip", "", "control IP for debug")
 
 	flag.Parse()
 
@@ -614,6 +642,10 @@ func parseArgs() (bool, *brigadeOpts, error) {
 	}
 
 	opts.person.URL = u
+
+	if *nodeIP != "" {
+		opts.forceIP, _ = netip.ParseAddr(*nodeIP)
+	}
 
 	return *chunked, opts, nil
 }
