@@ -85,14 +85,6 @@ SELECT
 	endpoint_ipv4
 FROM %s
 WHERE
-	pair_id = (
-		SELECT 
-			pair_id 
-		FROM %s 
-		ORDER BY free_slots_count DESC 
-		LIMIT 1
-		)
-AND
 	control_ip=$1
 ORDER BY pair_id DESC
 LIMIT 1
@@ -303,7 +295,7 @@ func createBrigade(db *pgxpool.Pool, schema string, opts *brigadeOpts) error {
 	case netip.Addr{}:
 		err = tx.QueryRow(ctx, fmt.Sprintf(sqlPickPair, (pgx.Identifier{schema, "slots"}.Sanitize()), (pgx.Identifier{schema, "active_pairs"}.Sanitize()))).Scan(&pair_id, &pair_control_ip, &pair_endpoint_ipv4)
 	default:
-		err = tx.QueryRow(ctx, fmt.Sprintf(sqlPickPairForcedIP, (pgx.Identifier{schema, "slots"}.Sanitize()), (pgx.Identifier{schema, "active_pairs"}.Sanitize())), opts.forceIP).Scan(&pair_id, &pair_control_ip, &pair_endpoint_ipv4)
+		err = tx.QueryRow(ctx, fmt.Sprintf(sqlPickPairForcedIP, (pgx.Identifier{schema, "slots"}.Sanitize())), opts.forceIP.String()).Scan(&pair_id, &pair_control_ip, &pair_endpoint_ipv4)
 	}
 
 	if err != nil {
