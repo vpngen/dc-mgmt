@@ -14,7 +14,7 @@ func main() {
 	id := uuid.New()
 	brigadierID := base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(id[:])
 
-	fullname, person, err := namesgenerator.PhysicsAwardee()
+	fullname, person, err := namesgenerator.PhysicsAwardeeShort()
 	if err != nil {
 		log.Fatalf("Can't generate: %s\n", err)
 	}
