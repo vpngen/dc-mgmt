@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/base32"
 	"encoding/base64"
-	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -324,6 +323,10 @@ func createBrigade(db *pgxpool.Pool, schema string, opts *brigadeOpts) error {
 
 	for {
 		addr := user.RandomAddrIPv4(cgnat_gnet)
+		if user.IsZeroEnding(addr) {
+			continue
+		}
+
 		cgnat_net = netip.PrefixFrom(addr, BrigadeCgnatPrefix)
 		if cgnat_net.Masked().Addr() == addr || user.LastPrefixIPv4(cgnat_net.Masked()) == addr {
 			continue
@@ -351,6 +354,10 @@ func createBrigade(db *pgxpool.Pool, schema string, opts *brigadeOpts) error {
 
 	for {
 		addr := user.RandomAddrIPv6(ula_gnet)
+		if user.IsZeroEnding(addr) {
+			continue
+		}
+
 		ula_net = netip.PrefixFrom(addr, BrigadeUlaPrefix)
 		if ula_net.Masked().Addr() == addr || user.LastPrefixIPv6(ula_net.Masked()) == addr {
 			continue
@@ -379,8 +386,7 @@ func createBrigade(db *pgxpool.Pool, schema string, opts *brigadeOpts) error {
 
 	for {
 		keydesk = user.RandomAddrIPv6(keydesk_gnet)
-
-		if i := binary.BigEndian.Uint16((keydesk.AsSlice())[14:]); i == 0 {
+		if user.IsZeroEnding(keydesk) {
 			continue
 		}
 
