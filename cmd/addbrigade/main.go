@@ -85,7 +85,6 @@ SELECT
 FROM %s
 WHERE
 	control_ip=$1
-ORDER BY pair_id DESC
 LIMIT 1
 `
 
@@ -93,7 +92,7 @@ LIMIT 1
 SELECT 
 	ipv4_net
 FROM %s
-ORDER BY id, weight DESC
+ORDER BY weight DESC, id
 LIMIT 1
 `
 
@@ -101,7 +100,7 @@ LIMIT 1
 SELECT 
 	ipv6_net
 FROM %s
-ORDER BY id, iweight ASC
+ORDER BY iweight ASC, id
 LIMIT 1
 `
 
@@ -109,7 +108,7 @@ LIMIT 1
 SELECT 
 	ipv6_net
 FROM %s
-ORDER BY id, iweight ASC
+ORDER BY iweight ASC, id
 LIMIT 1
 `
 
