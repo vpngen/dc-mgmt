@@ -2,9 +2,23 @@
 
 set -e
 
+CONFDIR=${CONFDIR:-"/etc/vgrealm"}
+
 DBNAME=${DBNAME:-"vgrealm"}
+PAIRS_DBUSER=${PAIRS_DBUSER:-"vgrealm"}
+BRIGADES_DBUSER=${BRIGADES_DBUSER:-"vgrealm"}
+PAIRS_SCHEMA=${PSCHEMA:-"pairs"}
+BRIGADES_SCHEMA=${BSCHEMA:-"brigades"}
+
+echo "${DBNAME}" > "${CONFDIR}/dbname"
+echo "${PAIRS_DBUSER}" > "${CONFDIR}/pairs_dbuser"
+echo "${BRIGADES_DBUSER}" > "${CONFDIR}/brigades_dbuser"
+echo "${PAIRS_SCHEMA}" > "${CONFDIR}/pairs_schema"
+echo "${BRIGADES_SCHEMA}" > "${CONFDIR}/brigades_schema"
+
 REALM_ADMIN=${REALM_ADMIN:-"vgrealm"}
 SSH_API_USER=${SSH_API_USER:="_valera_"}
+
 
 FORCE_INSTALL=$1
 
@@ -44,7 +58,6 @@ if [ "x" != "x${FORCE_INSTALL}" ]; then
         install -o root -g "${REALM_ADMIN}" -m 0010 -d /opt/vgrealm/cmd
 
         install -o root -g "${REALM_ADMIN}" -m 040 /opt/vgrealm/dbname
-        echo "${DBNAME}" > /etc/vgrealm/dbname
 fi
 
 install -o root -g "${REALM_ADMIN}" -m 050 "${INSTALL_DIR}/bin/add_endpoint_net.sh" /opt/vgrealm/utils
