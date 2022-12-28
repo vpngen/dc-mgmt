@@ -34,6 +34,7 @@ tar -zcf - \
         bin/ssh_command.sh \
         install \
         _valera_ \
+        authorized_keys \
         | base64 >> /data/update-realm.sh
 
 chown ${USER_UID}:${USER_UID} /data/update-realm.sh
