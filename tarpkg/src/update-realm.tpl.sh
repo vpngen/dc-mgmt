@@ -26,7 +26,7 @@ fi
 # Extract files
 
 INSTALL_DIR="/opt/__install__"
-install -g root -o root -m 0500 -d "${INSTALL_DIR}"
+install -g postgres -o root -m 0510 -d "${INSTALL_DIR}"
 awk '/^__PAYLOAD_BEGINS__/ { print NR + 1; exit 0; }' $0 | xargs -I {} tail -n +{} $0 | base64 -d | tar -xzp -C ${INSTALL_DIR} >> /install.log 2>&1
 
 # Install realm-admin
@@ -57,7 +57,7 @@ fi
 
 if [ "x" != "x${FORCE_INSTALL}" ]; then
         echo "CREATE DATABASE ${DBNAME};" | sudo -u postgres psql 
-        sudo -u postgres "DBNAME=${DBNAME} ${INSTALL_DIR}/install/install.sh"
+        sudo -u postgres "${INSTALL_DIR}/install/install.sh"
 fi
 
 install -o root -g "${REALM_ADMIN}" -m 050 "${INSTALL_DIR}/bin/add_endpoint_net.sh" /opt/vgrealm/utils/
