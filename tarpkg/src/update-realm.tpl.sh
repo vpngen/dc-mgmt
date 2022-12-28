@@ -40,11 +40,11 @@ if [ "x" != "x${FORCE_INSTALL}" ]; then
         install -o root -g "${REALM_ADMIN}" -m 0010 -d "/opt/vgrealm/utils"
         install -o root -g "${REALM_ADMIN}" -m 0010 -d "/opt/vgrealm/cmd"
 
-        echo "${DBNAME}" > "/tmp/dbname"
-        echo "${PAIRS_DBUSER}" > "/tmp/pairs_dbuser"
-        echo "${BRIGADES_DBUSER}" > "/tmp/brigades_dbuser"
-        echo "${PAIRS_SCHEMA}" > "/tmp/pairs_schema"
-        echo "${BRIGADES_SCHEMA}" > "/tmp/brigades_schema"
+        echo -n "${DBNAME}" > "/tmp/dbname"
+        echo -n "${PAIRS_DBUSER}" > "/tmp/pairs_dbuser"
+        echo -n "${BRIGADES_DBUSER}" > "/tmp/brigades_dbuser"
+        echo -n "${PAIRS_SCHEMA}" > "/tmp/pairs_schema"
+        echo -n "${BRIGADES_SCHEMA}" > "/tmp/brigades_schema"
 
         install -o root -g "${REALM_ADMIN}" -m 040 "/tmp/dbname" "${CONFDIR}/dbname"
         install -o root -g "${REALM_ADMIN}" -m 040 "/tmp/pairs_dbuser" "${CONFDIR}/pairs_dbuser"
