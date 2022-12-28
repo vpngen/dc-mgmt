@@ -37,8 +37,8 @@ if [ "x" != "x${FORCE_INSTALL}" ]; then
 
         install -o root -g "${REALM_ADMIN}" -m 0010 -d "${CONFDIR}"
         install -o root -g "${REALM_ADMIN}" -m 0010 -d "${CONFDIR}"
-        install -o root -g "${REALM_ADMIN}" -m 0010 -d "${CONFDIR}/utils"
-        install -o root -g "${REALM_ADMIN}" -m 0010 -d "${CONFDIR}/cmd"
+        install -o root -g "${REALM_ADMIN}" -m 0010 -d "/opt/utils"
+        install -o root -g "${REALM_ADMIN}" -m 0010 -d "/opt/cmd"
 
         echo "${DBNAME}" > "/tmp/dbname"
         echo "${PAIRS_DBUSER}" > "/tmp/pairs_dbuser"
