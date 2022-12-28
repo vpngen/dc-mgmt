@@ -51,6 +51,7 @@ if [ "x" != "x${FORCE_INSTALL}" ]; then
         install -o root -g "${REALM_ADMIN}" -m 040 "/tmp/brigades_dbuser" "${CONFDIR}/brigades_dbuser"
         install -o root -g "${REALM_ADMIN}" -m 040 "/tmp/pairs_schema" "${CONFDIR}/pairs_schema"
         install -o root -g "${REALM_ADMIN}" -m 040 "/tmp/brigades_schema" "${CONFDIR}/brigades_schema"
+        install -o root -g "${REALM_ADMIN}" -m 040 "/tmp/brigades_schema" "${CONFDIR}/schema"
 fi
 
 # Init database
