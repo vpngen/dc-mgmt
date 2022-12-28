@@ -46,11 +46,11 @@ if [ "x" != "x${FORCE_INSTALL}" ]; then
         echo "${PAIRS_SCHEMA}" > "/tmp/pairs_schema"
         echo "${BRIGADES_SCHEMA}" > "/tmp/brigades_schema"
 
-        install -o root -g "${REALM_ADMIN}" -m 040 "${CONFDIR}/dbname"
-        install -o root -g "${REALM_ADMIN}" -m 040 "${CONFDIR}/pairs_dbuser"
-        install -o root -g "${REALM_ADMIN}" -m 040 "${CONFDIR}/brigades_dbuser"
-        install -o root -g "${REALM_ADMIN}" -m 040 "${CONFDIR}/pairs_schema"
-        install -o root -g "${REALM_ADMIN}" -m 040 "${CONFDIR}/brigades_schema"
+        install -o root -g "${REALM_ADMIN}" -m 040 "/tmp/dbname" "${CONFDIR}/dbname"
+        install -o root -g "${REALM_ADMIN}" -m 040 "/tmp/pairs_dbuser" "${CONFDIR}/pairs_dbuser"
+        install -o root -g "${REALM_ADMIN}" -m 040 "/tmp/brigades_dbuser" "${CONFDIR}/brigades_dbuser"
+        install -o root -g "${REALM_ADMIN}" -m 040 "/tmp/pairs_schema" "${CONFDIR}/pairs_schema"
+        install -o root -g "${REALM_ADMIN}" -m 040 "/tmp/brigades_schema" "${CONFDIR}/brigades_schema"
 fi
 
 # Init database
