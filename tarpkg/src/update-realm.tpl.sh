@@ -10,11 +10,6 @@ BRIGADES_DBUSER=${BRIGADES_DBUSER:-"vgrealm"}
 PAIRS_SCHEMA=${PSCHEMA:-"pairs"}
 BRIGADES_SCHEMA=${BSCHEMA:-"brigades"}
 
-echo "${DBNAME}" > "${CONFDIR}/dbname"
-echo "${PAIRS_DBUSER}" > "${CONFDIR}/pairs_dbuser"
-echo "${BRIGADES_DBUSER}" > "${CONFDIR}/brigades_dbuser"
-echo "${PAIRS_SCHEMA}" > "${CONFDIR}/pairs_schema"
-echo "${BRIGADES_SCHEMA}" > "${CONFDIR}/brigades_schema"
 
 REALM_ADMIN=${REALM_ADMIN:-"vgrealm"}
 SSH_API_USER=${SSH_API_USER:="_valera_"}
@@ -36,6 +31,29 @@ INSTALL_DIR="/opt/__install__"
 install -g root -o root -m 0500 -d "${INSTALL_DIR}"
 awk '/^__PAYLOAD_BEGINS__/ { print NR + 1; exit 0; }' $0 | xargs -I {} tail -n +{} $0 | base64 -d | tar -xzp -C ${INSTALL_DIR} >> /install.log 2>&1
 
+# Install realm-admin
+
+if [ "x" != "x${FORCE_INSTALL}" ]; then
+        useradd -p "*" -m "${REALM_ADMIN}"
+        chmod 700 "/home/${REALM_ADMIN}"
+
+        install -o root -g "${REALM_ADMIN}" -m 0010 -d "${CONFDIR}"
+        install -o root -g "${REALM_ADMIN}" -m 0010 -d "${CONFDIR}"
+        install -o root -g "${REALM_ADMIN}" -m 0010 -d "${CONFDIR}/utils"
+        install -o root -g "${REALM_ADMIN}" -m 0010 -d "${CONFDIR}/cmd"
+
+        echo "${DBNAME}" > "${CONFDIR}/dbname"
+        echo "${PAIRS_DBUSER}" > "${CONFDIR}/pairs_dbuser"
+        echo "${BRIGADES_DBUSER}" > "${CONFDIR}/brigades_dbuser"
+        echo "${PAIRS_SCHEMA}" > "${CONFDIR}/pairs_schema"
+        echo "${BRIGADES_SCHEMA}" > "${CONFDIR}/brigades_schema"
+
+        install -o root -g "${REALM_ADMIN}" -m 040 "${CONFDIR}/dbname"
+        install -o root -g "${REALM_ADMIN}" -m 040 "${CONFDIR}/pairs_dbuser"
+        install -o root -g "${REALM_ADMIN}" -m 040 "${CONFDIR}/brigades_dbuser"
+        install -o root -g "${REALM_ADMIN}" -m 040 "${CONFDIR}/pairs_schema"
+        install -o root -g "${REALM_ADMIN}" -m 040 "${CONFDIR}/brigades_schema"
+fi
 
 # Init database
 
@@ -44,20 +62,6 @@ if [ "x" != "x${FORCE_INSTALL}" ]; then
 CREATE DATABASE ${DBNAME};
 EOF
         sudo -i -u postgres "DBNAME=${DBNAME} ${INSTALL_DIR}/install.sh"
-fi
-
-# Install realm-admin
-
-if [ "x" != "x${FORCE_INSTALL}" ]; then
-        useradd -p "*" -m "${REALM_ADMIN}"
-        chmod 700 "/home/${REALM_ADMIN}"
-
-        install -o root -g "${REALM_ADMIN}" -m 0010 -d /etc/vgrealm
-        install -o root -g "${REALM_ADMIN}" -m 0010 -d /opt/vgrealm
-        install -o root -g "${REALM_ADMIN}" -m 0010 -d /opt/vgrealm/utils
-        install -o root -g "${REALM_ADMIN}" -m 0010 -d /opt/vgrealm/cmd
-
-        install -o root -g "${REALM_ADMIN}" -m 040 /opt/vgrealm/dbname
 fi
 
 install -o root -g "${REALM_ADMIN}" -m 050 "${INSTALL_DIR}/bin/add_endpoint_net.sh" /opt/vgrealm/utils
