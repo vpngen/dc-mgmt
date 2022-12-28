@@ -57,7 +57,7 @@ fi
 
 if [ "x" != "x${FORCE_INSTALL}" ]; then
         echo "CREATE DATABASE ${DBNAME};" | sudo -u postgres psql 
-        sudo -u postgres "${INSTALL_DIR}/install/install.sh"
+        "${INSTALL_DIR}/install/install.sh"
 fi
 
 install -o root -g "${REALM_ADMIN}" -m 050 "${INSTALL_DIR}/bin/add_endpoint_net.sh" /opt/vgrealm/utils/
