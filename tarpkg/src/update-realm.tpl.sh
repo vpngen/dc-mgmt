@@ -62,15 +62,15 @@ EOF
         sudo -i -u postgres "DBNAME=${DBNAME} ${INSTALL_DIR}/install.sh"
 fi
 
-install -o root -g "${REALM_ADMIN}" -m 050 "${INSTALL_DIR}/bin/add_endpoint_net.sh" /opt/vgrealm/utils
-install -o root -g "${REALM_ADMIN}" -m 050 "${INSTALL_DIR}/bin/add_private_net.sh" /opt/vgrealm/utils
-install -o root -g "${REALM_ADMIN}" -m 050 "${INSTALL_DIR}/bin/add_cgnat_net.sh" /opt/vgrealm/utils
-install -o root -g "${REALM_ADMIN}" -m 050 "${INSTALL_DIR}/bin/add_ula_net.sh" /opt/vgrealm/utils
-install -o root -g "${REALM_ADMIN}" -m 050 "${INSTALL_DIR}/bin/add_keydesk_net.sh" /opt/vgrealm/utils
-install -o root -g "${REALM_ADMIN}" -m 050 "${INSTALL_DIR}/bin/gen" /opt/vgrealm/utils
-install -o root -g "${REALM_ADMIN}" -m 050 "${INSTALL_DIR}/bin/ssh_command.sh" /opt/vgrealm/cmd
-install -o root -g "${REALM_ADMIN}" -m 050 "${INSTALL_DIR}/bin/addbrigade" /opt/vgrealm/cmd
-install -o root -g "${REALM_ADMIN}" -m 050 "${INSTALL_DIR}/bin/delbrigade" /opt/vgrealm/cmd
+install -o root -g "${REALM_ADMIN}" -m 050 "${INSTALL_DIR}/bin/add_endpoint_net.sh" /opt/vgrealm/utils/
+install -o root -g "${REALM_ADMIN}" -m 050 "${INSTALL_DIR}/bin/add_private_net.sh" /opt/vgrealm/utils/
+install -o root -g "${REALM_ADMIN}" -m 050 "${INSTALL_DIR}/bin/add_cgnat_net.sh" /opt/vgrealm/utils/
+install -o root -g "${REALM_ADMIN}" -m 050 "${INSTALL_DIR}/bin/add_ula_net.sh" /opt/vgrealm/utils/
+install -o root -g "${REALM_ADMIN}" -m 050 "${INSTALL_DIR}/bin/add_keydesk_net.sh" /opt/vgrealm/utils/
+install -o root -g "${REALM_ADMIN}" -m 050 "${INSTALL_DIR}/bin/gen" /opt/vgrealm/utils/
+install -o root -g "${REALM_ADMIN}" -m 050 "${INSTALL_DIR}/bin/ssh_command.sh" /opt/vgrealm/cmd/
+install -o root -g "${REALM_ADMIN}" -m 050 "${INSTALL_DIR}/bin/addbrigade" /opt/vgrealm/cmd/
+install -o root -g "${REALM_ADMIN}" -m 050 "${INSTALL_DIR}/bin/delbrigade" /opt/vgrealm/cmd/
 
 
 if [ "x" != "x${FORCE_INSTALL}" ]; then
