@@ -10,10 +10,8 @@ BRIGADES_DBUSER=${BRIGADES_DBUSER:-"vgrealm"}
 PAIRS_SCHEMA=${PSCHEMA:-"pairs"}
 BRIGADES_SCHEMA=${BSCHEMA:-"brigades"}
 
-
 REALM_ADMIN=${REALM_ADMIN:-"vgrealm"}
 SSH_API_USER=${SSH_API_USER:="_valera_"}
-
 
 FORCE_INSTALL=$1
 
@@ -42,11 +40,11 @@ if [ "x" != "x${FORCE_INSTALL}" ]; then
         install -o root -g "${REALM_ADMIN}" -m 0010 -d "${CONFDIR}/utils"
         install -o root -g "${REALM_ADMIN}" -m 0010 -d "${CONFDIR}/cmd"
 
-        echo "${DBNAME}" > "${CONFDIR}/dbname"
-        echo "${PAIRS_DBUSER}" > "${CONFDIR}/pairs_dbuser"
-        echo "${BRIGADES_DBUSER}" > "${CONFDIR}/brigades_dbuser"
-        echo "${PAIRS_SCHEMA}" > "${CONFDIR}/pairs_schema"
-        echo "${BRIGADES_SCHEMA}" > "${CONFDIR}/brigades_schema"
+        echo "${DBNAME}" > "/tmp/dbname"
+        echo "${PAIRS_DBUSER}" > "/tmp/pairs_dbuser"
+        echo "${BRIGADES_DBUSER}" > "/tmp/brigades_dbuser"
+        echo "${PAIRS_SCHEMA}" > "/tmp/pairs_schema"
+        echo "${BRIGADES_SCHEMA}" > "/tmp/brigades_schema"
 
         install -o root -g "${REALM_ADMIN}" -m 040 "${CONFDIR}/dbname"
         install -o root -g "${REALM_ADMIN}" -m 040 "${CONFDIR}/pairs_dbuser"
