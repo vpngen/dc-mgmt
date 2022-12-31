@@ -66,6 +66,7 @@ install -o root -g "${REALM_ADMIN}" -m 050 "${INSTALL_DIR}/bin/add_private_net.s
 install -o root -g "${REALM_ADMIN}" -m 050 "${INSTALL_DIR}/bin/add_cgnat_net.sh" /opt/vgrealm/utils/
 install -o root -g "${REALM_ADMIN}" -m 050 "${INSTALL_DIR}/bin/add_ula_net.sh" /opt/vgrealm/utils/
 install -o root -g "${REALM_ADMIN}" -m 050 "${INSTALL_DIR}/bin/add_keydesk_net.sh" /opt/vgrealm/utils/
+install -o root -g "${REALM_ADMIN}" -m 050 "${INSTALL_DIR}/bin/add_pair.sh" /opt/vgrealm/utils/
 install -o root -g "${REALM_ADMIN}" -m 050 "${INSTALL_DIR}/bin/gen" /opt/vgrealm/utils/
 install -o root -g "${REALM_ADMIN}" -m 050 "${INSTALL_DIR}/bin/ssh_command.sh" /opt/vgrealm/cmd/
 install -o root -g "${REALM_ADMIN}" -m 050 "${INSTALL_DIR}/bin/addbrigade" /opt/vgrealm/cmd/
