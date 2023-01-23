@@ -157,6 +157,7 @@ FROM %s
 WHERE
 	meta_brigades.brigade_id=$1
 `
+	sqlInsertStats = `INSERT INTO %s (brigade_id) VALUES ($1);`
 )
 
 type brigadeOpts struct {
@@ -415,6 +416,16 @@ func createBrigade(db *pgxpool.Pool, schema string, opts *brigadeOpts) error {
 		tx.Rollback(ctx)
 
 		return fmt.Errorf("create brigade: %w", err)
+	}
+
+	_, err = tx.Exec(ctx,
+		fmt.Sprintf(sqlInsertStats, (pgx.Identifier{schema, "brigades_stats"}.Sanitize())),
+		opts.id,
+	)
+	if err != nil {
+		tx.Rollback(ctx)
+
+		return fmt.Errorf("create stats: %w", err)
 	}
 
 	err = tx.Commit(ctx)
