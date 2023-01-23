@@ -224,10 +224,18 @@ GRANT USAGE,SELECT,UPDATE ON ALL SEQUENCES IN SCHEMA :"schema_brigades_name"  TO
 CREATE SCHEMA :"schema_stats_name";
 CREATE ROLE :"stats_dbuser" WITH LOGIN;
 GRANT ALL PRIVILEGES ON SCHEMA :"schema_stats_name" TO :"stats_dbuser";
+GRANT USAGE ON SCHEMA :"schema_brigadiers_name" TO :"stats_dbuser";
+GRANT SELECT ON ALL TABLES IN SCHEMA :"schema_brigadiers_name" TO :"stats_dbuser";
+GRANT USAGE ON SCHEMA :"schema_pairs_name" TO :"stats_dbuser";
+GRANT SELECT ON ALL TABLES IN SCHEMA :"schema_pairs_name" TO :"stats_dbuser";
+GRANT USAGE,SELECT ON ALL SEQUENCES IN SCHEMA :"schema_brigades_name"  TO :"stats_dbuser";
 
 CREATE ROLE :"ministry_stats_dbuser" WITH LOGIN;
 GRANT USAGE ON SCHEMA :"schema_stats_name" TO :"ministry_stats_dbuser";
 GRANT SELECT ON ALL TABLES IN SCHEMA :"schema_stats_name" TO :"ministry_stats_dbuser";
+
+GRANT USAGE ON SCHEMA :"schema_stats_name" TO :"brigades_dbuser";
+GRANT SELECT,INSERT,DELETE ON ALL TABLES IN SCHEMA :"schema_stats_name".brigades TO :"brigades_dbuser";
 
 CREATE TABLE :"schema_stats_name".brigades_stats (
     brigade_id          uuid NOT NULL,
