@@ -227,7 +227,7 @@ GRANT ALL PRIVILEGES ON SCHEMA :"schema_stats_name" TO :"stats_dbuser";
 
 CREATE ROLE :"ministry_stats_dbuser" WITH LOGIN;
 GRANT USAGE ON SCHEMA :"schema_stats_name" TO :"ministry_stats_dbuser";
-GRANT SELECT ON SCHEMA :"schema_stats_name" TO :"ministry_stats_dbuser";
+GRANT SELECT ON ALL TABLES IN SCHEMA :"schema_stats_name" TO :"ministry_stats_dbuser";
 
 CREATE TABLE :"schema_stats_name".brigades_stats (
     brigade_id          uuid NOT NULL,
