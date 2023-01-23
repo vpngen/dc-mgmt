@@ -223,11 +223,11 @@ GRANT USAGE,SELECT,UPDATE ON ALL SEQUENCES IN SCHEMA :"schema_brigades_name"  TO
 
 CREATE SCHEMA :"schema_stats_name";
 CREATE ROLE :"stats_dbuser" WITH LOGIN;
-GRANT ALL PRIVILEGES ON SCHEMA :"schema_stats" TO :"stats_dbuser";
+GRANT ALL PRIVILEGES ON SCHEMA :"schema_stats_name" TO :"stats_dbuser";
 
 CREATE ROLE :"ministry_stats_dbuser" WITH LOGIN;
-GRANT USAGE ON SCHEMA :"schema_stats" TO :"ministry_stats_dbuser";
-GRANT SELECT ON SCHEMA :"schema_stats" TO :"ministry_stats_dbuser";
+GRANT USAGE ON SCHEMA :"schema_stats_name" TO :"ministry_stats_dbuser";
+GRANT SELECT ON SCHEMA :"schema_stats_name" TO :"ministry_stats_dbuser";
 
 CREATE TABLE :"schema_stats_name".brigades_stats (
     brigade_id          uuid NOT NULL,
