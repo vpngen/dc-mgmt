@@ -31,11 +31,12 @@ import (
 )
 
 const (
-	dbnameFilename       = "dbname"
-	schemaNameFilename   = "schema"
-	sshkeyFilename       = "id_ecdsa"
-	sshkeyRemoteUsername = "_serega_"
-	etcDefaultPath       = "/etc/vgrealm"
+	dbnameFilename          = "dbname"
+	schemaNameFilename      = "schema"
+	schemaNameStatsFilename = "schemastats"
+	sshkeyFilename          = "id_ecdsa"
+	sshkeyRemoteUsername    = "_serega_"
+	etcDefaultPath          = "/etc/vgrealm"
 )
 
 const (
@@ -195,7 +196,7 @@ func main() {
 		log.Fatalf("%s: Can't parse args: %s\n", exe, err)
 	}
 
-	dbname, schema, err := readConfigs(confDir)
+	dbname, schema, schemaStats, err := readConfigs(confDir)
 	if err != nil {
 		log.Fatalf("%s: Can't read configs: %s\n", exe, err)
 	}
@@ -210,7 +211,7 @@ func main() {
 		log.Fatalf("%s: Can't create db pool: %s\n", exe, err)
 	}
 
-	err = createBrigade(db, schema, opts)
+	err = createBrigade(db, schema, schemaStats, opts)
 	if err != nil {
 		log.Fatalf("%s: Can't create brigade: %s\n", exe, err)
 	}
@@ -240,7 +241,7 @@ func main() {
 	}
 }
 
-func createBrigade(db *pgxpool.Pool, schema string, opts *brigadeOpts) error {
+func createBrigade(db *pgxpool.Pool, schema, schemaStats string, opts *brigadeOpts) error {
 	ctx := context.Background()
 
 	tx, err := db.Begin(ctx)
@@ -419,7 +420,7 @@ func createBrigade(db *pgxpool.Pool, schema string, opts *brigadeOpts) error {
 	}
 
 	_, err = tx.Exec(ctx,
-		fmt.Sprintf(sqlInsertStats, (pgx.Identifier{schema, "brigades_stats"}.Sanitize())),
+		fmt.Sprintf(sqlInsertStats, (pgx.Identifier{schemaStats, "brigades_stats"}.Sanitize())),
 		opts.id,
 	)
 	if err != nil {
@@ -658,28 +659,38 @@ func parseArgs() (bool, *brigadeOpts, error) {
 	return *chunked, opts, nil
 }
 
-func readConfigs(path string) (string, string, error) {
+func readConfigs(path string) (string, string, string, error) {
 	f, err := os.Open(filepath.Join(path, dbnameFilename))
 	if err != nil {
-		return "", "", fmt.Errorf("can't open: %s: %w", dbnameFilename, err)
+		return "", "", "", fmt.Errorf("can't open: %s: %w", dbnameFilename, err)
 	}
 
 	dbname, err := io.ReadAll(io.LimitReader(f, maxPostgresqlNameLen))
 	if err != nil {
-		return "", "", fmt.Errorf("can't read: %s: %w", dbnameFilename, err)
+		return "", "", "", fmt.Errorf("can't read: %s: %w", dbnameFilename, err)
 	}
 
 	f, err = os.Open(filepath.Join(path, schemaNameFilename))
 	if err != nil {
-		return "", "", fmt.Errorf("can't open: %s: %w", schemaNameFilename, err)
+		return "", "", "", fmt.Errorf("can't open: %s: %w", schemaNameFilename, err)
 	}
 
 	schema, err := io.ReadAll(io.LimitReader(f, maxPostgresqlNameLen))
 	if err != nil {
-		return "", "", fmt.Errorf("can't read: %s: %w", schemaNameFilename, err)
+		return "", "", "", fmt.Errorf("can't read: %s: %w", schemaNameFilename, err)
 	}
 
-	return string(dbname), string(schema), nil
+	f, err = os.Open(filepath.Join(path, schemaNameStatsFilename))
+	if err != nil {
+		return "", "", "", fmt.Errorf("can't open: %s: %w", schemaNameStatsFilename, err)
+	}
+
+	schemaStats, err := io.ReadAll(io.LimitReader(f, maxPostgresqlNameLen))
+	if err != nil {
+		return "", "", "", fmt.Errorf("can't read: %s: %w", schemaNameFilename, err)
+	}
+
+	return string(dbname), string(schema), string(schemaStats), nil
 }
 
 func createSSHConfig(path string) (*ssh.ClientConfig, error) {
