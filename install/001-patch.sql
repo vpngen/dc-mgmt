@@ -17,7 +17,7 @@ GRANT USAGE ON SCHEMA :"schema_stats_name" TO :"brigades_dbuser";
 GRANT SELECT,INSERT,DELETE ON ALL TABLES IN SCHEMA :"schema_stats_name".brigades TO :"brigades_dbuser";
 
 CREATE TABLE :"schema_stats_name".brigades_stats (
-    brigade_id          uuid NOT NULL,
+    brigade_id          uuid UNIQUE NOT NULL,
     create_at           timestamp without time zone NOT NULL DEFAULT NOW(),
     last_visit          timestamp without time zone DEFAULT NULL,
     user_count          int NOT NULL DEFAULT 0,
