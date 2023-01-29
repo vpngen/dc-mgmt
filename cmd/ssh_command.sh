@@ -19,6 +19,8 @@ if [ "xaddbrigade" = "x${cmd}" ]; then
     ${basedir}/addbrigade $@
 elif [ "xdelbrigade" = "x${cmd}" ]; then
     ${basedir}/delbrigade $@
+elif [ "xgetwasted" = "x${cmd}" ]; then
+    ${basedir}/getwasted $@
 else
     echo "Unknown command: ${cmd}"
     printdef
