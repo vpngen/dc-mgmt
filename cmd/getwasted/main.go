@@ -38,14 +38,14 @@ const (
 	FROM 
 		%s
 	WHERE
-		create_at > now() - INTERVAL '$1 days' 
+		create_at > now() - INTERVAL '$1::int days' 
 	AND
 		user_count=1
 	AND 
 		last_visit IS NULL
 	ORDER BY 
 		create_at ASC
-	LIMIT $2
+	LIMIT $2::int
 	`
 )
 
