@@ -17,7 +17,7 @@ import (
 
 const (
 	dbnameFilename     = "dbname"
-	schemaNameFilename = "schema"
+	schemaNameFilename = "schema" // shit!!!!
 	etcDefaultPath     = "/etc/vgrealm"
 )
 
@@ -110,7 +110,7 @@ func getWasted(db *pgxpool.Pool, schema string, days, num int) ([]byte, error) {
 	}
 
 	rows, err := tx.Query(ctx,
-		fmt.Sprintf(sqlGetWasted, (pgx.Identifier{schema, "brigades_stats"}.Sanitize())),
+		fmt.Sprintf(sqlGetWasted, (pgx.Identifier{"stats", "brigades_stats"}.Sanitize())), // !!!!
 		days,
 		num,
 	)
