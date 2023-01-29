@@ -110,7 +110,7 @@ func getWasted(db *pgxpool.Pool, schema string, days, num int) ([]byte, error) {
 	}
 
 	rows, err := tx.Query(ctx,
-		fmt.Sprintf(sqlGetWasted, (pgx.Identifier{schema, "brigades"}.Sanitize())),
+		fmt.Sprintf(sqlGetWasted, (pgx.Identifier{schema, "brigades_stats"}.Sanitize())),
 		days,
 		num,
 	)
