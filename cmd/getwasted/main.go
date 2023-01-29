@@ -44,7 +44,7 @@ const (
 	AND 
 		last_visit IS NULL
 	ORDER BY 
-		create_at ASK
+		create_at ASC
 	LIMIT $2
 	`
 )
@@ -79,7 +79,7 @@ func main() {
 
 	output, err := getWasted(db, schema, days, num)
 	if err != nil {
-		log.Fatalf("%s: Can't remove brigade: %s\n", exe, err)
+		log.Fatalf("%s: Can't get brigades: %s\n", exe, err)
 	}
 
 	switch chunked {
