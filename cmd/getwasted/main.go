@@ -38,7 +38,7 @@ const (
 	FROM 
 		%s
 	WHERE
-		create_at > now() - ($1 * INTERVAL '1 days') 
+		create_at < now() - ($1 * INTERVAL '1 days') 
 	AND
 		user_count=1
 	AND 
