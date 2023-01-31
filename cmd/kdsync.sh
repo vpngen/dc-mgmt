@@ -8,7 +8,7 @@ KDSYNCSERVER=${KDSYNCSERVER:-$(cat "${ETC}/kdsyncserver")}
 
 echo "[i] Fetch pairs...."
 
-list=$(psql -d ${DBNAME} -v ON_ERROR_STOP=yes -t -A -F ";" --set schema_name="${SCHEMA}" <<EOF 
+list=$(psql -d ${DBNAME} -v ON_ERROR_STOP=yes -q -X -t -A -F ";" --set schema_name="${SCHEMA}" <<EOF 
 	SELECT 
 		endpoint_ipv4,
 		keydesk_ipv6 
