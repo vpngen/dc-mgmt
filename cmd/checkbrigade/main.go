@@ -68,7 +68,7 @@ func main() {
 	// attention! id - uuid-style string.
 	brigadeGetID, userCount, createdAt, lastVisit, err := checkBrigade(db, schema, id)
 	if err != nil {
-		log.Fatalf("%s: Can't remove brigade: %s\n", exe, err)
+		log.Fatalf("%s: Can't check brigade: %s\n", exe, err)
 	}
 
 	if brigadeGetID != id {
