@@ -23,6 +23,8 @@ elif [ "xdelbrigade" = "x${cmd}" ]; then
     /usr/bin/flock -x -E 0 -n /tmp/kdsync.lock ${basedir}/kdsync.sh 2>&1 | /usr/bin/logger -p local0.notice -t KDSYNC
 elif [ "xgetwasted" = "x${cmd}" ]; then
     ${basedir}/getwasted $@
+elif [ "xcheckbrigade" = "x${cmd}" ]; then
+    ${basedir}/checkbrigade $@
 else
     echo "Unknown command: ${cmd}"
     printdef
