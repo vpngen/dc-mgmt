@@ -50,7 +50,7 @@ func main() {
 	executable, _ := os.Executable()
 	exe := filepath.Base(executable)
 
-	chunked, _, id, err := parseArgs()
+	chunked, bid32, id, err := parseArgs()
 	if err != nil {
 		log.Fatalf("%s: Can't parse args: %s\n", exe, err)
 	}
@@ -83,7 +83,11 @@ func main() {
 		w = os.Stdout
 	}
 
-	fmt.Fprintln(w, brigadeGetID, id, userCount, createdAt, lastVisit)
+	fmt.Fprintln(w, brigadeGetID)
+	fmt.Fprintln(w, bid32)
+	fmt.Fprintln(w, userCount)
+	fmt.Fprintln(w, createdAt)
+	fmt.Fprintln(w, lastVisit)
 }
 
 func checkBrigade(db *pgxpool.Pool, schema string, brigadeID string) (string, int, string, string, error) {
