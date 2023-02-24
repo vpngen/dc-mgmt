@@ -1,0 +1,48 @@
+# nfpm example configuration file
+#
+# check https://nfpm.goreleaser.com/configuration for detailed usage
+#
+name: "realm-admin"
+arch: ${DEB_ARCH}
+platform: "linux"
+version: 0.0.1
+epoch: 1
+section: "default"
+priority: "extra"
+
+provides:
+  - realm-admin
+depends:
+  - postgresql
+  - postgresql-contrib
+
+maintainer: "Mix dJoker <mix.djoker@gmail.com>"
+description: |
+  The set of the VPNGen Data Center managers
+vendor: "VPNGen"
+homepage: "http://vpngen.org"
+
+contents:
+  - src: ./foo
+    dst: /usr/bin/foo
+    file_info:
+      mode: 0700
+      owner: root
+      group: root
+  - src: ./bar
+    dst: /usr/bin/bar
+  - src: ./foobar.conf
+    dst: /etc/foobar.conf
+    type: config
+  - src: /usr/bin/foo
+    dst: /sbin/foo
+    type: symlink
+scripts:
+  # Preinstall - scritp that set Env varibles
+  preinstall: ./scripts/preinstall.sh
+  # Postinstall - the sensitive data cleaning scritps
+  postinstall: ./scripts/postinstall.sh
+    #preremove: ./scripts/preremove.sh
+    #postremove: ./scripts/postremove.sh
+dep:
+  compression: xz
