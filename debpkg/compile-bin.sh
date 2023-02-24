@@ -9,9 +9,6 @@ BUILD_OPTS="-buildvcs=false"
 export GOOS=linux
 export GOARCH=amd64
 export CGO_ENABLE=0
-GOLANG_VER="$(grep -e "^go\s" go.mod | awk '{print $2}')"
-export GOLANG_VER
-export DEBPKG_DIR="$BASE_DIR/debpkg"
 
 # buildGo 
 buildGo () {

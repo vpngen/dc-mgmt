@@ -39,9 +39,9 @@ contents:
     type: symlink
 scripts:
   # Preinstall - scritp that set Env varibles
-  preinstall: ./scripts/preinstall.sh
+  preinstall: ./debpkg/preinstall.sh
   # Postinstall - the sensitive data cleaning scritps
-  postinstall: ./scripts/postinstall.sh
+  # postinstall: ./debpkg/postinstall.sh
     #preremove: ./scripts/preremove.sh
     #postremove: ./scripts/postremove.sh
 dep:
