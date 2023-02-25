@@ -1,0 +1,48 @@
+#!/bin/sh
+
+###################################################
+#                                                 #
+#         -=The main DEB-Build loop=-             #
+#                                                 #
+###################################################
+
+# Global environment varible set
+export SHARED_BASE="/data"
+
+
+if [ "x$1" = "xpkg" ]; then
+
+  set -e
+  
+  # Build environment set
+  export USER_UID=${USER_UID}
+  export CGO_ENABLED=0
+  RELEASE=${BRANCH:-"latest"}
+  
+  ssh-keyscan -t rsa github.com >> /etc/ssh/ssh_known_hosts
+  git config --global url."ssh://git@github.com/".insteadOf "https://github.com/"
+  go env -w GOPRIVATE=github.com/vpngen
+
+  go install github.com/goreleaser/nfpm/v2/cmd/nfpm@latest
+  go install github.com/vpngen/vpngine/nacl@${RELEASE}
+
+  nfpm package --config "${SHARED_BASE}/nfpm.yaml" --target "${SHARED_BASE}/pkg" --packager deb
+
+  chown ${USER_UID}:${USER_UID} "${SHARED_BASE}/pkg/"*.deb
+  exit 0
+fi
+
+BRANCH=$(git rev-parse --abbrev-ref HEAD)
+
+# Main entry point function
+#
+# !DO NOT EDIT Entry point
+#
+docker run --rm \
+-v $(readlink -f $SSH_AUTH_SOCK):/ssh-agent \
+  -e SSH_AUTH_SOCK=/ssh-agent \
+  -e USER_UID=$(id -u) \
+  -e BRANCH=${BRANCH} \
+  -v ${PWD}:"${SHARED_BASE}" \
+  golang:1.20 "${SHARED_BASE}/build" pkg
+
