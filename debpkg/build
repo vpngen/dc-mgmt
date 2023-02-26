@@ -1,48 +1,97 @@
-#!/bin/sh
+#!/bin/bash
 
 ###################################################
-#                                                 #
-#         -=The main DEB-Build loop=-             #
-#                                                 #
+#                                                 # -=The main DEB-Build loop=-             # #
 ###################################################
 
 # Global environment varible set
-export SHARED_BASE="/data"
+BUILD_SCRIPT_NAME="$0"
+
+SHARED_BASE="/data"
+GOLANG_VER="$(grep -e "^go\s" go.mod | awk '{print $2}')"
+#BRANCH=$(git rev-parse --abbrev-ref HEAD)
+#NFPM_VER="v2.26.0"
+#AUTH_KEY="ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBMtZz9Q09I41faeyLIWEijSCFSp8bAbvX2dHUhKxGmJ7nPmqGhXDtDCDF3D1RiNMMQGMzrIaDZWq8WIy98eq2zI= root@vg-wolfs-mgmt"
 
 
-if [ "x$1" = "xpkg" ]; then
-
+function doCompile {
   set -e
+  CMD_DIR="cmd"
   
   # Build environment set
-  export USER_UID=${USER_UID}
-  export CGO_ENABLED=0
-  RELEASE=${BRANCH:-"latest"}
   
+  export CGO_ENABLED=0
+  
+  # Git connection set
   ssh-keyscan -t rsa github.com >> /etc/ssh/ssh_known_hosts
   git config --global url."ssh://git@github.com/".insteadOf "https://github.com/"
+  
+  # Setup Go Env
   go env -w GOPRIVATE=github.com/vpngen
 
-  go install github.com/goreleaser/nfpm/v2/cmd/nfpm@latest
-  go install github.com/vpngen/vpngine/nacl@${RELEASE}
+  MAINGO_LIST=$(find "$CMD_DIR/" -type f -name "main.go")
+  for mainGo in $MAINGO_LIST; do
+    progURI=$(dirname "$mainGo")
+    compileURI="github.com/realm-admin/$progURI"
+    echo "$compileURI"
+  done
+} 
 
-  nfpm package --config "${SHARED_BASE}/nfpm.yaml" --target "${SHARED_BASE}/pkg" --packager deb
+function runCompileDocer {
 
-  chown ${USER_UID}:${USER_UID} "${SHARED_BASE}/pkg/"*.deb
-  exit 0
-fi
+  docker run --rm \
+    -v "$(readlink -f "$SSH_AUTH_SOCK")":/ssh-agent \
+    -e SSH_AUTH_SOCK=/ssh-agent \
+    -e USER_UID="$(id -u)" \
+    -e BRANCH="${BRANCH}" \
+    -v "${PWD}":"${SHARED_BASE}" \
+    -w "${SHARED_BASE}" 
+    golang:"$GOLANG_VER" "${BUILD_SCRIPT_NAME}" debug
+}
 
-BRANCH=$(git rev-parse --abbrev-ref HEAD)
+#function doBuild {
+#docker run --rm \
+#    -v "$PWD":/tmp \
+#      -w /tmp goreleaser/nfpm:$NFPM_VER package \
+#        --config "${SHARED_BASE}/nfpm.yaml" \
+#          --target "${SHARED_BASE}/pkg" \
+#            --packager deb
+#}
 
-# Main entry point function
-#
-# !DO NOT EDIT Entry point
-#
-docker run --rm \
--v $(readlink -f $SSH_AUTH_SOCK):/ssh-agent \
-  -e SSH_AUTH_SOCK=/ssh-agent \
-  -e USER_UID=$(id -u) \
-  -e BRANCH=${BRANCH} \
-  -v ${PWD}:"${SHARED_BASE}" \
-  golang:1.20 "${SHARED_BASE}/build" pkg
+# Main entry point
+case $1 in 
+  "runDocker")
+    runCompileDocer
+    
+    exit 0
+    ;; 
+
+  "compile")
+    doCompile
+   
+    exit 0
+    ;;
+
+  "build")
+    
+    exit 0
+    ;;
+  
+  "debug")
+    echo "PWD: $PWD"
+    echo "USER_UID: $USER_UID"
+    echo "SSH_AUTH_SOCK: $SSH_AUTH_SOCK"
+    echo "BUILD_SCRIPT_NAME: $BUILD_SCRIPT_NAME"
+    echo "SHARED_BASE: $SHARED_BASE"
+    echo "GOLANG_VER: $GOLANG_VER"
+
+    exit 0
+    ;;
+ 
+  *)
+    echo " [+] Starting compiling procedure..."
+    $BUILD_SCRIPT_NAME runDocker
+
+    exit 0
+esac
 
