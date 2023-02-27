@@ -1,26 +1,20 @@
 #!/bin/bash
 
 ###################################################
-#                                                 # -=The main DEB-Build loop=-             # #
+#         -=The main DEB-Build loop=-             #
 ###################################################
 
 # Global environment varible set
 BUILD_SCRIPT_NAME="$0"
-
 SHARED_BASE="/data"
 GOLANG_VER="$(grep -e "^go\s" go.mod | awk '{print $2}')"
-#BRANCH=$(git rev-parse --abbrev-ref HEAD)
 #NFPM_VER="v2.26.0"
 #AUTH_KEY="ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBMtZz9Q09I41faeyLIWEijSCFSp8bAbvX2dHUhKxGmJ7nPmqGhXDtDCDF3D1RiNMMQGMzrIaDZWq8WIy98eq2zI= root@vg-wolfs-mgmt"
 
 
 function doCompile {
+
   set -e
-  CMD_DIR="cmd"
-  
-  # Build environment set
-  
-  export CGO_ENABLED=0
   
   # Git connection set
   ssh-keyscan -t rsa github.com >> /etc/ssh/ssh_known_hosts
@@ -30,23 +24,44 @@ function doCompile {
   go env -w GOPRIVATE=github.com/vpngen
 
   MAINGO_LIST=$(find "$CMD_DIR/" -type f -name "main.go")
+
   for mainGo in $MAINGO_LIST; do
     progURI=$(dirname "$mainGo")
     compileURI="github.com/realm-admin/$progURI"
-    echo "$compileURI"
+    
+    # BUG:  git@github.com: Permission denied (publickey).
+    #       fatal: Could not read from remote repository.
+    # go install "$compileURI"@"$BRANCH"
+    # go build -o "$GOPATH/bin" mainGo
+    
+    # Debug file generator plug
+    # START
+    DEBUG_FILE="$GOPATH"/bin/"$(basename "$progURI")"
+    echo "1" > "$DEBUG_FILE"
+    chmod u+x "$DEBUG_FILE"
+    # END  
   done
+
+  find "$GOPATH/bin" -type f -exec cp {} "$TMP_DIR"/{} \;
+
 } 
 
 function runCompileDocer {
 
+  # BRANCH="$(git rev-parse --abbrev-ref HEAD)" \
+  TMP_DIR=".tmp"
+
   docker run --rm \
     -v "$(readlink -f "$SSH_AUTH_SOCK")":/ssh-agent \
     -e SSH_AUTH_SOCK=/ssh-agent \
+    -e CMD_DIR="cmd" \
     -e USER_UID="$(id -u)" \
-    -e BRANCH="${BRANCH}" \
+    -e CGO_ENABLED=0 \
+    -e BRANCH="${BRANCH:-"latest"}" \
+    -e TMP_DIR="${TMP_DIR:-".tmp"}" \
     -v "${PWD}":"${SHARED_BASE}" \
-    -w "${SHARED_BASE}" 
-    golang:"$GOLANG_VER" "${BUILD_SCRIPT_NAME}" debug
+    -w "${SHARED_BASE}" \
+    golang:"$GOLANG_VER" "${BUILD_SCRIPT_NAME}" compile
 }
 
 #function doBuild {
@@ -84,6 +99,8 @@ case $1 in
     echo "BUILD_SCRIPT_NAME: $BUILD_SCRIPT_NAME"
     echo "SHARED_BASE: $SHARED_BASE"
     echo "GOLANG_VER: $GOLANG_VER"
+    echo "CMD_DIR: $CMD_DIR"
+    echo "BRANCH: $BRANCH"
 
     exit 0
     ;;
