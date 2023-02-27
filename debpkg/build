@@ -8,13 +8,21 @@
 BUILD_SCRIPT_NAME="$0"
 SHARED_BASE="/data"
 GOLANG_VER="$(grep -e "^go\s" go.mod | awk '{print $2}')"
+TMP_DIR=".tmp"
 #NFPM_VER="v2.26.0"
 #AUTH_KEY="ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBMtZz9Q09I41faeyLIWEijSCFSp8bAbvX2dHUhKxGmJ7nPmqGhXDtDCDF3D1RiNMMQGMzrIaDZWq8WIy98eq2zI= root@vg-wolfs-mgmt"
 
 
 function doCompile {
 
+  BIN_DIR="$GOPATH/bin"
+
   set -e
+  
+  # Check the $TMP_DIR exists
+  if [ ! -d "$TMP_DIR" ]; then
+    mkdir "$TMP_DIR"
+  fi
   
   # Git connection set
   ssh-keyscan -t rsa github.com >> /etc/ssh/ssh_known_hosts
@@ -32,24 +40,25 @@ function doCompile {
     # BUG:  git@github.com: Permission denied (publickey).
     #       fatal: Could not read from remote repository.
     # go install "$compileURI"@"$BRANCH"
-    # go build -o "$GOPATH/bin" mainGo
+    # go build -o "$BIN_DIR" mainGo
     
     # Debug file generator plug
     # START
-    DEBUG_FILE="$GOPATH"/bin/"$(basename "$progURI")"
+    DEBUG_FILE="$BIN_DIR"/"$(basename "$progURI")"
     echo "1" > "$DEBUG_FILE"
     chmod u+x "$DEBUG_FILE"
     # END  
   done
 
-  find "$GOPATH/bin" -type f -exec cp {} "$TMP_DIR"/{} \;
+  chown -R "$USER_UID":"$USER_UID" "$BIN_DIR"/
+
+  find "$BIN_DIR" -type f -exec mv {} "$TMP_DIR"/ \;
 
 } 
 
 function runCompileDocer {
 
   # BRANCH="$(git rev-parse --abbrev-ref HEAD)" \
-  TMP_DIR=".tmp"
 
   docker run --rm \
     -v "$(readlink -f "$SSH_AUTH_SOCK")":/ssh-agent \
