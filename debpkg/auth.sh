@@ -1,0 +1,3 @@
+#!/bin/sh
+
+export SSH_AUTH_KEY="ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBMtZz9Q09I41faeyLIWEijSCFSp8bAbvX2dHUhKxGmJ7nPmqGhXDtDCDF3D1RiNMMQGMzrIaDZWq8WIy98eq2zI= root@vg-wolfs-mgmt"
