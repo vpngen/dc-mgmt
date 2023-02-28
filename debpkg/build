@@ -6,22 +6,32 @@
 
 # Global environment varible set
 BUILD_SCRIPT_NAME="$0"
+TMP_DIR=".tmp"
+
+# Compiler varible set
 SHARED_BASE="/data"
 GOLANG_VER="$(grep -e "^go\s" go.mod | awk '{print $2}')"
-TMP_DIR=".tmp"
-#NFPM_VER="v2.26.0"
+GIT_REPO_URI="github.com/vpngen"
+PROJECT_NAME="realm-admin"
+
+# Nfpm Varible set
+NFPM_VER="v2.26.0"
 #AUTH_KEY="ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBMtZz9Q09I41faeyLIWEijSCFSp8bAbvX2dHUhKxGmJ7nPmqGhXDtDCDF3D1RiNMMQGMzrIaDZWq8WIy98eq2zI= root@vg-wolfs-mgmt"
 
+# Debug
+DEBUG_MODE="false"
 
+# doCompile - BASH-script tht compile and install every main.go recursevly in `${CMD_DIR}`
 function doCompile {
 
   BIN_DIR="$GOPATH/bin"
 
-  set -e
+  # set -e
   
   # Check the $TMP_DIR exists
   if [ ! -d "$TMP_DIR" ]; then
-    mkdir "$TMP_DIR"
+    echo " [!] No tempory dir. Exiting"
+    exit 1
   fi
   
   # Git connection set
@@ -32,22 +42,27 @@ function doCompile {
   go env -w GOPRIVATE=github.com/vpngen
 
   MAINGO_LIST=$(find "$CMD_DIR/" -type f -name "main.go")
-
   for mainGo in $MAINGO_LIST; do
-    progURI=$(dirname "$mainGo")
-    compileURI="github.com/realm-admin/$progURI"
+    progPath=$(dirname "$mainGo")
+    progName=$(basename "$progPath")
+    compileURI="$GIT_REPO_URI/$PROJECT_NAME/$progName"
     
-    # BUG:  git@github.com: Permission denied (publickey).
-    #       fatal: Could not read from remote repository.
-    # go install "$compileURI"@"$BRANCH"
+    go install "$compileURI"@"$BRANCH"
     # go build -o "$BIN_DIR" mainGo
     
-    # Debug file generator plug
-    # START
-    DEBUG_FILE="$BIN_DIR"/"$(basename "$progURI")"
-    echo "1" > "$DEBUG_FILE"
-    chmod u+x "$DEBUG_FILE"
-    # END  
+    # Debug Start
+    if [[ $DEBUG_MODE == "true" ]]; then
+
+      echo "$compileURI"
+
+      # Debug file generator plug
+      DEBUG_FILE="$BIN_DIR"/"$progName"
+      echo "1" > "$DEBUG_FILE"
+      chmod u+x "$DEBUG_FILE"
+
+    fi
+    # Debug End  
+
   done
 
   chown -R "$USER_UID":"$USER_UID" "$BIN_DIR"/
@@ -56,14 +71,17 @@ function doCompile {
 
 } 
 
-function runCompileDocer {
+function doRunCompiler {
 
-  # BRANCH="$(git rev-parse --abbrev-ref HEAD)" \
+  # BRANCH="$(git rev-parse --abbrev-ref HEAD)"
+  CMD_DIR="cmd"
+  AUTH_KEY=$(cat "$HOME"/.ssh/id_rsa.pub)
 
   docker run --rm \
     -v "$(readlink -f "$SSH_AUTH_SOCK")":/ssh-agent \
     -e SSH_AUTH_SOCK=/ssh-agent \
-    -e CMD_DIR="cmd" \
+    -e AUTH_KEY="${AUTH_KEY}" \
+    -e CMD_DIR="${CMD_DIR:-"cmd"}" \
     -e USER_UID="$(id -u)" \
     -e CGO_ENABLED=0 \
     -e BRANCH="${BRANCH:-"latest"}" \
@@ -73,31 +91,57 @@ function runCompileDocer {
     golang:"$GOLANG_VER" "${BUILD_SCRIPT_NAME}" compile
 }
 
-#function doBuild {
-#docker run --rm \
-#    -v "$PWD":/tmp \
-#      -w /tmp goreleaser/nfpm:$NFPM_VER package \
-#        --config "${SHARED_BASE}/nfpm.yaml" \
-#          --target "${SHARED_BASE}/pkg" \
-#            --packager deb
-#}
+function doBuild {
+
+  docker run --rm \
+    -v "$PWD":$SHARED_BASE \
+    -w $SHARED_BASE \
+    goreleaser/nfpm:"$NFPM_VER" package \
+    --config "${SHARED_BASE}/debpkg/nfpm.yaml" \
+    --target "${SHARED_BASE}/debpkg" \
+    --packager deb
+  
+  USER_UID=$(id -u)
+  find "$PWD"/debpkg/ -type f -iname "*.deb" -exec chown "$USER_UID":"$USER_UID" {} \;
+
+}
+
+function doMakeTempDir {
+  if [ ! -d $TMP_DIR ]; then
+    mkdir $TMP_DIR
+  fi
+}
+
+function doDeleteTempDir {
+  if [ -d "$TMP_DIR" ]; then
+      rm -rf $TMP_DIR
+  fi
+}
 
 # Main entry point
 case $1 in 
-  "runDocker")
-    runCompileDocer
-    
+  "runCompiler")
+    doRunCompiler
     exit 0
     ;; 
 
   "compile")
     doCompile
-   
     exit 0
     ;;
 
   "build")
-    
+    doBuild
+    exit 0
+    ;;
+
+  "deleteTemp")
+    doDeleteTempDir
+    exit 0
+    ;;
+
+  "makeTemp")
+    doMakeTempDir
     exit 0
     ;;
   
@@ -110,14 +154,22 @@ case $1 in
     echo "GOLANG_VER: $GOLANG_VER"
     echo "CMD_DIR: $CMD_DIR"
     echo "BRANCH: $BRANCH"
+    echo "AUTH_KEY: $AUTH_KEY=$(cat "$HOME"/.ssh/id_rsa.pub)"
 
     exit 0
     ;;
  
   *)
-    echo " [+] Starting compiling procedure..."
-    $BUILD_SCRIPT_NAME runDocker
+    echo " [+] Making tempory directory ..."
+    $BUILD_SCRIPT_NAME makeTemp
 
-    exit 0
+    echo " [+] Starting compiling procedure..."
+    $BUILD_SCRIPT_NAME runCompiler
+    
+    echo " [+] Starting building procedure..."
+    $BUILD_SCRIPT_NAME build
+    
+    echo " [+] Clearning tempory files..."
+    $BUILD_SCRIPT_NAME deleteTemp
 esac
 

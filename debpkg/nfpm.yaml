@@ -3,7 +3,7 @@
 # check https://nfpm.goreleaser.com/configuration for detailed usage
 #
 name: "realm-admin"
-arch: ${DEB_ARCH}
+arch: "amd64"
 platform: "linux"
 version: 0.0.1
 epoch: 1
@@ -23,26 +23,18 @@ vendor: "VPNGen"
 homepage: "http://vpngen.org"
 
 contents:
-  - src: ./foo
-    dst: /usr/bin/foo
+  - src: ./.tmp
+    dst: /usr/bin/
     file_info:
       mode: 0700
       owner: root
       group: root
-  - src: ./bar
-    dst: /usr/bin/bar
-  - src: ./foobar.conf
-    dst: /etc/foobar.conf
-    type: config
-  - src: /usr/bin/foo
-    dst: /sbin/foo
-    type: symlink
 scripts:
   # Preinstall - scritp that set Env varibles
-  preinstall: ./debpkg/preinstall.sh
+  # preinstall: ./debpkg/preinstall.sh
   # Postinstall - the sensitive data cleaning scritps
   # postinstall: ./debpkg/postinstall.sh
     #preremove: ./scripts/preremove.sh
     #postremove: ./scripts/postremove.sh
-dep:
+deb:
   compression: xz
