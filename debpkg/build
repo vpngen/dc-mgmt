@@ -8,7 +8,6 @@
 BUILD_SCRIPT_NAME="$0"
 TMP_DIR="temp_dir"
 DEB_CONF_DIR="config"
-DEB_PACKAGE_DIR="debpkg"
 
 # Compiler varible set
 SHARED_BASE="/data"
@@ -28,6 +27,7 @@ TARGET_PACKAGE="deb"
 #AUTH_KEY="ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBMtZz9Q09I41faeyLIWEijSCFSp8bAbvX2dHUhKxGmJ7nPmqGhXDtDCDF3D1RiNMMQGMzrIaDZWq8WIy98eq2zI= root@vg-wolfs-mgmt"
 DEB_MAINTAINER_MAIL="mix.djoker@gmail.com"
 DEB_MAINTAINER="Mix dJoker <$DEB_MAINTAINER_MAIL>"
+BIN_INSTALL_PATH="/usr/bin/"
 
 # Debug
 DEBUG_MODE="true"
@@ -139,7 +139,7 @@ homepage: "http://vpngen.org"
 
 contents:
   - src: ${SHARED_BASE}/$COMPILED_BINS_DIR
-    dst: /usr/bin/
+    dst: $BIN_INSTALL_PATH
     file_info:
       mode: 0700
       owner: root
@@ -153,7 +153,6 @@ scripts:
     #postremove: ./scripts/postremove.sh
 deb:
   compression: xz
-
 EOF
 
 }
@@ -163,13 +162,12 @@ function doBuild {
   doNfpmConfigure
 
   docker run --rm \
-    -v "$TMP_DIR":$SHARED_BASE \
-    -w $SHARED_BASE \
-    goreleaser/nfpm:"$NFPM_VER" package \
-    --config "${SHARED_BASE}/$DEB_CONF_DIR/$NFPM_CONFIG_FILE_NAME" \
-    --target "${SHARED_BASE}/$DEB_PACKAGE_DIR" \
-    --packager $TARGET_PACKAGE
-  
+    -v "${PWD}/${TMP_DIR}":${SHARED_BASE} \
+    -w ${SHARED_BASE} \
+    goreleaser/nfpm:"${NFPM_VER}" package \
+    --config "${SHARED_BASE}/${DEB_CONF_DIR}/${NFPM_CONFIG_FILE_NAME}" \
+    --target "${SHARED_BASE}" \
+    --packager ${TARGET_PACKAGE}
 }
 
 # doMakeTempDir - create template dir
@@ -229,6 +227,7 @@ case $1 in
     echo "CMD_DIR: $CMD_DIR"
     echo "BRANCH: $BRANCH"
     echo "AUTH_KEY: $AUTH_KEY=$(cat "$HOME"/.ssh/id_rsa.pub)"
+    ls -l "$PWD"
 
     exit 0
     ;;
