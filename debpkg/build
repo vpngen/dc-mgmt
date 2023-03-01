@@ -7,32 +7,46 @@
 # Global environment varible set
 BUILD_SCRIPT_NAME="$0"
 TMP_DIR=".tmp"
+DEB_CONF_DIR="config"
+DEB_PACKAGE_DIR="debpkg"
 
 # Compiler varible set
 SHARED_BASE="/data"
 GOLANG_VER="$(grep -e "^go\s" go.mod | awk '{print $2}')"
+COMPILED_BINS_DIR="bins"
 GIT_REPO_URI="github.com/vpngen"
 PROJECT_NAME="realm-admin"
+PROJECT_ARCH="amd64"
+PROJECT_PLATFORM="linux"
+PROJECT_VERSION="0.0.1"
+PROJECT_EPOCH=1
 
 # Nfpm Varible set
 NFPM_VER="v2.26.0"
+NFPM_CONFIG_FILE_NAME="nfpm.yaml"
+TARGET_PACKAGE="deb"
 #AUTH_KEY="ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBMtZz9Q09I41faeyLIWEijSCFSp8bAbvX2dHUhKxGmJ7nPmqGhXDtDCDF3D1RiNMMQGMzrIaDZWq8WIy98eq2zI= root@vg-wolfs-mgmt"
 
 # Debug
-DEBUG_MODE="false"
+DEBUG_MODE="true"
 
 # doCompile - BASH-script tht compile and install every main.go recursevly in `${CMD_DIR}`
 function doCompile {
 
-  BIN_DIR="$GOPATH/bin"
+  GO_BINS="$GOPATH/bin"
+  OUTPUT_DIR="$TMP_DIR/$COMPILED_BINS_DIR"
 
-  # set -e
+  set -e
   
   # Check the $TMP_DIR exists
   if [ ! -d "$TMP_DIR" ]; then
     echo " [!] No tempory dir. Exiting"
     exit 1
   fi
+
+  echo " [+] Create temp dir for bins: $OUTPUT_DIR"
+  $BUILD_SCRIPT_NAME makeTemp $OUTPUT_DIR
+  chown "$USER_UID":"$USER_UID" $OUTPUT_DIR
   
   # Git connection set
   ssh-keyscan -t rsa github.com >> /etc/ssh/ssh_known_hosts
@@ -41,39 +55,43 @@ function doCompile {
   # Setup Go Env
   go env -w GOPRIVATE=github.com/vpngen
 
+  echo " [+] Recursavle compile bins from $CMD_DIR"
   MAINGO_LIST=$(find "$CMD_DIR/" -type f -name "main.go")
   for mainGo in $MAINGO_LIST; do
     progPath=$(dirname "$mainGo")
-    progName=$(basename "$progPath")
-    compileURI="$GIT_REPO_URI/$PROJECT_NAME/$progName"
+    compileURI="$GIT_REPO_URI/$PROJECT_NAME/$progPath"
     
-    go install "$compileURI"@"$BRANCH"
-    # go build -o "$BIN_DIR" mainGo
     
-    # Debug Start
+    # In debug mode - don't do compile
     if [[ $DEBUG_MODE == "true" ]]; then
 
-      echo "$compileURI"
+      echo " [!] DEBUG is set to $DEBUG_MODE"
+      echo "  [+] compileURI = $compileURI"
+      echo "  [+] progPath   = $progPath"
 
       # Debug file generator plug
-      DEBUG_FILE="$BIN_DIR"/"$progName"
-      echo "1" > "$DEBUG_FILE"
-      chmod u+x "$DEBUG_FILE"
+      debugExecFile="$GO_BINS"/"$(basename "$progPath")"
+      echo "1" > "$debugExecFile"
+      chmod u+x "$debugExecFile"
 
+    else
+
+      go install "$compileURI"@"$BRANCH"
+      # go build -o "$GO_BINS" mainGo
+  
     fi
     # Debug End  
 
   done
 
-  chown -R "$USER_UID":"$USER_UID" "$BIN_DIR"/
-
-  find "$BIN_DIR" -type f -exec mv {} "$TMP_DIR"/ \;
-
+  chown -R "$USER_UID":"$USER_UID" "$GO_BINS"/
+  find "$GO_BINS" -type f -exec mv {} "$OUTPUT_DIR" \;
 } 
 
+# doRunCompiler - run Go Docker and compile
 function doRunCompiler {
 
-  # BRANCH="$(git rev-parse --abbrev-ref HEAD)"
+  BRANCH="$(git rev-parse --abbrev-ref HEAD)"
   CMD_DIR="cmd"
   AUTH_KEY=$(cat "$HOME"/.ssh/id_rsa.pub)
 
@@ -91,30 +109,52 @@ function doRunCompiler {
     golang:"$GOLANG_VER" "${BUILD_SCRIPT_NAME}" compile
 }
 
-function doBuild {
+# doNfpmConfigure - make Nfpm configuration file
+function doNfpmConfigure {
+  confDirPath=$TMP_DIR/$DEB_CONF_DIR
+  $BUILD_SCRIPT_NAME makeTemp "$confDirPath"
 
-  docker run --rm \
-    -v "$PWD":$SHARED_BASE \
-    -w $SHARED_BASE \
-    goreleaser/nfpm:"$NFPM_VER" package \
-    --config "${SHARED_BASE}/debpkg/nfpm.yaml" \
-    --target "${SHARED_BASE}/debpkg" \
-    --packager deb
-  
-  USER_UID=$(id -u)
-  find "$PWD"/debpkg/ -type f -iname "*.deb" -exec chown "$USER_UID":"$USER_UID" {} \;
+  cat <<EOF >"$confDirPath/$NFPM_CONFIG_FILE_NAME"
+name: $PROJECT_NAME
+arch: $PROJECT_ARCH
+platform: $PROJECT_PLATFORM
+version: $PROJECT_VERSION
+epoch: $PROJECT_EPOCH
+EOF
 
 }
 
+# doBuild - Build DEB-package
+function doBuild {
+  doNfpmConfigure
+
+
+
+  #docker run --rm \
+  #  -v "$TMP_DIR":$SHARED_BASE \
+  #  -w $SHARED_BASE \
+  #  goreleaser/nfpm:"$NFPM_VER" package \
+  #  --config "${SHARED_BASE}/$DEB_CONF_DIR/$NFPM_CONFIG_FILE_NAME" \
+  #  --target "${SHARED_BASE}/$DEB_PACKAGE_DIR" \
+  #  --packager $TARGET_PACKAGE
+  #
+}
+
+# doMakeTempDir - create template dir
 function doMakeTempDir {
-  if [ ! -d $TMP_DIR ]; then
-    mkdir $TMP_DIR
+  targetDir=$1
+
+  if [ ! -d "$targetDir" ]; then
+    mkdir -p "$targetDir"
   fi
 }
 
+# doDeleteTempDir - deleting tempory directory
 function doDeleteTempDir {
-  if [ -d "$TMP_DIR" ]; then
-      rm -rf $TMP_DIR
+  targetDir=$1
+
+  if [ -d "$targetDir" ]; then
+      rm -rf "$targetDir"
   fi
 }
 
@@ -136,12 +176,14 @@ case $1 in
     ;;
 
   "deleteTemp")
-    doDeleteTempDir
+    shift
+    doDeleteTempDir "$@"
     exit 0
     ;;
 
   "makeTemp")
-    doMakeTempDir
+    shift
+    doMakeTempDir "$@"
     exit 0
     ;;
   
@@ -161,7 +203,7 @@ case $1 in
  
   *)
     echo " [+] Making tempory directory ..."
-    $BUILD_SCRIPT_NAME makeTemp
+    $BUILD_SCRIPT_NAME makeTemp $TMP_DIR
 
     echo " [+] Starting compiling procedure..."
     $BUILD_SCRIPT_NAME runCompiler
@@ -169,7 +211,7 @@ case $1 in
     echo " [+] Starting building procedure..."
     $BUILD_SCRIPT_NAME build
     
-    echo " [+] Clearning tempory files..."
-    $BUILD_SCRIPT_NAME deleteTemp
+    #echo " [+] Clearning tempory files..."
+    #$BUILD_SCRIPT_NAME deleteTemp $TMP_DIR
 esac
 
