@@ -6,7 +6,7 @@
 
 # Global environment varible set
 BUILD_SCRIPT_NAME="$0"
-TMP_DIR=".tmp"
+TMP_DIR="temp_dir"
 DEB_CONF_DIR="config"
 DEB_PACKAGE_DIR="debpkg"
 
@@ -26,6 +26,8 @@ NFPM_VER="v2.26.0"
 NFPM_CONFIG_FILE_NAME="nfpm.yaml"
 TARGET_PACKAGE="deb"
 #AUTH_KEY="ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBMtZz9Q09I41faeyLIWEijSCFSp8bAbvX2dHUhKxGmJ7nPmqGhXDtDCDF3D1RiNMMQGMzrIaDZWq8WIy98eq2zI= root@vg-wolfs-mgmt"
+DEB_MAINTAINER_MAIL="mix.djoker@gmail.com"
+DEB_MAINTAINER="Mix dJoker <$DEB_MAINTAINER_MAIL>"
 
 # Debug
 DEBUG_MODE="true"
@@ -115,11 +117,43 @@ function doNfpmConfigure {
   $BUILD_SCRIPT_NAME makeTemp "$confDirPath"
 
   cat <<EOF >"$confDirPath/$NFPM_CONFIG_FILE_NAME"
-name: $PROJECT_NAME
-arch: $PROJECT_ARCH
-platform: $PROJECT_PLATFORM
+name: "$PROJECT_NAME"
+arch: "$PROJECT_ARCH"
+platform: "$PROJECT_PLATFORM"
 version: $PROJECT_VERSION
 epoch: $PROJECT_EPOCH
+section: "default"
+priority: "extra"
+
+provides:
+  - $PROJECT_NAME
+depends:
+  - postgresql
+  - postgresql-contrib
+
+maintainer: "$DEB_MAINTAINER"
+description: |
+  The set of the VPNGen Data Center managers
+vendor: "VPNGen"
+homepage: "http://vpngen.org"
+
+contents:
+  - src: ${SHARED_BASE}/$COMPILED_BINS_DIR
+    dst: /usr/bin/
+    file_info:
+      mode: 0700
+      owner: root
+      group: root
+scripts:
+  # Preinstall - scritp that set Env varibles
+  # preinstall: ./debpkg/preinstall.sh
+  # Postinstall - the sensitive data cleaning scritps
+  # postinstall: ./debpkg/postinstall.sh
+    #preremove: ./scripts/preremove.sh
+    #postremove: ./scripts/postremove.sh
+deb:
+  compression: xz
+
 EOF
 
 }
@@ -128,16 +162,14 @@ EOF
 function doBuild {
   doNfpmConfigure
 
-
-
-  #docker run --rm \
-  #  -v "$TMP_DIR":$SHARED_BASE \
-  #  -w $SHARED_BASE \
-  #  goreleaser/nfpm:"$NFPM_VER" package \
-  #  --config "${SHARED_BASE}/$DEB_CONF_DIR/$NFPM_CONFIG_FILE_NAME" \
-  #  --target "${SHARED_BASE}/$DEB_PACKAGE_DIR" \
-  #  --packager $TARGET_PACKAGE
-  #
+  docker run --rm \
+    -v "$TMP_DIR":$SHARED_BASE \
+    -w $SHARED_BASE \
+    goreleaser/nfpm:"$NFPM_VER" package \
+    --config "${SHARED_BASE}/$DEB_CONF_DIR/$NFPM_CONFIG_FILE_NAME" \
+    --target "${SHARED_BASE}/$DEB_PACKAGE_DIR" \
+    --packager $TARGET_PACKAGE
+  
 }
 
 # doMakeTempDir - create template dir
