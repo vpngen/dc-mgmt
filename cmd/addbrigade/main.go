@@ -26,7 +26,7 @@ import (
 
 	"golang.org/x/crypto/ssh"
 
-	"github.com/vpngen/keydesk/user"
+	"github.com/vpngen/realm-admin/internal/kdlib"
 	"github.com/vpngen/wordsgens/namesgenerator"
 )
 
@@ -323,13 +323,13 @@ func createBrigade(db *pgxpool.Pool, schema, schemaStats string, opts *brigadeOp
 	}
 
 	for {
-		addr := user.RandomAddrIPv4(cgnat_gnet)
-		if user.IsZeroEnding(addr) {
+		addr := kdlib.RandomAddrIPv4(cgnat_gnet)
+		if kdlib.IsZeroEnding(addr) {
 			continue
 		}
 
 		cgnat_net = netip.PrefixFrom(addr, BrigadeCgnatPrefix)
-		if cgnat_net.Masked().Addr() == addr || user.LastPrefixIPv4(cgnat_net.Masked()) == addr {
+		if cgnat_net.Masked().Addr() == addr || kdlib.LastPrefixIPv4(cgnat_net.Masked()) == addr {
 			continue
 		}
 		if _, ok := cgnat[cgnat_net.Masked().Addr().String()]; !ok {
@@ -354,13 +354,13 @@ func createBrigade(db *pgxpool.Pool, schema, schemaStats string, opts *brigadeOp
 	}
 
 	for {
-		addr := user.RandomAddrIPv6(ula_gnet)
-		if user.IsZeroEnding(addr) {
+		addr := kdlib.RandomAddrIPv6(ula_gnet)
+		if kdlib.IsZeroEnding(addr) {
 			continue
 		}
 
 		ula_net = netip.PrefixFrom(addr, BrigadeUlaPrefix)
-		if ula_net.Masked().Addr() == addr || user.LastPrefixIPv6(ula_net.Masked()) == addr {
+		if ula_net.Masked().Addr() == addr || kdlib.LastPrefixIPv6(ula_net.Masked()) == addr {
 			continue
 		}
 
@@ -386,8 +386,8 @@ func createBrigade(db *pgxpool.Pool, schema, schemaStats string, opts *brigadeOp
 	}
 
 	for {
-		keydesk = user.RandomAddrIPv6(keydesk_gnet)
-		if user.IsZeroEnding(keydesk) {
+		keydesk = kdlib.RandomAddrIPv6(keydesk_gnet)
+		if kdlib.IsZeroEnding(keydesk) {
 			continue
 		}
 
