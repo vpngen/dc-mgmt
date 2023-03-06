@@ -6,13 +6,17 @@
 
 # Global environment varible set
 BUILD_SCRIPT_NAME="$0"
+BUILD_SCRIPT_DIR=$(dirname "$BUILD_SCRIPT_NAME")
 TMP_DIR="temp_dir"
 DEB_CONF_DIR="config"
 
 # Compiler varible set
 SHARED_BASE="/data"
+PACK_OUTPUT_DIR="/output"
 GOLANG_VER="$(grep -e "^go\s" go.mod | awk '{print $2}')"
 COMPILED_BINS_DIR="bins"
+COMPILED_SHELLS_DIR="shells"
+COMPILED_SQL_DIR="sqls"
 GIT_REPO_URI="github.com/vpngen"
 PROJECT_NAME="realm-admin"
 PROJECT_ARCH="amd64"
@@ -24,16 +28,21 @@ PROJECT_EPOCH=1
 NFPM_VER="v2.26.0"
 NFPM_CONFIG_FILE_NAME="nfpm.yaml"
 TARGET_PACKAGE="deb"
-#AUTH_KEY="ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBMtZz9Q09I41faeyLIWEijSCFSp8bAbvX2dHUhKxGmJ7nPmqGhXDtDCDF3D1RiNMMQGMzrIaDZWq8WIy98eq2zI= root@vg-wolfs-mgmt"
 DEB_MAINTAINER_MAIL="mix.djoker@gmail.com"
 DEB_MAINTAINER="Mix dJoker <$DEB_MAINTAINER_MAIL>"
 BIN_INSTALL_PATH="/usr/bin/"
+SHELL_INSTALL_PATH="/usr/bin/"
+INSTALLATION_TEMP_DIR="${PROJECT_NAME}_${TMP_DIR}"
+
+# DEB-installation Varible set
+PREINSTALL_SCRIPT_NAME="preinstall.sh"
+POSTINSTALL_SCRIPT_NAME="postinstall.sh"
 
 # Debug
 DEBUG_MODE="true"
 
-# doCompile - BASH-script tht compile and install every main.go recursevly in `${CMD_DIR}`
-function doCompile {
+# doBinCompile - BASH-script tht compile and install every main.go recursevly in `${CMD_DIR}`
+function doBinCompile {
 
   GO_BINS="$GOPATH/bin"
   OUTPUT_DIR="$TMP_DIR/$COMPILED_BINS_DIR"
@@ -48,7 +57,7 @@ function doCompile {
 
   echo " [+] Create temp dir for bins: $OUTPUT_DIR"
   $BUILD_SCRIPT_NAME makeTemp $OUTPUT_DIR
-  chown "$USER_UID":"$USER_UID" $OUTPUT_DIR
+  # chown "$USER_UID":"$USER_UID" $OUTPUT_DIR
   
   # Git connection set
   ssh-keyscan -t rsa github.com >> /etc/ssh/ssh_known_hosts
@@ -63,11 +72,9 @@ function doCompile {
     progPath=$(dirname "$mainGo")
     compileURI="$GIT_REPO_URI/$PROJECT_NAME/$progPath"
     
-    
     # In debug mode - don't do compile
     if [[ $DEBUG_MODE == "true" ]]; then
-
-      echo " [!] DEBUG is set to $DEBUG_MODE"
+      echo " ==== [!] DEBUG ===="
       echo "  [+] compileURI = $compileURI"
       echo "  [+] progPath   = $progPath"
 
@@ -75,20 +82,53 @@ function doCompile {
       debugExecFile="$GO_BINS"/"$(basename "$progPath")"
       echo "1" > "$debugExecFile"
       chmod u+x "$debugExecFile"
-
     else
-
-      go install "$compileURI"@"$BRANCH"
-      # go build -o "$GO_BINS" mainGo
-  
+      #go install "$compileURI"@"$BRANCH"
+      go build -o "$GO_BINS" "$mainGo"
     fi
     # Debug End  
-
   done
 
-  chown -R "$USER_UID":"$USER_UID" "$GO_BINS"/
+  # chown -R "$USER_UID":"$USER_UID" "$GO_BINS"/
   find "$GO_BINS" -type f -exec mv {} "$OUTPUT_DIR" \;
 } 
+
+function doShellCompile {
+  OUTPUT_DIR="$TMP_DIR/$COMPILED_SHELLS_DIR"
+
+  set -e
+
+  # Check the $TMP_DIR exists
+  if [ ! -d "$TMP_DIR" ]; then
+  echo " [!] No tempory dir. Exiting"
+    exit 1
+  fi
+
+  echo " [+] Create temp dir for shells: $OUTPUT_DIR"
+  $BUILD_SCRIPT_NAME makeTemp $OUTPUT_DIR
+
+  echo " [+] Start copping the shells scripts"
+  find "$CMD_DIR/" -type f -name "*.sh" -exec cp {} $OUTPUT_DIR/ \;
+}
+
+function doDBInitCompile {
+  OUTPUT_DIR="$TMP_DIR/$COMPILED_SQL_DIR"
+
+  set -e
+
+  # Check the $TMP_DIR exists
+  if [ ! -d "$TMP_DIR" ]; then
+  echo " [!] No tempory dir. Exiting"
+    exit 1
+  fi
+
+  echo " [+] Create temp dir for SQLs: $OUTPUT_DIR"
+  $BUILD_SCRIPT_NAME makeTemp $OUTPUT_DIR
+
+  echo " [+] Start copping the SQLs scripts"
+  find "./" -type f -name "*.sql" -exec cp {} $OUTPUT_DIR/ \;
+
+}
 
 # doRunCompiler - run Go Docker and compile
 function doRunCompiler {
@@ -115,6 +155,9 @@ function doRunCompiler {
 function doNfpmConfigure {
   confDirPath=$TMP_DIR/$DEB_CONF_DIR
   $BUILD_SCRIPT_NAME makeTemp "$confDirPath"
+  
+  cp "$BUILD_SCRIPT_DIR"/$PREINSTALL_SCRIPT_NAME $confDirPath/
+  cp "$BUILD_SCRIPT_DIR"/$POSTINSTALL_SCRIPT_NAME $confDirPath/
 
   cat <<EOF >"$confDirPath/$NFPM_CONFIG_FILE_NAME"
 name: "$PROJECT_NAME"
@@ -124,35 +167,43 @@ version: $PROJECT_VERSION
 epoch: $PROJECT_EPOCH
 section: "default"
 priority: "extra"
-
 provides:
   - $PROJECT_NAME
+  - 
 depends:
   - postgresql
   - postgresql-contrib
-
 maintainer: "$DEB_MAINTAINER"
 description: |
   The set of the VPNGen Data Center managers
 vendor: "VPNGen"
 homepage: "http://vpngen.org"
-
 contents:
-  - src: ${SHARED_BASE}/$COMPILED_BINS_DIR
-    dst: $BIN_INSTALL_PATH
+  - src: ${SHARED_BASE}/${COMPILED_BINS_DIR}
+    dst: ${BIN_INSTALL_PATH}
     file_info:
       mode: 0700
       owner: root
       group: root
-scripts:
-  # Preinstall - scritp that set Env varibles
-  # preinstall: ./debpkg/preinstall.sh
-  # Postinstall - the sensitive data cleaning scritps
-  # postinstall: ./debpkg/postinstall.sh
-    #preremove: ./scripts/preremove.sh
-    #postremove: ./scripts/postremove.sh
+  - src: ${SHARED_BASE}/${COMPILED_SHELLS_DIR}
+    dst: ${SHELL_INSTALL_PATH}
+    file_info:
+      mode: 0700
+      owner: root
+      group: root
+  - src: ${SHARED_BASE}/${COMPILED_SQL_DIR}
+    dst: /tmp/${INSTALLATION_TEMP_DIR}/sql
+overrides:
+  deb:
+    scripts:
+      preinstall: ./${DEB_CONF_DIR}/${PREINSTALL_SCRIPT_NAME}
+      postinstall: ${DEB_CONF_DIR}/${POSTINSTALL_SCRIPT_NAME}
+      # preremove: ${DEB_CONF_DIR}/${PREREMOVE_SCRIPT_NAME}
+      # postremove: ${DEB_CONF_DIR}/${POSTREMOVE_SCRIPT_NAME}
 deb:
   compression: xz
+  fields:
+   Pre-Depends: postgresql 
 EOF
 
 }
@@ -163,10 +214,11 @@ function doBuild {
 
   docker run --rm \
     -v "${PWD}/${TMP_DIR}":${SHARED_BASE} \
+    -v "${PWD}":${PACK_OUTPUT_DIR} \
     -w ${SHARED_BASE} \
     goreleaser/nfpm:"${NFPM_VER}" package \
     --config "${SHARED_BASE}/${DEB_CONF_DIR}/${NFPM_CONFIG_FILE_NAME}" \
-    --target "${SHARED_BASE}" \
+    --target "${PACK_OUTPUT_DIR}" \
     --packager ${TARGET_PACKAGE}
 }
 
@@ -188,15 +240,32 @@ function doDeleteTempDir {
   fi
 }
 
+function mainFunc {
+    echo " [+] Making tempory directory ..."
+    $BUILD_SCRIPT_NAME makeTemp $TMP_DIR
+
+    echo " [+] Starting compiling procedure..."
+    $BUILD_SCRIPT_NAME runCompiler
+    
+    echo " [+] Starting building procedure..."
+    $BUILD_SCRIPT_NAME build
+    
+    #echo " [+] Clearning tempory files..."
+    #$BUILD_SCRIPT_NAME deleteTemp $TMP_DIR
+
+}
+
 # Main entry point
 case $1 in 
   "runCompiler")
     doRunCompiler
+    doShellCompile
+    doDBInitCompile
     exit 0
     ;; 
 
   "compile")
-    doCompile
+    doBinCompile
     exit 0
     ;;
 
@@ -227,22 +296,13 @@ case $1 in
     echo "CMD_DIR: $CMD_DIR"
     echo "BRANCH: $BRANCH"
     echo "AUTH_KEY: $AUTH_KEY=$(cat "$HOME"/.ssh/id_rsa.pub)"
+    echo "BUILD_SCRIPT_DIR: $BUILD_SCRIPT_DIR"
     ls -l "$PWD"
 
     exit 0
     ;;
  
   *)
-    echo " [+] Making tempory directory ..."
-    $BUILD_SCRIPT_NAME makeTemp $TMP_DIR
-
-    echo " [+] Starting compiling procedure..."
-    $BUILD_SCRIPT_NAME runCompiler
-    
-    echo " [+] Starting building procedure..."
-    $BUILD_SCRIPT_NAME build
-    
-    #echo " [+] Clearning tempory files..."
-    #$BUILD_SCRIPT_NAME deleteTemp $TMP_DIR
+    mainFunc
 esac
 

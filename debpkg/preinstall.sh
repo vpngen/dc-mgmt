@@ -1,25 +1,54 @@
-#!/bin/sh
+#!/bin/bash
 
 set -e
 
-CONFDIR=${CONFDIR:-"/etc/vgrealm"}
-echo "confdir: ${CONFDIR}"
-DBNAME=${DBNAME:-$(cat "${CONFDIR}"/dbname)}
-echo "dbname: $DBNAME"
-SCHEMA_PAIRS=${SCHEMA_PAIRS:-$(cat "${CONFDIR}"/pairs_schema)}
-echo "pairs schema: $SCHEMA_PAIRS"
-PAIRS_DBUSER=${PAIRS_DBUSER:-$(cat "${CONFDIR}"/pairs_dbuser)}
-echo "pairs user: $PAIRS_DBUSER"
-SCHEMA_BRIGADES=${SCHEMA_BRIGADES:-$(cat "${CONFDIR}"/brigades_schema)}
-echo "brigades schema: $SCHEMA_BRIGADES"
-BRIGADES_DBUSER=${BRIGADES_DBUSER:-$(cat "${CONFDIR}"/brigades_dbuser)}
-echo "brigades user: $BRIGADES_DBUSER"
+# Script varible set
+PREINSTALL_SCRIPT_NAME="$0"
+PROJECT_NAME="realm-admin"
+TMP_DIR="temp_dir"
 
-set -x
+export INSTALLATION_TEMP_DIR="${PROJECT_NAME}_${TMP_DIR}"
 
-sudo -i -u postgres psql -v -d "${DBNAME}" \
-    --set schema_pairs_name="${SCHEMA_PAIRS}" \
-    --set schema_brigades_name="${SCHEMA_BRIGADES}" \
-    --set pairs_dbuser="${PAIRS_DBUSER}" \
-    --set brigades_dbuser="${BRIGADES_DBUSER}" \
-    < $(dirname "$0")/000-install.sql
+
+DBNAME=${DBNAME:-"vgralm"}
+PAIRS_DBUSER=${PAIRS_DBUSER:-"vgrealm"}
+BRIGADES_DBUSER=${BRIGADES_DBUSER:-"vgrealm"}
+PAIRS_SCHEMA=${PSCHEMA:-"pairs"}
+BRIGADES_SCHEMA=${BSCHEMA:-"brigades"}
+
+REALM_ADMIN=${REALM_ADMIN:-"vgrealm"}
+SSH_API_USER=${SSH_API_USER:="_valera_"}
+
+
+function doCheckDBRunAndStart {
+    sqlPID=$(pgrep postgresql)
+
+    if [ -n "$sqlPID" ]; then
+	return 0
+    fi
+    return 1
+}
+
+function doInstallUsers {
+    echo "doInstallUsers"
+}
+
+function doInitDB {
+    echo "doInitDB"
+    mkdir -p /tmp/${INSTALLATION_TEMP_DIR}/sql
+}
+
+function mainFunc {
+    if ! doCheckDBRunAndStart; then
+	echo "Starting PostgreSQL..."
+	#service postgresql start
+    fi
+
+    doInstallUsers
+    doInitDB
+}
+
+case $1 in
+    *)
+	mainFunc
+esac
