@@ -57,7 +57,7 @@ function doBinCompile {
 
   echo " [+] Create temp dir for bins: $OUTPUT_DIR"
   $BUILD_SCRIPT_NAME makeTemp $OUTPUT_DIR
-  # chown "$USER_UID":"$USER_UID" $OUTPUT_DIR
+  chown "$USER_UID":"$USER_UID" $OUTPUT_DIR
   
   # Git connection set
   ssh-keyscan -t rsa github.com >> /etc/ssh/ssh_known_hosts
@@ -89,7 +89,7 @@ function doBinCompile {
     # Debug End  
   done
 
-  # chown -R "$USER_UID":"$USER_UID" "$GO_BINS"/
+  chown -R "$USER_UID":"$USER_UID" "$GO_BINS"/
   find "$GO_BINS" -type f -exec mv {} "$OUTPUT_DIR" \;
 } 
 

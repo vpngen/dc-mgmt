@@ -44,12 +44,15 @@ function doRemoveTempDir {
     rm -rf "/tmp/${INSTALLATION_TEMP_DIR}"
 }
 
+# dpkg Error
 function doRemoveDebFile {
     echo " [=] Remove Deb-file"
 
-    find ./ -type f -name "*.deb" -exec rm -f {} \;
+    find ./ -type f -regextype posix-extended -regex ".*${PROJECT_NAME}.*\.deb$" -exec rm -f {} \;
 }
 
 doInitDB
 doRemoveTempDir
 doRemoveDebFile
+
+echo "[=] Finished install ${PROJECT_NAME}"
