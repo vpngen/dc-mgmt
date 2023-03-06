@@ -14,8 +14,10 @@ SCHEMA_BRIGADES=${BSCHEMA:-"brigades"}
 function doCheckDBExist {
     db=$(sudo -i -u postgres psql -l | grep "${DBNAME}")
     if [ -n "$db" ]; then 
+	echo " [!] DB ${DBNAME} is exist"
 	return 0
     fi
+    echo " [!] DB ${DBNAME} is not exist"
     return 1
 }
 
@@ -24,15 +26,16 @@ function doInitDB {
     SQL_FILES_PATH="/tmp/${INSTALLATION_TEMP_DIR}/sql"
 
     if ! doCheckDBExist; then 
+	echo " [+] Create DB ${DBNAME}"
 	sudo -i -u postgres psql -c "CREATE DATABASE ${DBNAME};"
     fi
 
-    sudo -i -u postgres psql -v -d "${DBNAME}" \
+    sudo -i -u postgres cat ${SQL_FILES_PATH}/000-install.sql | sudo -i -u postgres psql \
+	-v -d "${DBNAME}" \
 	--set schema_pairs_name="${SCHEMA_PAIRS}" \
 	--set schema_brigades_name="${SCHEMA_BRIGADES}" \
 	--set pairs_dbuser="${PAIRS_DBUSER}" \
-	--set brigades_dbuser="${BRIGADES_DBUSER}" \
-	< "$SQL_FILES_PATH"/000-install.sql
+	--set brigades_dbuser="${BRIGADES_DBUSER}"
     
     echo " [=]  Init DB finished"
 
@@ -40,15 +43,14 @@ function doInitDB {
 
 function doRemoveTempDir {
     echo " [=] Remove Temp dir: ${INSTALLATION_TEMP_DIR}"
-
     rm -rf "/tmp/${INSTALLATION_TEMP_DIR}"
 }
 
 # dpkg Error
 function doRemoveDebFile {
     echo " [=] Remove Deb-file"
-
-    find ./ -type f -regextype posix-extended -regex ".*${PROJECT_NAME}.*\.deb$" -exec rm -f {} \;
+    files=$(find ./ -maxdepth 2 -type f -regextype posix-extended -regex ".*${PROJECT_NAME}.*\.deb$" -exec rm -f {} \;)
+    echo "$files"
 }
 
 doInitDB

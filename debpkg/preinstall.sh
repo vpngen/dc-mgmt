@@ -13,32 +13,38 @@ SSH_API_USER=${SSH_API_USER:="_valera_"}
 
 
 function doCheckDBRunAndStart {
-    sqlPID=$(pgrep postgresql)
+    dbServerStatus=$(service postgresql status | grep online)
 
-    if [ -n "$sqlPID" ]; then
+    if [ -n "$dbServerStatus" ]; then
+	echo " [!] Proccess PostgreSQL has already running: ${dbServerStatus}"
 	return 0
     fi
+    echo " [!] Proccess PostgreSQL is down: ${dbServerStatus}"
     return 1
 }
 
 function doCheckUserExist {
     expectExistUser=$1
-    usr=$(grep /etc/passwd "${expectExistUser}")
+    usr=$(grep "${expectExistUser}"  /etc/passwd)
     if [ -n "$usr" ]; then 
+	echo " [!] ${expectExistUser} is exist"
 	return 0
     fi
+    echo " [!] ${expectExistUser} is not exist" 
     return 1
 }
 
 function doInstallUsers {
     echo " [=] Check or Install users"
 
-    if ! doCheckUserExist "${REALM_ADMIN}"; then 
+    if ! doCheckUserExist "${REALM_ADMIN}"; then
+	echo " [+] Add user ${REALM_ADMIN}"
 	useradd -p "*" -m "${REALM_ADMIN}"
 	chmod 700 "/home/${REALM_ADMIN}"
     fi
 
     if ! doCheckUserExist "${SSH_API_USER}"; then
+	echo " [+] Add user ${SSH_API_USER}"
 	useradd -p "*" -m "${SSH_API_USER}"
 	chmod 700 "/home/${SSH_API_USER}"
     fi
