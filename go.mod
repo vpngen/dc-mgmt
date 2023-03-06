@@ -5,7 +5,7 @@ go 1.19
 require (
 	github.com/google/uuid v1.3.0
 	github.com/jackc/pgx/v5 v5.1.1
-	github.com/vpngen/keydesk v0.0.0-20221212220752-ecd7e452cb58
+	//github.com/vpngen/keydesk v0.0.0-20221212220752-ecd7e452cb58
 	github.com/vpngen/wordsgens v0.0.0-20221207004108-93481a4776f9
 	golang.org/x/crypto v0.4.0
 )

@@ -39,7 +39,7 @@ PREINSTALL_SCRIPT_NAME="preinstall.sh"
 POSTINSTALL_SCRIPT_NAME="postinstall.sh"
 
 # Debug
-DEBUG_MODE="true"
+DEBUG_MODE="false"
 
 # doBinCompile - BASH-script tht compile and install every main.go recursevly in `${CMD_DIR}`
 function doBinCompile {
