@@ -75,8 +75,8 @@ function doBinCompile {
     # In debug mode - don't do compile
     if [[ $DEBUG_MODE == "true" ]]; then
       echo " ==== [!] DEBUG ===="
-      echo "  [+] compileURI = $compileURI"
-      echo "  [+] progPath   = $progPath"
+      echo "  [_] compileURI = $compileURI"
+      echo "  [_] progPath   = $progPath"
 
       # Debug file generator plug
       debugExecFile="$GO_BINS"/"$(basename "$progPath")"
@@ -126,7 +126,7 @@ function doDBInitCompile {
   $BUILD_SCRIPT_NAME makeTemp $OUTPUT_DIR
 
   echo " [+] Start copping the SQLs scripts"
-  find "./" -type f -name "*.sql" -exec cp {} $OUTPUT_DIR/ \;
+  find "./install" -type f -name "*.sql" -exec cp {} $OUTPUT_DIR/ \;
 
 }
 
@@ -169,10 +169,10 @@ section: "default"
 priority: "extra"
 provides:
   - $PROJECT_NAME
-  - 
 depends:
   - postgresql
   - postgresql-contrib
+  - sudo
 maintainer: "$DEB_MAINTAINER"
 description: |
   The set of the VPNGen Data Center managers
@@ -196,7 +196,7 @@ contents:
 overrides:
   deb:
     scripts:
-      preinstall: ./${DEB_CONF_DIR}/${PREINSTALL_SCRIPT_NAME}
+      preinstall: ${DEB_CONF_DIR}/${PREINSTALL_SCRIPT_NAME}
       postinstall: ${DEB_CONF_DIR}/${POSTINSTALL_SCRIPT_NAME}
       # preremove: ${DEB_CONF_DIR}/${PREREMOVE_SCRIPT_NAME}
       # postremove: ${DEB_CONF_DIR}/${POSTREMOVE_SCRIPT_NAME}
@@ -250,8 +250,8 @@ function mainFunc {
     echo " [+] Starting building procedure..."
     $BUILD_SCRIPT_NAME build
     
-    #echo " [+] Clearning tempory files..."
-    #$BUILD_SCRIPT_NAME deleteTemp $TMP_DIR
+    echo " [+] Clearning tempory files..."
+    $BUILD_SCRIPT_NAME deleteTemp $TMP_DIR
 
 }
 

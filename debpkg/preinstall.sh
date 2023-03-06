@@ -3,18 +3,11 @@
 set -e
 
 # Script varible set
-PREINSTALL_SCRIPT_NAME="$0"
 PROJECT_NAME="realm-admin"
 TMP_DIR="temp_dir"
 
-export INSTALLATION_TEMP_DIR="${PROJECT_NAME}_${TMP_DIR}"
+INSTALLATION_TEMP_DIR="${PROJECT_NAME}_${TMP_DIR}"
 
-
-DBNAME=${DBNAME:-"vgralm"}
-PAIRS_DBUSER=${PAIRS_DBUSER:-"vgrealm"}
-BRIGADES_DBUSER=${BRIGADES_DBUSER:-"vgrealm"}
-PAIRS_SCHEMA=${PSCHEMA:-"pairs"}
-BRIGADES_SCHEMA=${BSCHEMA:-"brigades"}
 
 REALM_ADMIN=${REALM_ADMIN:-"vgrealm"}
 SSH_API_USER=${SSH_API_USER:="_valera_"}
@@ -33,19 +26,19 @@ function doInstallUsers {
     echo "doInstallUsers"
 }
 
-function doInitDB {
-    echo "doInitDB"
+function doMakeDBInitDir {
+    echo " [=] Make DB Init Temp Dir"
     mkdir -p /tmp/${INSTALLATION_TEMP_DIR}/sql
 }
 
 function mainFunc {
     if ! doCheckDBRunAndStart; then
-	echo "Starting PostgreSQL..."
-	#service postgresql start
+	echo " [=] Starting PostgreSQL..."
+	service postgresql start
     fi
 
     doInstallUsers
-    doInitDB
+    doMakeDBInitDir
 }
 
 case $1 in
