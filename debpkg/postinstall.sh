@@ -41,7 +41,7 @@ function doInitDB {
 	--set brigades_dbuser="${BRIGADES_DBUSER}" \
 	--set schema_stats_name="${SCHEMA_STATS}" \
 	--set stats_dbuser="${STATS_DBUSER}" \
-	--set ministry_stats_dbuser="${MINISTRY_STATS_DBUSER}" \
+	--set ministry_stats_dbuser="${MINISTRY_STATS_DBUSER}" 
     
     echo " [=]  Init DB finished"
 
