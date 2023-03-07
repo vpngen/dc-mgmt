@@ -34,7 +34,7 @@ function doInitDB {
     fi
 
     sudo -i -u postgres cat ${SQL_FILES_PATH}/000-install.sql | sudo -i -u postgres psql \
-	-v -d "${DBNAME}" \
+	-q -v -d "${DBNAME}" \
 	--set schema_pairs_name="${SCHEMA_PAIRS}" \
 	--set schema_brigades_name="${SCHEMA_BRIGADES}" \
 	--set pairs_dbuser="${PAIRS_DBUSER}" \
