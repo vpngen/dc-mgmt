@@ -149,6 +149,11 @@ function doRunCompiler {
     -v "${PWD}":"${SHARED_BASE}" \
     -w "${SHARED_BASE}" \
     golang:"$GOLANG_VER" "${BUILD_SCRIPT_NAME}" compile
+
+  debFiles=$(find . -type f -name "*.deb") 
+  for dFile in $debFiles; do
+    chown "$(id -u)":"$(id -u)" "$dFile"
+  done
 }
 
 # doNfpmConfigure - make Nfpm configuration file

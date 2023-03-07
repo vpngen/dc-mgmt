@@ -2,12 +2,10 @@
 
 set -e
 
-CONFDIR=${CONFDIR:-"/etc/vgrealm"}
-echo "confdir: ${CONFDIR}"
-DBNAME=${DBNAME:-$(cat ${CONFDIR}/dbname)}
+DBNAME=${DBNAME:-"vgrealm"}
 echo "dbname: $DBNAME"
-SCHEMA=${SCHEMA:-$(cat ${CONFDIR}/brigades_schema)}
-echo "schema: $SCHEMA"
+SCHEMA_BRIGADES=${BSCHEMA:-"brigades"}
+echo "schema: $SCHEMA_BRIGADES"
 
 cgnat_net="$1"
 
@@ -16,9 +14,9 @@ if [ "x" = "x${cgnat_net}" ]; then
     exit 1
 fi
 
-ON_ERROR_STOP=yes psql -d ${DBNAME} \
-    --set schema_name=${SCHEMA} \
-    --set cgnat_net=${cgnat_net} <<EOF
+ON_ERROR_STOP=yes psql -d "${DBNAME}" \
+    --set schema_name="${SCHEMA_BRIGADES}" \
+    --set cgnat_net="${cgnat_net}" <<EOF
 BEGIN;
 INSERT INTO :"schema_name".ipv4_cgnat_nets (ipv4_net) VALUES (:'cgnat_net');
 COMMIT;

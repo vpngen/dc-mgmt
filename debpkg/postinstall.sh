@@ -6,13 +6,13 @@ TMP_DIR="temp_dir"
 INSTALLATION_TEMP_DIR="${PROJECT_NAME}_${TMP_DIR}"
 
 DBNAME=${DBNAME:-"vgrealm"}
-PAIRS_DBUSER=${PAIRS_DBUSER:-"vgrealm"}
-BRIGADES_DBUSER=${BRIGADES_DBUSER:-"vgrealm"}
+PAIRS_DBUSER=${PAIRS_DBUSER:-"pairs-realm"}
+BRIGADES_DBUSER=${BRIGADES_DBUSER:-"brigates-realm"}
 SCHEMA_PAIRS=${PSCHEMA:-"pairs"}
 SCHEMA_BRIGADES=${BSCHEMA:-"brigades"}
 SCHEMA_STATS=${STSCHEMA:-"stats"}
-STATS_DBUSER=${STATS_DBUSER:-"vgrealm"}
-MINISTRY_STATS_DBUSER=${MNST_STATS_DBUSER:-"vgrealm"}
+STATS_DBUSER=${STATS_DBUSER:-"stats-realm"}
+MINISTRY_STATS_DBUSER=${MNST_STATS_DBUSER:-"ministry-realm"}
 
 function doCheckDBExist {
     db=$(sudo -i -u postgres psql -l | grep "${DBNAME}")

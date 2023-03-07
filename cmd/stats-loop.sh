@@ -21,17 +21,17 @@ update() {
 EOF
 }
 
-list=$(psql -d ${DBNAME} -v ON_ERROR_STOP=yes -t -A -c 'SELECT pair_id FROM pairs.pairs WHERE is_active=true ORDER BY control_ip')
+list=$(psql -d "${DBNAME}" -v ON_ERROR_STOP=yes -t -A -c 'SELECT pair_id FROM pairs.pairs WHERE is_active=true ORDER BY control_ip')
 
 for sid in ${list} ; do
         echo "[i] Server: ${sid}"
 
-	ip=$(psql -d ${DBNAME} -q -v ON_ERROR_STOP=yes -t -A --set sid=${sid} <<EOF
+	ip=$(psql -d "${DBNAME}" -q -v ON_ERROR_STOP=yes -t -A --set sid="${sid}" <<EOF
 SELECT control_ip FROM pairs.pairs WHERE pair_id=:'sid'
 EOF
 )
 
-	brigades=$(psql -d ${DBNAME} -q -v ON_ERROR_STOP=yes -t -A -F " " --set sid=${sid} <<EOF
+	brigades=$(psql -d "${DBNAME}" -q -v ON_ERROR_STOP=yes -t -A -F " " --set sid="${sid}" <<EOF
 SELECT brigade_id FROM brigades.brigades WHERE pair_id=:'sid'
 EOF
 )
@@ -43,7 +43,7 @@ EOF
 
 	cmd="stats -b ${list}"
 	echo "CMD: ${cmd}"
-	output=$(ssh -o IdentitiesOnly=yes -o IdentityFile=~/.ssh/id_ecdsa -o StrictHostKeyChecking=no ${USERNAME}@${ip} ${cmd})
+	output=$(ssh -o IdentitiesOnly=yes -o IdentityFile=~/.ssh/id_ecdsa -o StrictHostKeyChecking=no ${USERNAME}@"${ip}" "${cmd}")
 	rc=$?
 	if [ $rc -ne 0 ]; then 
 		echo "[-]         Something wrong: $rc"
@@ -55,10 +55,10 @@ EOF
 	count=$(echo "${output}" | jq -r '.stats|length')
 
 	a=0
-	while [ $a -lt ${count} ]; do
+	while [ "$a" -lt "${count}" ]; do
 		args=$(echo "${output}" | jq -r ".stats[${a}]" | jq -r '. | "\(.brigade_id) \(.ctreate_at) \(.last_visit) \(.users_count)"')
-		update ${args}
-		a=$(expr $a + 1)
+		update "${args}"
+		a=$(expr "$a" + 1)
 	done
 
 	#args=$(echo "${output}" jq -r '.stats[] | "\(.brigade_id),\(.ctreate_at),\(.last_visit),\(.users_count)"')
