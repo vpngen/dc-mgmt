@@ -10,6 +10,9 @@ PAIRS_DBUSER=${PAIRS_DBUSER:-"vgrealm"}
 BRIGADES_DBUSER=${BRIGADES_DBUSER:-"vgrealm"}
 SCHEMA_PAIRS=${PSCHEMA:-"pairs"}
 SCHEMA_BRIGADES=${BSCHEMA:-"brigades"}
+SCHEMA_STATS=${STSCHEMA:-"stats"}
+STATS_DBUSER=${STATS_DBUSER:-"vgrealm"}
+MINISTRY_STATS_DBUSER=${MNST_STATS_DBUSER:-"vgrealm"}
 
 function doCheckDBExist {
     db=$(sudo -i -u postgres psql -l | grep "${DBNAME}")
@@ -35,7 +38,10 @@ function doInitDB {
 	--set schema_pairs_name="${SCHEMA_PAIRS}" \
 	--set schema_brigades_name="${SCHEMA_BRIGADES}" \
 	--set pairs_dbuser="${PAIRS_DBUSER}" \
-	--set brigades_dbuser="${BRIGADES_DBUSER}"
+	--set brigades_dbuser="${BRIGADES_DBUSER}" \
+	--set schema_stats_name="${SCHEMA_STATS}" \
+	--set stats_dbuser="${STATS_DBUSER}" \
+	--set ministry_stats_dbuser="${MINISTRY_STATS_DBUSER}" \
     
     echo " [=]  Init DB finished"
 
