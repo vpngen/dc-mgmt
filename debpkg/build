@@ -88,10 +88,6 @@ function doBinCompile {
     fi
   done
 
-  echo "   =========DEBUG==========  "
-  ls -l "${GO_BINS}"
-  echo "   =========DEBUG==========  "
-
   chown -R "$USER_UID":"$USER_UID" "$GO_BINS"/
   find "$GO_BINS" -type f -exec mv {} "$OUTPUT_DIR" \;
 } 
