@@ -72,7 +72,7 @@ function doBinCompile {
     progPath=$(dirname "$mainGo")
     compileURI="$GIT_REPO_URI/$PROJECT_NAME/$progPath"
     
-    # In debug mode - don't do compile
+    # In debug mode - make plugs
     if [[ $DEBUG_MODE == "true" ]]; then
       echo " ==== [!] DEBUG ===="
       echo "  [_] compileURI = $compileURI"
@@ -83,11 +83,14 @@ function doBinCompile {
       echo "1" > "$debugExecFile"
       chmod u+x "$debugExecFile"
     else
-      #go install "$compileURI"@"$BRANCH"
-      go build -o "$GO_BINS" "$mainGo"
+      # Build bins with basedir names
+      go build -o "$GO_BINS/$(basename "$progPath")" "$mainGo"
     fi
-    # Debug End  
   done
+
+  echo "   =========DEBUG==========  "
+  ls -l "${GO_BINS}"
+  echo "   =========DEBUG==========  "
 
   chown -R "$USER_UID":"$USER_UID" "$GO_BINS"/
   find "$GO_BINS" -type f -exec mv {} "$OUTPUT_DIR" \;
