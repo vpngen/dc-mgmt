@@ -202,14 +202,14 @@ func revokeBrigade(db *pgxpool.Pool, schema string, sshconf *ssh.ClientConfig, b
 		return nil, fmt.Errorf("ssh run: %w", err)
 	}
 
-	output, err := io.ReadAll(httputil.NewChunkedReader(&b))
+	/*output, err := io.ReadAll(httputil.NewChunkedReader(&b))
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "readed data:\n%s\n", output)
 
 		return nil, fmt.Errorf("chunk read: %w", err)
-	}
+	}*/
 
-	return output, nil
+	return nil, nil
 }
 
 func createDBPool(dbname string) (*pgxpool.Pool, error) {
