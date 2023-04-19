@@ -2,24 +2,27 @@
 
 set -e
 
-CONFDIR=${CONFDIR:-"/etc/vgrealm"}
-echo "confdir: ${CONFDIR}"
-DBNAME=${DBNAME:-$(cat ${CONFDIR}/dbname)}
+DBNAME=${DBNAME:-"vgrealm"}
 echo "dbname: $DBNAME"
-SCHEMA_PAIRS=${SCHEMA_PAIRS:-$(cat ${CONFDIR}/pairs_schema)}
+SCHEMA_PAIRS=${SCHEMA_PAIRS:-"pairs"}
 echo "pairs schema: $SCHEMA_PAIRS"
-PAIRS_DBUSER=${PAIRS_DBUSER:-$(cat ${CONFDIR}/pairs_dbuser)}
+PAIRS_DBUSER=${PAIRS_DBUSER:-"vgradm"}
 echo "pairs user: $PAIRS_DBUSER"
-SCHEMA_BRIGADES=${SCHEMA_BRIGADES:-$(cat ${CONFDIR}/brigades_schema)}
+SCHEMA_BRIGADES=${SCHEMA_BRIGADES:-"brigades"}
 echo "brigades schema: $SCHEMA_BRIGADES"
-BRIGADES_DBUSER=${BRIGADES_DBUSER:-$(cat ${CONFDIR}/brigades_dbuser)}
+BRIGADES_DBUSER=${BRIGADES_DBUSER:-"vgrealm"}
 echo "brigades user: $BRIGADES_DBUSER"
+SCHEMA_STATS=${SCHEMA_STATS:-"stats"}
+echo "stats schema: $SCHEMA_STATS"
+STATS_DBUSER=${STATS_DBUSER:-"vgstats"}
+echo "brigades user: $STATS_DBUSER"
 
 set -x
 
-sudo -i -u postgres psql -v -d ${DBNAME} \
-    --set schema_pairs_name=${SCHEMA_PAIRS} \
-    --set schema_brigades_name=${SCHEMA_BRIGADES} \
-    --set pairs_dbuser=${PAIRS_DBUSER} \
-    --set brigades_dbuser=${BRIGADES_DBUSER} \
- < `dirname $0`/000-install.sql
+cat $(dirname $0)/*.sql | sudo -i -u postgres psql -v -d "${DBNAME}" \
+    --set schema_pairs_name="${SCHEMA_PAIRS}" \
+    --set pairs_dbuser="${PAIRS_DBUSER}" \
+    --set schema_brigades_name="${SCHEMA_BRIGADES}" \
+    --set brigades_dbuser="${BRIGADES_DBUSER}" \
+    --set schema_stats_name="${SCHEMA_STATS}" \
+    --set stats_dbuser="${STATS_DBUSER}" 
