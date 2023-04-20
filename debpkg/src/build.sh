@@ -11,7 +11,7 @@ go build -C dc-mgmt/cmd/getwasted -o ../../../bin/getwasted
 
 go install github.com/goreleaser/nfpm/v2/cmd/nfpm@latest
 
-nfpm package --config "keydesk/debpkg/nfpm.yaml" --target "${SHARED_BASE}/pkg" --packager deb
+nfpm package --config "dc-mgmt/debpkg/nfpm.yaml" --target "${SHARED_BASE}/pkg" --packager deb
 
 chown ${USER_UID}:${USER_UID} "${SHARED_BASE}/pkg/"*.deb
 
