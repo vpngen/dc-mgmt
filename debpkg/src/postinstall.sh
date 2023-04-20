@@ -38,6 +38,7 @@ init_database () {
         load_sql_file "${SQL_DIR}/init/000-versioning.sql"
         load_sql_file "${SQL_DIR}/init/001-init.sql"
 
+        rm -f "${SQL_DIR}/init/*.sql"
 }
 
 apply_database_patches () {
@@ -50,6 +51,8 @@ apply_database_patches () {
         if [ ${rc} -ne 0 ]; then
                 exit 1
         fi
+
+        rm -f "${SQL_DIR}/patches/*.sql"
 }
 
 
