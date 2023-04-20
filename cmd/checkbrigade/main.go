@@ -22,7 +22,7 @@ import (
 const (
 	dbnameFilename     = "dbname"
 	schemaNameFilename = "schema"
-	etcDefaultPath     = "/etc/vgrealm"
+	etcDefaultPath     = "/etc/vg-dc-mgmt"
 )
 
 const (

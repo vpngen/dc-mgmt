@@ -1,0 +1,10 @@
+[Unit]
+Description=Collect brigades statistics
+Wants=vg-dc-stats.timer
+
+[Service]
+Type=oneshot
+ExecStart=/opt/vg-dc-stats/stats-loop.sh
+
+[Install]
+WantedBy=multi-user.target

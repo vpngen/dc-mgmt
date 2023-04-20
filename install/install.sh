@@ -19,7 +19,15 @@ echo "brigades user: $STATS_DBUSER"
 
 set -x
 
-cat $(dirname $0)/*.sql | sudo -i -u postgres psql -v -d "${DBNAME}" \
+cat $(dirname $0)/init/*.sql | sudo -i -u postgres psql -v -d "${DBNAME}" \
+    --set schema_pairs_name="${SCHEMA_PAIRS}" \
+    --set pairs_dbuser="${PAIRS_DBUSER}" \
+    --set schema_brigades_name="${SCHEMA_BRIGADES}" \
+    --set brigades_dbuser="${BRIGADES_DBUSER}" \
+    --set schema_stats_name="${SCHEMA_STATS}" \
+    --set stats_dbuser="${STATS_DBUSER}" 
+
+cat $(dirname $0)/patch/*.sql | sudo -i -u postgres psql -v -d "${DBNAME}" \
     --set schema_pairs_name="${SCHEMA_PAIRS}" \
     --set pairs_dbuser="${PAIRS_DBUSER}" \
     --set schema_brigades_name="${SCHEMA_BRIGADES}" \

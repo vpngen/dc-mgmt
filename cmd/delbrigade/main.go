@@ -23,16 +23,20 @@ import (
 )
 
 const (
-	dbnameFilename       = "dbname"
-	schemaNameFilename   = "schema"
+	defaultBrigadesSchema      = "brigades"
+	defaultBrigadesStatsSchema = "stats"
+)
+
+const (
 	sshkeyFilename       = "id_ecdsa"
 	sshkeyRemoteUsername = "_serega_"
-	etcDefaultPath       = "/etc/vgrealm"
+	etcDefaultPath       = "/etc/vg-dc-mgmt"
 )
 
 const (
 	maxPostgresqlNameLen = 63
 	postgresqlSocket     = "/var/run/postgresql"
+	defaultDatabaseURL   = "postgresql://%2Fvar%2Frun%2Fpostgresql/vgrealm"
 )
 
 const sshTimeOut = time.Duration(5 * time.Second)
@@ -76,7 +80,7 @@ func main() {
 		log.Fatalf("%s: Can't parse args: %s\n", exe, err)
 	}
 
-	dbname, schema, err := readConfigs(confDir)
+	dbname, schema, _, err := readConfigs(confDir)
 	if err != nil {
 		log.Fatalf("%s: Can't read configs: %s\n", exe, err)
 	}
@@ -212,8 +216,8 @@ func revokeBrigade(db *pgxpool.Pool, schema string, sshconf *ssh.ClientConfig, b
 	return nil, nil
 }
 
-func createDBPool(dbname string) (*pgxpool.Pool, error) {
-	config, err := pgxpool.ParseConfig(fmt.Sprintf("host=%s dbname=%s", postgresqlSocket, dbname))
+func createDBPool(dburl string) (*pgxpool.Pool, error) {
+	config, err := pgxpool.ParseConfig(dburl)
 	if err != nil {
 		return nil, fmt.Errorf("conn string: %w", err)
 	}
@@ -261,28 +265,23 @@ func parseArgs() (bool, string, string, error) {
 	}
 }
 
-func readConfigs(path string) (string, string, error) {
-	f, err := os.Open(filepath.Join(path, dbnameFilename))
-	if err != nil {
-		return "", "", fmt.Errorf("can't open: %s: %w", dbnameFilename, err)
+func readConfigs(path string) (string, string, string, error) {
+	dbURL := os.Getenv("DB_URL")
+	if dbURL == "" {
+		dbURL = defaultDatabaseURL
 	}
 
-	dbname, err := io.ReadAll(io.LimitReader(f, maxPostgresqlNameLen))
-	if err != nil {
-		return "", "", fmt.Errorf("can't read: %s: %w", dbnameFilename, err)
+	brigadeSchema := os.Getenv("BRIGADES_SCHEMA")
+	if brigadeSchema == "" {
+		brigadeSchema = defaultBrigadesSchema
 	}
 
-	f, err = os.Open(filepath.Join(path, schemaNameFilename))
-	if err != nil {
-		return "", "", fmt.Errorf("can't open: %s: %w", schemaNameFilename, err)
+	brigadesStatsSchema := os.Getenv("BRIGADES_STATS")
+	if brigadesStatsSchema == "" {
+		brigadesStatsSchema = defaultBrigadesStatsSchema
 	}
 
-	schema, err := io.ReadAll(io.LimitReader(f, maxPostgresqlNameLen))
-	if err != nil {
-		return "", "", fmt.Errorf("can't read: %s: %w", schemaNameFilename, err)
-	}
-
-	return string(dbname), string(schema), nil
+	return dbURL, brigadeSchema, brigadesStatsSchema, nil
 }
 
 func createSSHConfig(path string) (*ssh.ClientConfig, error) {

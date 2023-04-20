@@ -1,6 +1,6 @@
 #!/bin/sh
 
-ETC="/etc/vgrealm"
+ETC="/etc/vg-dc-mgmt"
 DBNAME=${DBNAME:-"vgrealm"}
 SCHEMA_BRIGADES=${BSCHEMA:-"brigades"}
 SSHKEY=${SSHKEY:-"${ETC}/id_ecdsa"}
