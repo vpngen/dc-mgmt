@@ -33,37 +33,37 @@ contents:
     owner: vgadmin
     group: vgadmin
 
--src: dc-mgmt/cmd/addnet/add_endpoint_net.sh
- dst: /opt/vg-admin
- file_info:
-   mode: 0005
-   owner: root
-   group: root
--src: dc-mgmt/cmd/addnet/add_private_net.sh
- dst: /opt/vg-admin
-   mode: 0005
-   owner: root
-   group: root
--src: dc-mgmt/cmd/addnet/add_cgnat_net.sh
- dst: /opt/vg-admin
-   mode: 0005
-   owner: root
-   group: root
--src: dc-mgmt/cmd/addnet/add_ula_net.sh
- dst: /opt/vg-admin
-   mode: 0005
-   owner: root
-   group: root
--src: dc-mgmt/cmd/addnet/add_keydesk_net.sh
- dst: /opt/vg-admin
-   mode: 0005
-   owner: root
-   group: root
--src: dc-mgmt/cmd/addpair/add_pair.sh
- dst: /opt/vg-admin
-   mode: 0005
-   owner: root
-   group: root
+- src: dc-mgmt/cmd/addnet/add_endpoint_net.sh
+  dst: /opt/vg-admin
+  file_info:
+    mode: 0005
+    owner: root
+    group: root
+- src: dc-mgmt/cmd/addnet/add_private_net.sh
+  dst: /opt/vg-admin
+    mode: 0005
+    owner: root
+    group: root
+- src: dc-mgmt/cmd/addnet/add_cgnat_net.sh
+  dst: /opt/vg-admin
+    mode: 0005
+    owner: root
+    group: root
+- src: dc-mgmt/cmd/addnet/add_ula_net.sh
+  dst: /opt/vg-admin
+    mode: 0005
+    owner: root
+    group: root
+- src: dc-mgmt/cmd/addnet/add_keydesk_net.sh
+  dst: /opt/vg-admin
+    mode: 0005
+    owner: root
+    group: root
+- src: dc-mgmt/cmd/addpair/add_pair.sh
+  dst: /opt/vg-admin
+    mode: 0005
+    owner: root
+    group: root
 
 - dst: /opt/vg-vpnapi
   type: dir
