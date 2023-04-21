@@ -36,7 +36,7 @@ const (
 
 const (
 	maxPostgresqlNameLen = 63
-	defaultDatabaseURL   = "postgresql://unix(/var/run/postgresql)/vgrealm"
+	defaultDatabaseURL   = "postgresql:///vgrealm"
 )
 
 const sshTimeOut = time.Duration(5 * time.Second)
