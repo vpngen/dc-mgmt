@@ -9,7 +9,7 @@ BRIGADES_DBUSER=${BRIGADES_DBUSER:-"vgvpnapi"}
 SCHEMA_STATS=${SCHEMA_STATS:-"stats"}
 STATS_DBUSER=${STATS_DBUSER:-"vgstats"}
 
-SQL_DIR="/usr/share/vg-dc-admin"
+SQL_DIR="/usr/share/vg-dc-mgmt"
 
 load_sql_file () {
         cat "$1" | sudo -u "${DBUSER}" psql -d "${DBNAME}" -v ON_ERROR_STOP=yes \
@@ -27,7 +27,7 @@ load_sql_file () {
 
 init_database () {
         # Create database
-        cat "CREATE DATABASE :dbname;" | sudo -u "${DBUSER}" psql --set dbname="${DBNAME}" -v ON_ERROR_STOP=yes
+        echo "CREATE DATABASE :dbname;" | sudo -u "${DBUSER}" psql --set dbname="${DBNAME}" -v ON_ERROR_STOP=yes
         rc=$?
         if [ ${rc} -ne 0 ]; then
                 exit 1
