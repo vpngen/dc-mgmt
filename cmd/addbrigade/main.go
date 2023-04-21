@@ -15,6 +15,7 @@ import (
 	"net/netip"
 	"net/url"
 	"os"
+	"os/user"
 	"path/filepath"
 	"time"
 	"unicode/utf8"
@@ -184,11 +185,6 @@ var (
 func main() {
 	var w io.WriteCloser
 
-	confDir := os.Getenv("CONFDIR")
-	if confDir == "" {
-		confDir = etcDefaultPath
-	}
-
 	executable, _ := os.Executable()
 	exe := filepath.Base(executable)
 
@@ -197,12 +193,12 @@ func main() {
 		log.Fatalf("%s: Can't parse args: %s\n", exe, err)
 	}
 
-	dbURL, brigadesSchema, brigadesStatsSchema, err := readConfigs(confDir)
+	sshKeyDir, dbURL, brigadesSchema, brigadesStatsSchema, err := readConfigs()
 	if err != nil {
 		log.Fatalf("%s: Can't read configs: %s\n", exe, err)
 	}
 
-	sshconf, err := createSSHConfig(confDir)
+	sshconf, err := createSSHConfig(sshKeyDir)
 	if err != nil {
 		log.Fatalf("%s: Can't create ssh configs: %s\n", exe, err)
 	}
@@ -658,7 +654,7 @@ func parseArgs() (bool, *brigadeOpts, error) {
 	return *chunked, opts, nil
 }
 
-func readConfigs(path string) (string, string, string, error) {
+func readConfigs() (string, string, string, string, error) {
 	dbURL := os.Getenv("DB_URL")
 	if dbURL == "" {
 		dbURL = defaultDatabaseURL
@@ -674,7 +670,21 @@ func readConfigs(path string) (string, string, string, error) {
 		brigadesStatsSchema = defaultBrigadesStatsSchema
 	}
 
-	return dbURL, brigadeSchema, brigadesStatsSchema, nil
+	sshKeyDir := os.Getenv("CONFDIR")
+	if sshKeyDir == "" {
+		sysUser, err := user.Current()
+		if err != nil {
+			return "", "", "", "", fmt.Errorf("user: %w", err)
+		}
+
+		sshKeyDir = filepath.Join(sysUser.HomeDir, ".ssh")
+	}
+
+	if fstat, err := os.Stat(sshKeyDir); err != nil || !fstat.IsDir() {
+		sshKeyDir = etcDefaultPath
+	}
+
+	return sshKeyDir, dbURL, brigadeSchema, brigadesStatsSchema, nil
 }
 
 func createSSHConfig(path string) (*ssh.ClientConfig, error) {

@@ -20,51 +20,45 @@ homepage: "http://vpngen.org"
 license: "LGPL"
 
 contents:
-- dst: /opt/vg-admin
+- dst: /opt/vg-dc-admin
   type: dir
   file_info:
     mode: 0111
     owner: root
     group: root
-- dst: /etc/vg-admin
-  type: dir
-  file_info:
-    mode: 0550
-    owner: vgadmin
-    group: vgadmin
 
 - src: dc-mgmt/cmd/addnet/add_endpoint_net.sh
-  dst: /opt/vg-admin/add_endpoint_net.sh
+  dst: /opt/vg-dc-admin/add_endpoint_net.sh
   file_info:
     mode: 0005
     owner: root
     group: root
 - src: dc-mgmt/cmd/addnet/add_private_net.sh
-  dst: /opt/vg-admin/add_private_net.sh
+  dst: /opt/vg-dc-admin/add_private_net.sh
   file_info:
     mode: 0005
     owner: root
     group: root
 - src: dc-mgmt/cmd/addnet/add_cgnat_net.sh
-  dst: /opt/vg-admin/add_cgnat_net.sh
+  dst: /opt/vg-dc-admin/add_cgnat_net.sh
   file_info:
     mode: 0005
     owner: root
     group: root
 - src: dc-mgmt/cmd/addnet/add_ula_net.sh
-  dst: /opt/vg-admin/add_ula_net.sh
+  dst: /opt/vg-dc-admin/add_ula_net.sh
   file_info:
     mode: 0005
     owner: root
     group: root
 - src: dc-mgmt/cmd/addnet/add_keydesk_net.sh
-  dst: /opt/vg-admin/add_keydesk_net.sh
+  dst: /opt/vg-dc-admin/add_keydesk_net.sh
   file_info:
     mode: 0005
     owner: root
     group: root
 - src: dc-mgmt/cmd/addpair/add_pair.sh
-  dst: /opt/vg-admin/add_pair.sh
+  dst: /opt/vg-dc-admin/add_pair.sh
   file_info:
     mode: 0005
     owner: root
@@ -76,12 +70,6 @@ contents:
     mode: 0111
     owner: root
     group: root
-- dst: /etc/vg-vpnapi
-  type: dir
-  file_info:
-    mode: 0550
-    owner: vgvpnapi
-    group: vgvpnapi
 
 - src: bin/addbrigade
   dst: /opt/vg-vpnapi/addbrigade
@@ -132,12 +120,6 @@ contents:
     mode: 0111
     owner: root
     group: root
-- dst: /etc/vg-dc-stats
-  type: dir
-  file_info:
-    mode: 0550
-    owner: vgstats
-    group: vgstats
 
 - src: dc-mgmt/cmd/stats-loop.sh
   dst: /opt/vg-dc-stats/stats-loop.sh

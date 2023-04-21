@@ -9,7 +9,7 @@ BRIGADES_DBUSER=${BRIGADES_DBUSER:-"vgvpnapi"}
 SCHEMA_STATS=${SCHEMA_STATS:-"stats"}
 STATS_DBUSER=${STATS_DBUSER:-"vgstats"}
 
-SQL_DIR="/usr/share/vg-dc-stats"
+SQL_DIR="/usr/share/vg-dc-admin"
 
 load_sql_file () {
         cat "$1" | sudo -u "${DBUSER}" psql -d "${DBNAME}" -v ON_ERROR_STOP=yes \
