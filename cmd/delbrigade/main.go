@@ -36,8 +36,7 @@ const (
 
 const (
 	maxPostgresqlNameLen = 63
-	postgresqlSocket     = "/var/run/postgresql"
-	defaultDatabaseURL   = "postgresql://%2Fvar%2Frun%2Fpostgresql/vgrealm"
+	defaultDatabaseURL   = "postgresql:///var/run/postgresql/vgrealm"
 )
 
 const sshTimeOut = time.Duration(5 * time.Second)
@@ -272,7 +271,7 @@ func readConfigs() (string, string, string, string, error) {
 		brigadeSchema = defaultBrigadesSchema
 	}
 
-	brigadesStatsSchema := os.Getenv("BRIGADES_STATS")
+	brigadesStatsSchema := os.Getenv("BRIGADES_STATS_SCHEMA")
 	if brigadesStatsSchema == "" {
 		brigadesStatsSchema = defaultBrigadesStatsSchema
 	}

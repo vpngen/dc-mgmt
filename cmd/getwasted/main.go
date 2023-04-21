@@ -16,14 +16,13 @@ import (
 )
 
 const (
-	dbnameFilename     = "dbname"
-	schemaNameFilename = "schema" // shit!!!!
-	etcDefaultPath     = "/etc/vgrealm"
+	defaultBrigadesSchema      = "brigades"
+	defaultBrigadesStatsSchema = "stats"
 )
 
 const (
 	maxPostgresqlNameLen = 63
-	postgresqlSocket     = "/var/run/postgresql"
+	defaultDatabaseURL   = "postgresql:///var/run/postgresql/vgrealm"
 )
 
 const (
@@ -54,11 +53,6 @@ var errInlalidArgs = errors.New("invalid args")
 func main() {
 	var w io.WriteCloser
 
-	confDir := os.Getenv("CONFDIR")
-	if confDir == "" {
-		confDir = etcDefaultPath
-	}
-
 	executable, _ := os.Executable()
 	exe := filepath.Base(executable)
 
@@ -67,12 +61,12 @@ func main() {
 		log.Fatalf("%s: Can't parse args: %s\n", exe, err)
 	}
 
-	dbname, schema, err := readConfigs(confDir)
+	dbURL, schema, err := readConfigs()
 	if err != nil {
 		log.Fatalf("%s: Can't read configs: %s\n", exe, err)
 	}
 
-	db, err := createDBPool(dbname)
+	db, err := createDBPool(dbURL)
 	if err != nil {
 		log.Fatalf("%s: Can't create db pool: %s\n", exe, err)
 	}
@@ -122,9 +116,7 @@ func getWasted(db *pgxpool.Pool, schema string, days, num int) ([]byte, error) {
 
 	// lock on brigades, register used nets
 
-	var (
-		id string
-	)
+	var id string
 
 	_, err = pgx.ForEachRow(rows, []any{&id}, func() error {
 		output = fmt.Appendln(output, id)
@@ -145,8 +137,8 @@ func getWasted(db *pgxpool.Pool, schema string, days, num int) ([]byte, error) {
 	return output, nil
 }
 
-func createDBPool(dbname string) (*pgxpool.Pool, error) {
-	config, err := pgxpool.ParseConfig(fmt.Sprintf("host=%s dbname=%s", postgresqlSocket, dbname))
+func createDBPool(dbURL string) (*pgxpool.Pool, error) {
+	config, err := pgxpool.ParseConfig(dbURL)
 	if err != nil {
 		return nil, fmt.Errorf("conn string: %w", err)
 	}
@@ -173,26 +165,15 @@ func parseArgs() (bool, int, int, error) {
 	return *chunked, *days, *num, nil
 }
 
-func readConfigs(path string) (string, string, error) {
-	f, err := os.Open(filepath.Join(path, dbnameFilename))
-	if err != nil {
-		return "", "", fmt.Errorf("can't open: %s: %w", dbnameFilename, err)
+func readConfigs() (string, string, error) {
+	dbURL := os.Getenv("DB_URL")
+	if dbURL == "" {
+		dbURL = defaultDatabaseURL
 	}
 
-	dbname, err := io.ReadAll(io.LimitReader(f, maxPostgresqlNameLen))
-	if err != nil {
-		return "", "", fmt.Errorf("can't read: %s: %w", dbnameFilename, err)
+	brigadesStatsSchema := os.Getenv("BRIGADES_STATS_SCHEMA")
+	if brigadesStatsSchema == "" {
+		brigadesStatsSchema = defaultBrigadesStatsSchema
 	}
-
-	f, err = os.Open(filepath.Join(path, schemaNameFilename))
-	if err != nil {
-		return "", "", fmt.Errorf("can't open: %s: %w", schemaNameFilename, err)
-	}
-
-	schema, err := io.ReadAll(io.LimitReader(f, maxPostgresqlNameLen))
-	if err != nil {
-		return "", "", fmt.Errorf("can't read: %s: %w", schemaNameFilename, err)
-	}
-
-	return string(dbname), string(schema), nil
+	return dbURL, brigadesStatsSchema, nil
 }
