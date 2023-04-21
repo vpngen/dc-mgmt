@@ -37,6 +37,7 @@ init_database () {
 
         load_sql_file "${SQL_DIR}/init/000-versioning.sql"
         load_sql_file "${SQL_DIR}/init/001-init.sql"
+        load_sql_file "${SQL_DIR}/init/002-roles.sql"
 
         rm -f "${SQL_DIR}/init/*.sql"
 }
