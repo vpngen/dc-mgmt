@@ -9,7 +9,7 @@ release: ${PACKAGE_RELEASE}
 provides:
 - vg-dc-mgmt
 depends:
-- openssh
+- openssh-client
 - sudo
 - postgresql
 
