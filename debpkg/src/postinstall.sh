@@ -27,7 +27,7 @@ load_sql_file () {
 
 init_database () {
         # Create database
-        sudo -u "${DBUSER}" psql --set dbname="${DBNAME}" -v ON_ERROR_STOP=yes -c "CREATE DATABASE :dbname;"
+        cat "CREATE DATABASE :dbname;" | sudo -u "${DBUSER}" psql --set dbname="${DBNAME}" -v ON_ERROR_STOP=yes
         rc=$?
         if [ ${rc} -ne 0 ]; then
                 exit 1
