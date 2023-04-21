@@ -22,7 +22,7 @@ const (
 
 const (
 	maxPostgresqlNameLen = 63
-	defaultDatabaseURL   = "postgresql:///var/run/postgresql/vgrealm"
+	defaultDatabaseURL   = "postgresql://unix(/var/run/postgresql)/vgrealm"
 )
 
 const (
