@@ -37,6 +37,10 @@ cleanInstall() {
 
 upgrade() {
     	printf "Pre Install of an upgrade\n"
+
+        # Create new users
+        create_users
+
         systemctl stop vg-dc-stats.timer ||:
 }
 

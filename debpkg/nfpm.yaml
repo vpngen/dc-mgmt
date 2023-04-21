@@ -64,7 +64,7 @@ contents:
     owner: root
     group: root
 
-- dst: /opt/vg-vpnapi
+- dst: /opt/vg-dc-vpnapi
   type: dir
   file_info:
     mode: 0111
@@ -72,43 +72,43 @@ contents:
     group: root
 
 - src: bin/addbrigade
-  dst: /opt/vg-vpnapi/addbrigade
+  dst: /opt/vg-dc-vpnapi/addbrigade
   file_info:
     mode: 0005
     owner: root
     group: root
 - src: bin/gen
-  dst: /opt/vg-vpnapi/gen
+  dst: /opt/vg-dc-vpnapi/gen
   file_info:
     mode: 0005
     owner: root
     group: root
 - src: dc-mgmt/cmd/addbrigade/gen/gen2add.sh
-  dst: /opt/vg-vpnapi/gen2add.sh
+  dst: /opt/vg-dc-vpnapi/gen2add.sh
   file_info:
     mode: 0005
     owner: root
     group: root
 - src: bin/delbrigade
-  dst: /opt/vg-vpnapi/delbrigade
+  dst: /opt/vg-dc-vpnapi/delbrigade
   file_info:
     mode: 0005
     owner: root
     group: root
 - src: bin/getwasted
-  dst: /opt/vg-vpnapi/getwasted
+  dst: /opt/vg-dc-vpnapi/getwasted
   file_info:
     mode: 0005
     owner: root
     group: root
 - src: dc-mgmt/cmd/kdsync.sh
-  dst: /opt/vg-vpnapi/kdsync.sh
+  dst: /opt/vg-dc-vpnapi/kdsync.sh
   file_info:
     mode: 0005
     owner: root
     group: root
 - src: dc-mgmt/cmd/ssh_command.sh
-  dst: /opt/vg-vpnapi/ssh_command.sh
+  dst: /opt/vg-dc-vpnapi/ssh_command.sh
   file_info:
     mode: 0005
     owner: root
