@@ -4,7 +4,7 @@ Requires=vg-dc-stats.service
 
 [Timer]
 Unit=vg-dc-stats.service
-OnCalendar=daily
+OnCalendar=hourly
 
 [Install]
 WantedBy=timers.target
