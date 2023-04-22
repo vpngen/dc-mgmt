@@ -80,32 +80,7 @@ CREATE TABLE :"schema_brigades_name".ipv6_keydesk_nets (
     ipv6_net cidr_ula PRIMARY KEY NOT NULL
 );
 
-CREATE VIEW :"schema_pairs_name".private_cidr_nets_weight AS (
-    SELECT
-        private_cidr_nets.id,
-        private_cidr_nets.ipv4_net,
-        2^masklen(private_cidr_nets.ipv4_net) - COUNT(pairs.*) - 2 AS weight
-    FROM
-        :"schema_pairs_name".private_cidr_nets
-        LEFT JOIN :"schema_pairs_name".pairs ON pairs.control_ip << private_cidr_nets.ipv4_net
-    GROUP BY private_cidr_nets.ipv4_net
-    HAVING 2^masklen(private_cidr_nets.ipv4_net) - COUNT(pairs.*) - 2 > 0
-);
-
-CREATE VIEW :"schema_brigades_name".ipv4_cgnat_nets_weight AS (
-    SELECT
-        ipv4_cgnat_nets.id,
-        ipv4_cgnat_nets.ipv4_net,
-        2^(24 - masklen(ipv4_cgnat_nets.ipv4_net)) - COUNT(brigades.*) AS weight 
-    FROM
-        :"schema_brigades_name".ipv4_cgnat_nets
-        LEFT JOIN :"schema_brigades_name".brigades ON brigades.ipv4_cgnat << ipv4_cgnat_nets.ipv4_net
-    GROUP BY ipv4_cgnat_nets.ipv4_net
-    HAVING 2^(24 - masklen(ipv4_cgnat_nets.ipv4_net)) - COUNT(brigades.*) > 0
-);
-
--- VIEW FOR BRIGADES
-
+-- Brigades.
 CREATE TABLE :"schema_brigades_name".brigades (
     brigade_id          uuid PRIMARY KEY NOT NULL,
     pair_id             uuid NOT NULL,
@@ -121,6 +96,42 @@ CREATE TABLE :"schema_brigades_name".brigades (
     FOREIGN KEY (endpoint_ipv4) REFERENCES :"schema_pairs_name".pairs_endpoints_ipv4 (endpoint_ipv4)
 );
 
+-- VIEWS
+
+-- The view calculates the available IP addresses (weight) within each 
+-- private CIDR subnet by excluding the IP addresses already assigned to
+-- 'control_ip' in the pairs table.
+CREATE VIEW :"schema_pairs_name".private_cidr_nets_weight AS (
+    SELECT
+        private_cidr_nets.id,
+        private_cidr_nets.ipv4_net,
+        2^masklen(private_cidr_nets.ipv4_net) - COUNT(pairs.*) - 2 AS weight
+    FROM
+        :"schema_pairs_name".private_cidr_nets
+        LEFT JOIN :"schema_pairs_name".pairs ON pairs.control_ip << private_cidr_nets.ipv4_net
+    GROUP BY private_cidr_nets.ipv4_net
+    HAVING 2^masklen(private_cidr_nets.ipv4_net) - COUNT(pairs.*) - 2 > 0
+);
+
+-- The view calculates the available IP addresses (weight) within each 
+-- IPv4 CGNAT subnet by excluding the IP addresses already assigned to 
+-- 'ipv4_cgnat' in the brigades table.
+CREATE VIEW :"schema_brigades_name".ipv4_cgnat_nets_weight AS (
+    SELECT
+        ipv4_cgnat_nets.id,
+        ipv4_cgnat_nets.ipv4_net,
+        2^(24 - masklen(ipv4_cgnat_nets.ipv4_net)) - COUNT(brigades.*) AS weight 
+    FROM
+        :"schema_brigades_name".ipv4_cgnat_nets
+        LEFT JOIN :"schema_brigades_name".brigades ON brigades.ipv4_cgnat << ipv4_cgnat_nets.ipv4_net
+    GROUP BY ipv4_cgnat_nets.ipv4_net
+    HAVING 2^(24 - masklen(ipv4_cgnat_nets.ipv4_net)) - COUNT(brigades.*) > 0
+);
+
+-- The view calculates the number of available IP address 
+-- slots (free_slots_count) for each active pair in the pairs table, 
+-- considering the IP addresses already assigned in the brigades table 
+-- and select only those pairs that have at least one.
 CREATE VIEW :"schema_brigades_name".active_pairs AS 
     SELECT 
         pairs.pair_id, 
@@ -136,6 +147,9 @@ CREATE VIEW :"schema_brigades_name".active_pairs AS
         COUNT(pairs_endpoints_ipv4.*)-COUNT(brigades.*) > 0
 ;
 
+-- The view that lists all the available IP address 
+-- slots (endpoint IPv4 addresses) for each pair in the pairs table 
+-- that are not yet assigned in the brigades table.
 CREATE VIEW :"schema_brigades_name".slots AS 
     SELECT
         pairs.pair_id,
@@ -165,7 +179,7 @@ CREATE VIEW :"schema_brigades_name".meta_brigades AS
     	brigades.ipv4_cgnat,
     	brigades.ipv6_ula,
     	brigades.person,
-		pairs.control_ip
+	pairs.control_ip
     FROM
         :"schema_brigades_name".brigades,
         :"schema_pairs_name".pairs
@@ -173,6 +187,9 @@ CREATE VIEW :"schema_brigades_name".meta_brigades AS
         pairs.pair_id=brigades.pair_id
 ;
 
+-- The view calculates the available IP addresses (weight) within each
+-- IPv4 subnet in the ipv4_nets table by excluding the IP addresses 
+-- already assigned in the pairs_endpoints_ipv4 table.
 CREATE VIEW :"schema_pairs_name".ipv4_nets_weight AS (
     SELECT
         ipv4_nets.id,
@@ -186,6 +203,10 @@ CREATE VIEW :"schema_pairs_name".ipv4_nets_weight AS (
     HAVING 2^masklen(ipv4_nets.ipv4_net) - COUNT(pairs_endpoints_ipv4.*) - 2 > 0
 );
 
+-- The view calculates the number of assigned (opposite available) 
+-- IPv6 Unique Local Addresses (ULA) within each IPv6 subnet in 
+-- the ipv6_ula_nets table by counting the occurrences of these addresses
+-- in the brigades table.
 CREATE VIEW :"schema_brigades_name".ipv6_ula_nets_iweight AS (
     SELECT
         ipv6_ula_nets.id,
@@ -197,6 +218,9 @@ CREATE VIEW :"schema_brigades_name".ipv6_ula_nets_iweight AS (
     GROUP BY ipv6_ula_nets.ipv6_net
 );
 
+-- The view calculates the number of assigned IPv6 addresses within 
+-- each IPv6 subnet in the ipv6_keydesk_nets table by counting the 
+-- occurrences of these addresses in the brigades table.
 CREATE VIEW :"schema_brigades_name".ipv6_keydesk_nets_iweight AS (
     SELECT
         ipv6_keydesk_nets.id,
