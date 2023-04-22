@@ -17,8 +17,11 @@ GRANT USAGE,SELECT,UPDATE ON ALL SEQUENCES IN SCHEMA :"schema_brigades_name" TO 
 -- Create role for brigades.
 
 CREATE ROLE :"brigades_dbuser" WITH LOGIN;
+
+GRANT USAGE ON SCHEMA :"schema_brigades_name" TO :"brigades_dbuser";
 GRANT SELECT ON :"schema_brigades_name".ipv4_cgnat_nets, :"schema_brigades_name".ipv6_ula_nets, :"schema_brigades_name".ipv6_keydesk_nets TO :"brigades_dbuser";
-GRANT SELECT,UPDATE ON :"schema_brigades_name".active_pairs, :"schema_brigades_name".slots TO :"brigades_dbuser";
+GRANT SELECT,UPDATE ON :"schema_brigades_name".active_pairs, :"schema_brigades_name".slots, :"schema_brigades_name".meta_brigades TO :"brigades_dbuser";
+GRANT SELECT,UPDATE ON :"schema_pairs_name".ipv4_nets_weight, :"schema_pairs_name".private_cidr_nets_weight, :"schema_brigades_name".ipv4_cgnat_nets_weight, :"schema_brigades_name".ipv6_ula_nets_iweight, :"schema_brigades_name".ipv6_keydesk_nets_iweight TO :"brigades_dbuser";
 GRANT SELECT,UPDATE,INSERT,DELETE ON :"schema_brigades_name".brigades TO :"brigades_dbuser";
 GRANT USAGE,SELECT,UPDATE ON ALL SEQUENCES IN SCHEMA :"schema_brigades_name" TO :"brigades_dbuser";
 
@@ -28,9 +31,11 @@ GRANT SELECT,INSERT,DELETE ON ALL TABLES IN SCHEMA :"schema_stats_name" TO :"bri
 -- Create role for stats dbuser.
 
 CREATE ROLE :"stats_dbuser" WITH LOGIN;
-GRANT ALL PRIVILEGES ON SCHEMA :"schema_stats_name" TO :"stats_dbuser";
+GRANT USAGE ON SCHEMA :"schema_stats_name" TO :"stats_dbuser";
+GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA :"schema_stats_name" TO :"stats_dbuser";
 
 GRANT USAGE ON SCHEMA :"schema_brigades_name" TO :"stats_dbuser";
+GRANT SELECT ON ALL TABLES IN SCHEMA :"schema_brigades_name" TO :"stats_dbuser";
 GRANT USAGE,SELECT ON ALL SEQUENCES IN SCHEMA :"schema_brigades_name"  TO :"stats_dbuser";
 
 GRANT USAGE ON SCHEMA :"schema_pairs_name" TO :"stats_dbuser";

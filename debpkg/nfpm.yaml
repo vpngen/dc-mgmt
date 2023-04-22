@@ -12,6 +12,7 @@ depends:
 - openssh-client
 - sudo
 - postgresql
+- jq
 
 maintainer: "Ingmund Ollson <ingmund@proton.me>"
 description: VPNGen datacenter management
