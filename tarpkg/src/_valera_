@@ -1,1 +1,0 @@
-_valera_          ALL=(vgrealm:vgrealm) NOPASSWD: /opt/vgrealm/cmd/ssh_command.sh

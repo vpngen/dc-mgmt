@@ -1,0 +1,156 @@
+name: "vg-dc-mgmt"
+arch: "amd64"
+platform: "linux"
+version: ${PACKAGE_VERSION}
+section: "default"
+priority: "optional"
+release: ${PACKAGE_RELEASE}
+
+provides:
+- vg-dc-mgmt
+depends:
+- openssh-client
+- sudo
+- postgresql
+- jq
+
+maintainer: "Ingmund Ollson <ingmund@proton.me>"
+description: VPNGen datacenter management
+vendor: "VPNGen"
+homepage: "http://vpngen.org"
+license: "LGPL"
+
+contents:
+- dst: /opt/vg-dc-admin
+  type: dir
+  file_info:
+    mode: 0111
+    owner: root
+    group: root
+
+- src: dc-mgmt/cmd/addnet/add_endpoint_net.sh
+  dst: /opt/vg-dc-admin/add_endpoint_net.sh
+  file_info:
+    mode: 0005
+    owner: root
+    group: root
+- src: dc-mgmt/cmd/addnet/add_private_net.sh
+  dst: /opt/vg-dc-admin/add_private_net.sh
+  file_info:
+    mode: 0005
+    owner: root
+    group: root
+- src: dc-mgmt/cmd/addnet/add_cgnat_net.sh
+  dst: /opt/vg-dc-admin/add_cgnat_net.sh
+  file_info:
+    mode: 0005
+    owner: root
+    group: root
+- src: dc-mgmt/cmd/addnet/add_ula_net.sh
+  dst: /opt/vg-dc-admin/add_ula_net.sh
+  file_info:
+    mode: 0005
+    owner: root
+    group: root
+- src: dc-mgmt/cmd/addnet/add_keydesk_net.sh
+  dst: /opt/vg-dc-admin/add_keydesk_net.sh
+  file_info:
+    mode: 0005
+    owner: root
+    group: root
+- src: dc-mgmt/cmd/addpair/add_pair.sh
+  dst: /opt/vg-dc-admin/add_pair.sh
+  file_info:
+    mode: 0005
+    owner: root
+    group: root
+
+- dst: /opt/vg-dc-vpnapi
+  type: dir
+  file_info:
+    mode: 0111
+    owner: root
+    group: root
+
+- src: bin/addbrigade
+  dst: /opt/vg-dc-vpnapi/addbrigade
+  file_info:
+    mode: 0005
+    owner: root
+    group: root
+- src: bin/gen
+  dst: /opt/vg-dc-vpnapi/gen
+  file_info:
+    mode: 0005
+    owner: root
+    group: root
+- src: dc-mgmt/cmd/addbrigade/gen/gen2add.sh
+  dst: /opt/vg-dc-vpnapi/gen2add.sh
+  file_info:
+    mode: 0005
+    owner: root
+    group: root
+- src: bin/delbrigade
+  dst: /opt/vg-dc-vpnapi/delbrigade
+  file_info:
+    mode: 0005
+    owner: root
+    group: root
+- src: bin/getwasted
+  dst: /opt/vg-dc-vpnapi/getwasted
+  file_info:
+    mode: 0005
+    owner: root
+    group: root
+- src: dc-mgmt/cmd/kdsync.sh
+  dst: /opt/vg-dc-vpnapi/kdsync.sh
+  file_info:
+    mode: 0005
+    owner: root
+    group: root
+- src: dc-mgmt/cmd/ssh_command.sh
+  dst: /opt/vg-dc-vpnapi/ssh_command.sh
+  file_info:
+    mode: 0005
+    owner: root
+    group: root
+    
+- dst: /opt/vg-dc-stats
+  type: dir
+  file_info:
+    mode: 0111
+    owner: root
+    group: root
+
+- src: dc-mgmt/cmd/stats-loop.sh
+  dst: /opt/vg-dc-stats/stats-loop.sh
+  file_info:
+    mode: 0005
+    owner: root
+    group: root
+
+- src: dc-mgmt/systemd/vg-dc-stats.timer
+  dst: /etc/systemd/system/vg-dc-stats.timer
+  file_info:
+    mode: 0644
+    owner: root
+    group: root
+- src: dc-mgmt/systemd/vg-dc-stats.service
+  dst: /etc/systemd/system/vg-dc-stats.service
+  file_info:
+    mode: 0644
+    owner: root
+    group: root
+
+- src: dc-mgmt/sql
+  dst: /usr/share/vg-dc-mgmt
+
+overrides:
+  deb:
+    scripts:
+      preinstall: /data/src/preinstall.sh
+      postinstall: /data/src/postinstall.sh
+      preremove: /data/src/preremove.sh
+      postremove: /data/src/postremove.sh
+deb:
+  compression: xz
