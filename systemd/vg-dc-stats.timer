@@ -1,0 +1,10 @@
+[Unit]
+Description=Collect brigades statistics
+Requires=vg-dc-stats.service
+
+[Timer]
+Unit=vg-dc-stats.service
+OnCalendar=hourly
+
+[Install]
+WantedBy=timers.target

@@ -2,12 +2,10 @@
 
 set -e
 
-CONFDIR=${CONFDIR:-"/etc/vgrealm"}
-echo "confdir: ${CONFDIR}"
-DBNAME=${DBNAME:-$(cat ${CONFDIR}/dbname)}
+DBNAME=${DBNAME:-"vgrealm"}
 echo "dbname: $DBNAME"
-SCHEMA=${SCHEMA:-$(cat ${CONFDIR}/pairs_schema)}
-echo "schema: $SCHEMA"
+SCHEMA_PAIRS=${PSCHEMA:-"pairs"}
+echo "schema: $SCHEMA_PAIRS"
 
 ipv4_net="$1"
 gateway="$2"
@@ -17,10 +15,10 @@ if [ "x" = "x${ipv4_net}" -o "x" = "x${gateway}" ]; then
     exit 1
 fi
 
-ON_ERROR_STOP=yes psql -d ${DBNAME} \
-    --set schema_name=${SCHEMA} \
-    --set ipv4_net=${ipv4_net} \
-    --set gateway=${gateway}/32 <<EOF
+ON_ERROR_STOP=yes psql -d "${DBNAME}" \
+    --set schema_name="${SCHEMA_PAIRS}" \
+    --set ipv4_net="${ipv4_net}" \
+    --set gateway="${gateway}"/32 <<EOF
 BEGIN;
 INSERT INTO :"schema_name".ipv4_nets (ipv4_net, gateway) VALUES (:'ipv4_net', :'gateway');
 COMMIT;
