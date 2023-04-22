@@ -80,6 +80,29 @@ CREATE TABLE :"schema_brigades_name".ipv6_keydesk_nets (
     ipv6_net cidr_ula PRIMARY KEY NOT NULL
 );
 
+CREATE VIEW :"schema_pairs_name".private_cidr_nets_weight AS (
+    SELECT
+        private_cidr_nets.id,
+        private_cidr_nets.ipv4_net,
+        2^masklen(private_cidr_nets.ipv4_net) - COUNT(pairs.*) - 2 AS weight
+    FROM
+        :"schema_pairs_name".private_cidr_nets
+        LEFT JOIN :"schema_pairs_name".pairs ON pairs.control_ip << private_cidr_nets.ipv4_net
+    GROUP BY private_cidr_nets.ipv4_net
+    HAVING 2^masklen(private_cidr_nets.ipv4_net) - COUNT(pairs.*) - 2 > 0
+);
+
+CREATE VIEW :"schema_brigades_name".ipv4_cgnat_nets_weight AS (
+    SELECT
+        ipv4_cgnat_nets.id,
+        ipv4_cgnat_nets.ipv4_net,
+        2^(24 - masklen(ipv4_cgnat_nets.ipv4_net)) - COUNT(brigades.*) AS weight 
+    FROM
+        :"schema_brigades_name".ipv4_cgnat_nets
+        LEFT JOIN :"schema_brigades_name".brigades ON brigades.ipv4_cgnat << ipv4_cgnat_nets.ipv4_net
+    GROUP BY ipv4_cgnat_nets.ipv4_net
+    HAVING 2^(24 - masklen(ipv4_cgnat_nets.ipv4_net)) - COUNT(brigades.*) > 0
+);
 
 -- VIEW FOR BRIGADES
 
@@ -161,30 +184,6 @@ CREATE VIEW :"schema_pairs_name".ipv4_nets_weight AS (
         LEFT JOIN :"schema_pairs_name".pairs_endpoints_ipv4 ON pairs_endpoints_ipv4.endpoint_ipv4 << ipv4_nets.ipv4_net
     GROUP BY ipv4_nets.ipv4_net
     HAVING 2^masklen(ipv4_nets.ipv4_net) - COUNT(pairs_endpoints_ipv4.*) - 2 > 0
-);
-
-CREATE VIEW :"schema_pairs_name".private_cidr_nets_weight AS (
-    SELECT
-        private_cidr_nets.id,
-        private_cidr_nets.ipv4_net,
-        2^masklen(private_cidr_nets.ipv4_net) - COUNT(pairs.*) - 2 AS weight
-    FROM
-        :"schema_pairs_name".private_cidr_nets
-        LEFT JOIN :"schema_pairs_name".pairs ON pairs.control_ip << private_cidr_nets.ipv4_net
-    GROUP BY private_cidr_nets.ipv4_net
-    HAVING 2^masklen(private_cidr_nets.ipv4_net) - COUNT(pairs.*) - 2 > 0
-);
-
-CREATE VIEW :"schema_brigades_name".ipv4_cgnat_nets_weight AS (
-    SELECT
-        ipv4_cgnat_nets.id,
-        ipv4_cgnat_nets.ipv4_net,
-        2^(24 - masklen(ipv4_cgnat_nets.ipv4_net)) - COUNT(brigades.*) AS weight 
-    FROM
-        :"schema_brigades_name".ipv4_cgnat_nets
-        LEFT JOIN :"schema_brigades_name".brigades ON brigades.ipv4_cgnat << ipv4_cgnat_nets.ipv4_net
-    GROUP BY ipv4_cgnat_nets.ipv4_net
-    HAVING 2^(24 - masklen(ipv4_cgnat_nets.ipv4_net)) - COUNT(brigades.*) > 0
 );
 
 CREATE VIEW :"schema_brigades_name".ipv6_ula_nets_iweight AS (

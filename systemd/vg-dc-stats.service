@@ -4,6 +4,9 @@ Wants=vg-dc-stats.timer
 
 [Service]
 Type=oneshot
+User=vgstats
+Group=vgstats
+WorkingDirectory=/home/vgstats
 ExecStart=/opt/vg-dc-stats/stats-loop.sh
 
 [Install]
