@@ -1,6 +1,9 @@
 BEGIN;
 
--- Goes to `public` schema.
+SELECT _v.register_patch( '001-init' );
+SELECT _v.assert_user_is_superuser();
+
+-- DOMAIN TYPES
 
 CREATE DOMAIN uint4 AS int4 CHECK (value >= 0);
 CREATE DOMAIN uint8 AS int8 CHECK (value >= 0);
@@ -21,10 +24,11 @@ CREATE DOMAIN inet_ula_endpoint AS inet CHECK (family(value) = 6 AND value << in
 CREATE DOMAIN cidr_ula AS cidr CHECK (family(value) = 6 AND value << cidr 'fd00::/8');
 CREATE DOMAIN inet_ula_64 AS inet CHECK (family(value) = 6 AND value << cidr 'fd00::/8' AND masklen(value) = 64);
 
--- Goes to `meta` schema, information for brigade creation.
+-- PAIRS 
+
+-- Create schema for pairs.
 
 CREATE SCHEMA :"schema_pairs_name";
-CREATE SCHEMA :"schema_brigades_name";
 
 -- External assignet nets.
 CREATE TABLE :"schema_pairs_name".ipv4_nets (
@@ -38,6 +42,25 @@ CREATE TABLE :"schema_pairs_name".private_cidr_nets (
     id uuid NOT NULL DEFAULT gen_random_uuid(),
     ipv4_net cidr_private PRIMARY KEY NOT NULL
 );
+
+-- Virtual machines pairs.
+CREATE TABLE :"schema_pairs_name".pairs (
+    pair_id             uuid PRIMARY KEY NOT NULL,
+    control_ip          inet UNIQUE NOT NULL,
+    is_active           bool NOT NULL
+);
+
+CREATE TABLE :"schema_pairs_name".pairs_endpoints_ipv4 (
+    pair_id            uuid NOT NULL,
+    endpoint_ipv4      inet_ipv4_endpoint UNIQUE NOT NULL,
+    FOREIGN KEY (pair_id) REFERENCES :"schema_pairs_name".pairs (pair_id)
+);
+
+-- BRIGADES
+
+-- Create schema for brigades. 
+
+CREATE SCHEMA :"schema_brigades_name";
 
 -- CGNAT nets for clients.
 CREATE TABLE :"schema_brigades_name".ipv4_cgnat_nets (
@@ -57,19 +80,7 @@ CREATE TABLE :"schema_brigades_name".ipv6_keydesk_nets (
     ipv6_net cidr_ula PRIMARY KEY NOT NULL
 );
 
--- Virtual machines pairs.
-CREATE TABLE :"schema_pairs_name".pairs (
-    pair_id             uuid PRIMARY KEY NOT NULL,
-    control_ip          inet UNIQUE NOT NULL,
-    is_active           bool NOT NULL
-);
-
-CREATE TABLE :"schema_pairs_name".pairs_endpoints_ipv4 (
-    pair_id            uuid NOT NULL,
-    endpoint_ipv4      inet_ipv4_endpoint UNIQUE NOT NULL,
-    FOREIGN KEY (pair_id) REFERENCES :"schema_pairs_name".pairs (pair_id)
-);
-
+-- Brigades.
 CREATE TABLE :"schema_brigades_name".brigades (
     brigade_id          uuid PRIMARY KEY NOT NULL,
     pair_id             uuid NOT NULL,
@@ -85,6 +96,42 @@ CREATE TABLE :"schema_brigades_name".brigades (
     FOREIGN KEY (endpoint_ipv4) REFERENCES :"schema_pairs_name".pairs_endpoints_ipv4 (endpoint_ipv4)
 );
 
+-- VIEWS
+
+-- The view calculates the available IP addresses (weight) within each 
+-- private CIDR subnet by excluding the IP addresses already assigned to
+-- 'control_ip' in the pairs table.
+CREATE VIEW :"schema_pairs_name".private_cidr_nets_weight AS (
+    SELECT
+        private_cidr_nets.id,
+        private_cidr_nets.ipv4_net,
+        2^masklen(private_cidr_nets.ipv4_net) - COUNT(pairs.*) - 2 AS weight
+    FROM
+        :"schema_pairs_name".private_cidr_nets
+        LEFT JOIN :"schema_pairs_name".pairs ON pairs.control_ip << private_cidr_nets.ipv4_net
+    GROUP BY private_cidr_nets.ipv4_net
+    HAVING 2^masklen(private_cidr_nets.ipv4_net) - COUNT(pairs.*) - 2 > 0
+);
+
+-- The view calculates the available IP addresses (weight) within each 
+-- IPv4 CGNAT subnet by excluding the IP addresses already assigned to 
+-- 'ipv4_cgnat' in the brigades table.
+CREATE VIEW :"schema_brigades_name".ipv4_cgnat_nets_weight AS (
+    SELECT
+        ipv4_cgnat_nets.id,
+        ipv4_cgnat_nets.ipv4_net,
+        2^(24 - masklen(ipv4_cgnat_nets.ipv4_net)) - COUNT(brigades.*) AS weight 
+    FROM
+        :"schema_brigades_name".ipv4_cgnat_nets
+        LEFT JOIN :"schema_brigades_name".brigades ON brigades.ipv4_cgnat << ipv4_cgnat_nets.ipv4_net
+    GROUP BY ipv4_cgnat_nets.ipv4_net
+    HAVING 2^(24 - masklen(ipv4_cgnat_nets.ipv4_net)) - COUNT(brigades.*) > 0
+);
+
+-- The view calculates the number of available IP address 
+-- slots (free_slots_count) for each active pair in the pairs table, 
+-- considering the IP addresses already assigned in the brigades table 
+-- and select only those pairs that have at least one.
 CREATE VIEW :"schema_brigades_name".active_pairs AS 
     SELECT 
         pairs.pair_id, 
@@ -100,6 +147,9 @@ CREATE VIEW :"schema_brigades_name".active_pairs AS
         COUNT(pairs_endpoints_ipv4.*)-COUNT(brigades.*) > 0
 ;
 
+-- The view that lists all the available IP address 
+-- slots (endpoint IPv4 addresses) for each pair in the pairs table 
+-- that are not yet assigned in the brigades table.
 CREATE VIEW :"schema_brigades_name".slots AS 
     SELECT
         pairs.pair_id,
@@ -129,7 +179,7 @@ CREATE VIEW :"schema_brigades_name".meta_brigades AS
     	brigades.ipv4_cgnat,
     	brigades.ipv6_ula,
     	brigades.person,
-		pairs.control_ip
+	pairs.control_ip
     FROM
         :"schema_brigades_name".brigades,
         :"schema_pairs_name".pairs
@@ -137,6 +187,9 @@ CREATE VIEW :"schema_brigades_name".meta_brigades AS
         pairs.pair_id=brigades.pair_id
 ;
 
+-- The view calculates the available IP addresses (weight) within each
+-- IPv4 subnet in the ipv4_nets table by excluding the IP addresses 
+-- already assigned in the pairs_endpoints_ipv4 table.
 CREATE VIEW :"schema_pairs_name".ipv4_nets_weight AS (
     SELECT
         ipv4_nets.id,
@@ -150,30 +203,10 @@ CREATE VIEW :"schema_pairs_name".ipv4_nets_weight AS (
     HAVING 2^masklen(ipv4_nets.ipv4_net) - COUNT(pairs_endpoints_ipv4.*) - 2 > 0
 );
 
-CREATE VIEW :"schema_pairs_name".private_cidr_nets_weight AS (
-    SELECT
-        private_cidr_nets.id,
-        private_cidr_nets.ipv4_net,
-        2^masklen(private_cidr_nets.ipv4_net) - COUNT(pairs.*) - 2 AS weight
-    FROM
-        :"schema_pairs_name".private_cidr_nets
-        LEFT JOIN :"schema_pairs_name".pairs ON pairs.control_ip << private_cidr_nets.ipv4_net
-    GROUP BY private_cidr_nets.ipv4_net
-    HAVING 2^masklen(private_cidr_nets.ipv4_net) - COUNT(pairs.*) - 2 > 0
-);
-
-CREATE VIEW :"schema_brigades_name".ipv4_cgnat_nets_weight AS (
-    SELECT
-        ipv4_cgnat_nets.id,
-        ipv4_cgnat_nets.ipv4_net,
-        2^(24 - masklen(ipv4_cgnat_nets.ipv4_net)) - COUNT(brigades.*) AS weight 
-    FROM
-        :"schema_brigades_name".ipv4_cgnat_nets
-        LEFT JOIN :"schema_brigades_name".brigades ON brigades.ipv4_cgnat << ipv4_cgnat_nets.ipv4_net
-    GROUP BY ipv4_cgnat_nets.ipv4_net
-    HAVING 2^(24 - masklen(ipv4_cgnat_nets.ipv4_net)) - COUNT(brigades.*) > 0
-);
-
+-- The view calculates the number of assigned (opposite available) 
+-- IPv6 Unique Local Addresses (ULA) within each IPv6 subnet in 
+-- the ipv6_ula_nets table by counting the occurrences of these addresses
+-- in the brigades table.
 CREATE VIEW :"schema_brigades_name".ipv6_ula_nets_iweight AS (
     SELECT
         ipv6_ula_nets.id,
@@ -185,6 +218,9 @@ CREATE VIEW :"schema_brigades_name".ipv6_ula_nets_iweight AS (
     GROUP BY ipv6_ula_nets.ipv6_net
 );
 
+-- The view calculates the number of assigned IPv6 addresses within 
+-- each IPv6 subnet in the ipv6_keydesk_nets table by counting the 
+-- occurrences of these addresses in the brigades table.
 CREATE VIEW :"schema_brigades_name".ipv6_keydesk_nets_iweight AS (
     SELECT
         ipv6_keydesk_nets.id,
@@ -196,46 +232,13 @@ CREATE VIEW :"schema_brigades_name".ipv6_keydesk_nets_iweight AS (
     GROUP BY ipv6_keydesk_nets.ipv6_net
 );
 
-CREATE TABLE :"schema_pairs_name".pairs_queue (
-    queue_id serial PRIMARY KEY,
-    payload json NOT NULL,
-    error json
-);
+-- STATS
 
-CREATE TABLE :"schema_brigades_name".brigades_queue (
-    queue_id serial PRIMARY KEY,
-    payload json NOT NULL,
-    error json
-);
-
-CREATE ROLE :"pairs_dbuser" WITH LOGIN;
-GRANT USAGE ON SCHEMA :"schema_pairs_name" TO :"pairs_dbuser";
-GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA :"schema_pairs_name" TO :"pairs_dbuser";
-GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA :"schema_brigades_name" TO :"pairs_dbuser";
-GRANT USAGE,SELECT,UPDATE ON ALL SEQUENCES IN SCHEMA :"schema_brigades_name" TO :"pairs_dbuser";
-
-CREATE ROLE :"brigades_dbuser" WITH LOGIN;
-GRANT USAGE ON SCHEMA :"schema_brigades_name" TO :"brigades_dbuser";
-GRANT SELECT ON :"schema_brigades_name".ipv4_cgnat_nets, :"schema_brigades_name".ipv6_ula_nets, :"schema_brigades_name".ipv6_keydesk_nets TO :"brigades_dbuser";
-GRANT SELECT,UPDATE ON :"schema_brigades_name".active_pairs, :"schema_brigades_name".slots TO :"brigades_dbuser";
-GRANT SELECT,UPDATE,INSERT,DELETE ON :"schema_brigades_name".brigades TO :"brigades_dbuser";
-GRANT USAGE,SELECT,UPDATE ON ALL SEQUENCES IN SCHEMA :"schema_brigades_name"  TO :"brigades_dbuser";
+-- Create stats schema.
 
 CREATE SCHEMA :"schema_stats_name";
-CREATE ROLE :"stats_dbuser" WITH LOGIN;
-GRANT ALL PRIVILEGES ON SCHEMA :"schema_stats_name" TO :"stats_dbuser";
-GRANT USAGE ON SCHEMA :"schema_brigadiers_name" TO :"stats_dbuser";
-GRANT SELECT ON ALL TABLES IN SCHEMA :"schema_brigadiers_name" TO :"stats_dbuser";
-GRANT USAGE ON SCHEMA :"schema_pairs_name" TO :"stats_dbuser";
-GRANT SELECT ON ALL TABLES IN SCHEMA :"schema_pairs_name" TO :"stats_dbuser";
-GRANT USAGE,SELECT ON ALL SEQUENCES IN SCHEMA :"schema_brigades_name"  TO :"stats_dbuser";
 
-CREATE ROLE :"ministry_stats_dbuser" WITH LOGIN;
-GRANT USAGE ON SCHEMA :"schema_stats_name" TO :"ministry_stats_dbuser";
-GRANT SELECT ON ALL TABLES IN SCHEMA :"schema_stats_name" TO :"ministry_stats_dbuser";
-
-GRANT USAGE ON SCHEMA :"schema_stats_name" TO :"brigades_dbuser";
-GRANT SELECT,INSERT,DELETE ON ALL TABLES IN SCHEMA :"schema_stats_name".brigades TO :"brigades_dbuser";
+-- Create stats table.
 
 CREATE TABLE :"schema_stats_name".brigades_stats (
     brigade_id          uuid NOT NULL,
