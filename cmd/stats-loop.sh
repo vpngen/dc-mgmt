@@ -64,3 +64,6 @@ EOF
 
         #exit
 done
+
+basedir=$(dirname "$0")
+"${basedir}/collectstats"
