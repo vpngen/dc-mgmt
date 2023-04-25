@@ -57,7 +57,7 @@ EOF
 
 	a=0
 	while [ "$a" -lt "${count}" ]; do
-		args=$(echo "${output}" | jq -r ".stats[${a}]" | jq -r '. | "\(.brigade_id) \(.brigade_created_at) \(.keydesk_last_visit) \(.users_count)"')
+		args=$(echo "${output}" | jq -r ".stats[${a}]" | jq -r '. | "\(.brigade_id) \(.brigade_created_at) \(.keydesk_last_visit) \(.total_users_count)"')
 		update ${args}
 		a=$(expr $a + 1)
 	done
