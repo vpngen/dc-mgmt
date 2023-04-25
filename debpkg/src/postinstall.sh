@@ -43,7 +43,7 @@ init_database () {
 }
 
 apply_database_patches () {
-        for patch in ls "${SQL_DIR}/patches/"*.sql; do
+        for patch in "${SQL_DIR}/patches/"*.sql; do
                 load_sql_file "${patch}"
         done
 
