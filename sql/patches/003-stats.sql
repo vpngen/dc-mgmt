@@ -4,7 +4,7 @@ SELECT _v.assert_user_is_superuser();
 
 DO $patch$ BEGIN
 
-IF SELECT _v.try_register_patch( '003-stats' , ARRAY['001-init', '002-roles']) THEN
+IF _v.try_register_patch( '003-stats' , ARRAY['001-init', '002-roles']) THEN
 
 -- The table is designed to store various statistics related to brigades. 
 -- Each record in the table represents the statistics of a single brigade 
