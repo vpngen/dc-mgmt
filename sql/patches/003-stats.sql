@@ -2,9 +2,7 @@ BEGIN;
 
 SELECT _v.assert_user_is_superuser();
 
-DO $patch$ BEGIN
-
-IF _v.try_register_patch( '003-stats' , ARRAY['001-init', '002-roles']) THEN
+SELECT _v.try_register_patch( '003-stats' , ARRAY['001-init', '002-roles']);
 
 -- The table is designed to store various statistics related to brigades. 
 -- Each record in the table represents the statistics of a single brigade 
@@ -37,9 +35,5 @@ CREATE INDEX brigades_statistics_throttled_users_count_idx ON :"schema_stats_nam
 CREATE INDEX brigades_statistics_align_time_idx ON :"schema_stats_name".brigades_statistics (align_time);
 
 GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA :"schema_stats_name" TO :"stats_dbuser";
-
-END IF;
-
-END$patch$;
 
 COMMIT;
