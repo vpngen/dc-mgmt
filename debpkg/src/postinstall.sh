@@ -20,7 +20,7 @@ load_sql_file () {
                 --set schema_stats_name="${SCHEMA_STATS}" \
                 --set stats_dbuser="${STATS_DBUSER}" 
         rc=$?
-        if [ ${rc} -ne 0 ]; then
+        if [ ${rc} -ne 0 ] && [ ${rc} -ne 3 ]; then
                 exit 1
         fi
 }
