@@ -2,7 +2,7 @@ BEGIN;
 
 SELECT _v.assert_user_is_superuser();
 
-SELECT _v.try_register_patch( '003-stats' , ARRAY['001-init', '002-roles']);
+SELECT _v.register_patch( '003-stats' , ARRAY['001-init', '002-roles']);
 
 -- The table is designed to store various statistics related to brigades. 
 -- Each record in the table represents the statistics of a single brigade 
