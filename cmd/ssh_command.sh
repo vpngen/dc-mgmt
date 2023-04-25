@@ -13,12 +13,18 @@ if [ $# -eq 0 ]; then
 fi
 
 cmd=${1}; shift
-basedir=$(dirname $0)
+basedir=$(dirname "$0")
 
 if [ "xaddbrigade" = "x${cmd}" ]; then
-    ${basedir}/addbrigade $@
+    "${basedir}"/addbrigade "$@"
+    /usr/bin/flock -x -E 0 -n /tmp/kdsync.lock "${basedir}"/kdsync.sh 2>&1 | /usr/bin/logger -p local0.notice -t KDSYNC
 elif [ "xdelbrigade" = "x${cmd}" ]; then
-    ${basedir}/delbrigade $@
+    "${basedir}"/delbrigade "$@"
+    /usr/bin/flock -x -E 0 -n /tmp/kdsync.lock "${basedir}"/kdsync.sh 2>&1 | /usr/bin/logger -p local0.notice -t KDSYNC
+elif [ "xgetwasted" = "x${cmd}" ]; then
+    "${basedir}"/getwasted "$@"
+elif [ "xcheckbrigade" = "x${cmd}" ]; then
+    "${basedir}"/checkbrigade "$@"
 else
     echo "Unknown command: ${cmd}"
     printdef
