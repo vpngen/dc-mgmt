@@ -59,7 +59,7 @@ HAVING
 	sqlInsertStats = `
 INSERT INTO %s (
 	brigade_id,
-	last_visit,
+	first_visit,
 	total_users_count,
 	throttled_users_count,
 	active_users_count,
@@ -90,7 +90,7 @@ INSERT INTO %s (
 	$14,
 	$15
 ) ON CONFLICT (brigade_id,align_time) DO UPDATE SET
-	last_visit = $2,
+	first_visit = $2,
 	total_users_count = $3,
 	throttled_users_count = $4,
 	active_users_count = $5,
@@ -203,18 +203,18 @@ func insertStats(db *pgxpool.Pool, schema string, stats *storage.Stats) error {
 	_, err = tx.Exec(ctx,
 		fmt.Sprintf(sqlInsertStats, (pgx.Identifier{schema, "brigades_statistics"}.Sanitize())),
 		brigadeID,
-		stats.KeydeskLastVisit,
+		stats.KeydeskFirstVisit,
 		stats.TotalUsersCount,
 		stats.ThrottledUsersCount,
 		stats.ActiveUsersCount,
 		stats.ActiveWgUsersCount,
 		stats.ActiveIPSecUsersCount,
-		stats.TotalTraffic.Total.Rx,
-		stats.TotalTraffic.Total.Tx,
-		stats.TotalWgTraffic.Total.Rx,
-		stats.TotalWgTraffic.Total.Tx,
-		stats.TotalIPSecTraffic.Total.Rx,
-		stats.TotalIPSecTraffic.Total.Tx,
+		stats.TotalTraffic.Rx,
+		stats.TotalTraffic.Tx,
+		stats.TotalWgTraffic.Rx,
+		stats.TotalWgTraffic.Tx,
+		stats.TotalIPSecTraffic.Rx,
+		stats.TotalIPSecTraffic.Tx,
 		stats.CountersUpdateTime,
 		stats.UpdateTime,
 	)
