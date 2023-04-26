@@ -5,7 +5,7 @@ USERNAME="_marina_"
 
 update() {
 	id=$(echo "$1=========" | base32 -d 2>/dev/null | hexdump -ve '1/1 "%02x"')
-	c="psql -d ${DBNAME} -q -v ON_ERROR_STOP=yes -t -A --set brigade_id=${id} --set create_at=${2} --set last_visit=${3} --set user_count=${4}"
+	c="psql -d ${DBNAME} -q -v ON_ERROR_STOP=yes -t -A --set brigade_id=${id} --set create_at=${2} --set first_visit=${3} --set user_count=${4}"
 	echo "${c}"
 	${c} <<EOF
 	BEGIN;
@@ -13,7 +13,7 @@ update() {
 		UPDATE 
 			stats.brigades_stats 
 		SET 
-			last_visit=CASE WHEN :'last_visit' = '0001-01-01T00:00:00Z' THEN NULL ELSE :'last_visit'::timestamp END,
+			first_visit=CASE WHEN :'first_visit' = '0001-01-01T00:00:00Z' THEN NULL ELSE :'first_visit'::timestamp END,
 			user_count=:user_count 
 		WHERE 
 			brigades_stats.brigade_id=:'brigade_id';
@@ -57,7 +57,7 @@ EOF
 
 	a=0
 	while [ "$a" -lt "${count}" ]; do
-		args=$(echo "${output}" | jq -r ".stats[${a}]" | jq -r '. | "\(.brigade_id) \(.brigade_created_at) \(.keydesk_last_visit) \(.total_users_count)"')
+		args=$(echo "${output}" | jq -r ".stats[${a}]" | jq -r '. | "\(.brigade_id) \(.brigade_created_at) \(.keydesk_first_visit) \(.total_users_count)"')
 		update ${args}
 		a=$(expr $a + 1)
 	done

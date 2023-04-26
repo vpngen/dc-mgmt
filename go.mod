@@ -10,7 +10,7 @@ require (
 	golang.org/x/crypto v0.8.0
 )
 
-require github.com/vpngen/keydesk v1.1.14
+require github.com/vpngen/keydesk v1.1.16
 
 require (
 	github.com/alexsergivan/transliterator v1.0.0 // indirect
