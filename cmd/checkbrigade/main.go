@@ -110,7 +110,7 @@ func checkBrigade(db *pgxpool.Pool, schema string, brigadeID string) (string, in
 		brigade_id,
 		user_count,
 		create_at,
-		last_visit
+		first_visit
 	FROM %s AS s
 	WHERE
 		brigade_id=$1

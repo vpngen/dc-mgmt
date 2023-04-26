@@ -59,7 +59,7 @@ HAVING
 	sqlInsertStats = `
 INSERT INTO %s (
 	brigade_id,
-	last_visit,
+	first_visit,
 	total_users_count,
 	throttled_users_count,
 	active_users_count,
@@ -90,7 +90,7 @@ INSERT INTO %s (
 	$14,
 	$15
 ) ON CONFLICT (brigade_id,align_time) DO UPDATE SET
-	last_visit = $2,
+	first_visit = $2,
 	total_users_count = $3,
 	throttled_users_count = $4,
 	active_users_count = $5,
