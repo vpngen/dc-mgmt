@@ -41,7 +41,7 @@ const (
 	AND
 		user_count=1
 	AND 
-		last_visit IS NULL
+		first_visit IS NULL
 	ORDER BY 
 		create_at ASC
 	LIMIT $2::int
