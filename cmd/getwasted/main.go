@@ -10,6 +10,7 @@ import (
 	"net/http/httputil"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -26,25 +27,45 @@ const (
 )
 
 const (
-	defaultFirstVisitLimit = 3
-	defaultMaxResultRows   = 10
+	defaultFirstVisitDaysLimit  = 1
+	defaultActiveUsersDaysLimit = 27
+	defaultMinActiveUsers       = 5
+	defaultMaxResultRows        = 10
 )
 
 const (
-	sqlGetWasted = `
+	CommandNotVisited = "novisited"
+	CommandInactive   = "inactive"
+)
+
+const (
+	sqlGetNotVisited = `
 	SELECT 
 		brigade_id
 	FROM 
 		%s
 	WHERE
-		create_at < now() - ($1 * INTERVAL '1 days') 
+		created_at < now() - ($1 * INTERVAL '1 days') 
 	AND
-		user_count=1
+		total_users_count=1
 	AND 
 		first_visit IS NULL
 	ORDER BY 
-		create_at ASC
+		created_at ASC
 	LIMIT $2::int
+	`
+	sqlGetInactive = `
+	SELECT 
+		brigade_id
+	FROM 
+		%s
+	WHERE
+		created_at < now() - ($1 * INTERVAL '1 days') 
+	AND 
+		first_visit IS NULL
+	ORDER BY 
+		created_at ASC
+	LIMIT $3::int
 	`
 )
 
@@ -56,7 +77,7 @@ func main() {
 	executable, _ := os.Executable()
 	exe := filepath.Base(executable)
 
-	chunked, days, num, err := parseArgs()
+	chunked, cmd, days, num, _, err := parseArgs()
 	if err != nil {
 		log.Fatalf("%s: Can't parse args: %s\n", exe, err)
 	}
@@ -71,9 +92,20 @@ func main() {
 		log.Fatalf("%s: Can't create db pool: %s\n", exe, err)
 	}
 
-	output, err := getWasted(db, schema, days, num)
-	if err != nil {
-		log.Fatalf("%s: Can't get brigades: %s\n", exe, err)
+	var output []byte
+
+	switch cmd {
+	case CommandNotVisited:
+		output, err = getWasted(db, schema, days, num)
+		if err != nil {
+			log.Fatalf("%s: Can't get brigades: %s\n", exe, err)
+		}
+	case CommandInactive:
+		if time.Now().Day() != 1 {
+			fmt.Fprintf(os.Stderr, "WARNING!!! This command should be run on the first day of the month\n")
+		}
+	default:
+		log.Fatalf("%s: Unknown command: %s\n", exe, cmd)
 	}
 
 	switch chunked {
@@ -104,7 +136,7 @@ func getWasted(db *pgxpool.Pool, schema string, days, num int) ([]byte, error) {
 	}
 
 	rows, err := tx.Query(ctx,
-		fmt.Sprintf(sqlGetWasted, (pgx.Identifier{"stats", "brigades_stats"}.Sanitize())), // !!!!
+		fmt.Sprintf(sqlGetNotVisited, (pgx.Identifier{"stats", "brigades_stats"}.Sanitize())), // !!!!
 		days,
 		num,
 	)
@@ -151,18 +183,55 @@ func createDBPool(dbURL string) (*pgxpool.Pool, error) {
 	return pool, nil
 }
 
-func parseArgs() (bool, int, int, error) {
-	days := flag.Int("d", defaultFirstVisitLimit, "days limit to first visit")
-	num := flag.Int("n", defaultMaxResultRows, "how many max rows will return")
-	chunked := flag.Bool("ch", false, "chunked output")
-
-	flag.Parse()
-
-	if *num < 1 || *days < 1 {
-		return false, 0, 0, fmt.Errorf("num/days: %w", errInlalidArgs)
+func parseArgs() (bool, string, int, int, int, error) {
+	flag.Usage = func() {
+		fmt.Fprintf(flag.CommandLine.Output(), "usage: %s notvisited|inactive [options]\n", os.Args[0])
+		flag.PrintDefaults()
 	}
 
-	return *chunked, *days, *num, nil
+	chunked := flag.Bool("ch", false, "chunked output")
+	flag.Parse()
+	if len(flag.Args()) < 1 {
+		return false, "", 0, 0, 0, fmt.Errorf("no command specified")
+	}
+
+	switch flag.Args()[0] {
+	case CommandNotVisited:
+		notVisitedFlags := flag.NewFlagSet(CommandNotVisited, flag.ExitOnError)
+		days := notVisitedFlags.Int("d", defaultFirstVisitDaysLimit, "days limit to first visit")
+		num := notVisitedFlags.Int("n", defaultMaxResultRows, "how many max rows will return")
+		notVisitedFlags.Usage = func() {
+			fmt.Fprintf(flag.CommandLine.Output(), "usage: %s %s [options]\n", CommandNotVisited, os.Args[0])
+			notVisitedFlags.PrintDefaults()
+		}
+
+		notVisitedFlags.Parse(flag.Args()[1:])
+
+		if *num < 1 || *days < 1 {
+			return false, "", 0, 0, 0, fmt.Errorf("num/days: %w", errInlalidArgs)
+		}
+
+		return *chunked, CommandNotVisited, *days, *num, 0, nil
+	case CommandInactive:
+		inactiveFlags := flag.NewFlagSet(CommandInactive, flag.ExitOnError)
+		days := inactiveFlags.Int("d", defaultActiveUsersDaysLimit, "days limit from registration")
+		x := inactiveFlags.Int("x", defaultMinActiveUsers, "minmium active users count for live")
+		num := inactiveFlags.Int("n", defaultMaxResultRows, "how many max rows will return")
+		inactiveFlags.Usage = func() {
+			fmt.Fprintf(flag.CommandLine.Output(), "usage: %s %s [options]\n", CommandInactive, os.Args[0])
+			inactiveFlags.PrintDefaults()
+		}
+
+		inactiveFlags.Parse(flag.Args()[1:])
+
+		if *num < 1 || *x < 1 {
+			return false, "", 0, 0, 0, fmt.Errorf("num/x: %w", errInlalidArgs)
+		}
+
+		return *chunked, CommandInactive, *days, *num, *x, nil
+	default:
+		return false, "", 0, 0, 0, fmt.Errorf("unknown command: %w", errInlalidArgs)
+	}
 }
 
 func readConfigs() (string, string, error) {
