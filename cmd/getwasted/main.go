@@ -34,7 +34,7 @@ const (
 )
 
 const (
-	CommandNotVisited = "novisited"
+	CommandNotVisited = "notvisited"
 	CommandInactive   = "inactive"
 )
 
@@ -96,13 +96,18 @@ func main() {
 
 	switch cmd {
 	case CommandNotVisited:
-		output, err = getWasted(db, schema, days, num)
+		output, err = getNotVisited(db, schema, days, num)
 		if err != nil {
 			log.Fatalf("%s: Can't get brigades: %s\n", exe, err)
 		}
 	case CommandInactive:
 		if time.Now().Day() != 1 {
 			fmt.Fprintf(os.Stderr, "WARNING!!! This command should be run on the first day of the month\n")
+		}
+
+		output, err = getInactive(db, schema, days, num, defaultMinActiveUsers)
+		if err != nil {
+			log.Fatalf("%s: Can't get brigades: %s\n", exe, err)
 		}
 	default:
 		log.Fatalf("%s: Unknown command: %s\n", exe, cmd)
@@ -126,7 +131,52 @@ func main() {
 	}
 }
 
-func getWasted(db *pgxpool.Pool, schema string, days, num int) ([]byte, error) {
+// getInactive - returns list of inactive brigades.
+func getInactive(db *pgxpool.Pool, schema string, days, num, min int) ([]byte, error) {
+	ctx := context.Background()
+
+	tx, err := db.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("begin: %w", err)
+	}
+
+	rows, err := tx.Query(ctx,
+		fmt.Sprintf(sqlGetInactive, (pgx.Identifier{"stats", "brigades_stats"}.Sanitize())), // !!!!
+		days,
+		num,
+		min,
+	)
+	if err != nil {
+		tx.Rollback(ctx)
+
+		return nil, fmt.Errorf("brigades query: %w", err)
+	}
+
+	// lock on brigades, register used nets
+
+	var id string
+
+	output := []byte{}
+
+	_, err = pgx.ForEachRow(rows, []any{&id}, func() error {
+		output = fmt.Appendln(output, id)
+
+		return nil
+	})
+	if err != nil {
+		tx.Rollback(ctx)
+
+		return nil, fmt.Errorf("brigade row: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("commit: %w", err)
+	}
+
+	return output, nil
+}
+
+func getNotVisited(db *pgxpool.Pool, schema string, days, num int) ([]byte, error) {
 	ctx := context.Background()
 	output := []byte{}
 
@@ -161,8 +211,7 @@ func getWasted(db *pgxpool.Pool, schema string, days, num int) ([]byte, error) {
 		return nil, fmt.Errorf("brigade row: %w", err)
 	}
 
-	err = tx.Commit(ctx)
-	if err != nil {
+	if err := tx.Commit(ctx); err != nil {
 		return nil, fmt.Errorf("commit: %w", err)
 	}
 
@@ -185,7 +234,7 @@ func createDBPool(dbURL string) (*pgxpool.Pool, error) {
 
 func parseArgs() (bool, string, int, int, int, error) {
 	flag.Usage = func() {
-		fmt.Fprintf(flag.CommandLine.Output(), "usage: %s notvisited|inactive [options]\n", os.Args[0])
+		fmt.Fprintf(flag.CommandLine.Output(), "usage: %s %s|%s [options]\n", os.Args[0], CommandNotVisited, CommandInactive)
 		flag.PrintDefaults()
 	}
 
@@ -201,7 +250,7 @@ func parseArgs() (bool, string, int, int, int, error) {
 		days := notVisitedFlags.Int("d", defaultFirstVisitDaysLimit, "days limit to first visit")
 		num := notVisitedFlags.Int("n", defaultMaxResultRows, "how many max rows will return")
 		notVisitedFlags.Usage = func() {
-			fmt.Fprintf(flag.CommandLine.Output(), "usage: %s %s [options]\n", CommandNotVisited, os.Args[0])
+			fmt.Fprintf(flag.CommandLine.Output(), "usage: %s %s [options]\n", os.Args[0], CommandNotVisited)
 			notVisitedFlags.PrintDefaults()
 		}
 
@@ -218,7 +267,7 @@ func parseArgs() (bool, string, int, int, int, error) {
 		x := inactiveFlags.Int("x", defaultMinActiveUsers, "minmium active users count for live")
 		num := inactiveFlags.Int("n", defaultMaxResultRows, "how many max rows will return")
 		inactiveFlags.Usage = func() {
-			fmt.Fprintf(flag.CommandLine.Output(), "usage: %s %s [options]\n", CommandInactive, os.Args[0])
+			fmt.Fprintf(flag.CommandLine.Output(), "usage: %s %s [options]\n", os.Args[0], CommandInactive)
 			inactiveFlags.PrintDefaults()
 		}
 

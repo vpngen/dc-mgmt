@@ -2,7 +2,7 @@ BEGIN;
 
 SELECT _v.assert_user_is_superuser();
 
-SELECT _v.register_patch( '004-stats' , ARRAY[ '001-init', '002-roles','003-stats', '004-stats']);
+SELECT _v.register_patch( '005-stats' , ARRAY[ '001-init', '002-roles','003-stats', '004-stats']);
 
 ALTER TABLE :"schema_stats_name".brigades_stats RENAME COLUMN create_at TO created_at;
 ALTER TABLE :"schema_stats_name".brigades_stats RENAME COLUMN user_count TO total_users_count;
