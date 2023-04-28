@@ -7,7 +7,7 @@ Type=oneshot
 User=vgstats
 Group=vgstats
 WorkingDirectory=/home/vgstats
-ExecStart=/opt/vg-dc-stats/stats-loop.sh
+ExecStart=/opt/vg-dc-stats/collectstats
 
 [Install]
 WantedBy=multi-user.target
