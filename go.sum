@@ -19,8 +19,8 @@ github.com/stretchr/testify v1.3.0/go.mod h1:M5WIy9Dh21IEIfnGCwXGc5bZfKNJtfHm1UV
 github.com/stretchr/testify v1.5.1/go.mod h1:5W2xD1RspED5o8YsWQXVCued0rvSQ+mT+I5cxcmMvtA=
 github.com/stretchr/testify v1.7.0/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/h/Wwjteg=
 github.com/stretchr/testify v1.8.1 h1:w7B6lhMri9wdJUVmEZPGGhZzrYTPvgJArz7wNPgYKsk=
-github.com/vpngen/keydesk v1.1.16 h1:kS7gnUkroUPbuVUOGbdu2C5qo/0eTFVaAgwRB+TWAGY=
-github.com/vpngen/keydesk v1.1.16/go.mod h1:kJ9PprtUftgNZ1pBev0asmzBU8p36Ahq8Fxt4JAk8Os=
+github.com/vpngen/keydesk v1.1.17 h1:LBdfXmzJyaPc+qdA0/op23IO1L+Ek5BlayW7f5s/zec=
+github.com/vpngen/keydesk v1.1.17/go.mod h1:kJ9PprtUftgNZ1pBev0asmzBU8p36Ahq8Fxt4JAk8Os=
 github.com/vpngen/wordsgens v0.0.0-20221214131824-ff06c1f70d47 h1:Nvva5hIH8befgsAqzHH2BNt5oxUNQLkt2GeZ+nea4gE=
 github.com/vpngen/wordsgens v0.0.0-20221214131824-ff06c1f70d47/go.mod h1:a0bOlYvHNyJRUHpYntAdOAt4FoDy2H1fdHZGigQSLdI=
 golang.org/x/crypto v0.8.0 h1:pd9TJtTueMTVQXzk8E2XESSMQDj/U7OUu0PqJqPXQjQ=

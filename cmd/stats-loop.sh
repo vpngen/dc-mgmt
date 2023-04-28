@@ -5,16 +5,16 @@ USERNAME="_marina_"
 
 update() {
 	id=$(echo "$1=========" | base32 -d 2>/dev/null | hexdump -ve '1/1 "%02x"')
-	c="psql -d ${DBNAME} -q -v ON_ERROR_STOP=yes -t -A --set brigade_id=${id} --set create_at=${2} --set first_visit=${3} --set user_count=${4}"
+	c="psql -d ${DBNAME} -q -v ON_ERROR_STOP=yes -t -A --set brigade_id=${id} --set created_at=${2} --set first_visit=${3} --set total_users_count=${4}"
 	echo "${c}"
 	${c} <<EOF
 	BEGIN;
-		INSERT INTO stats.brigades_stats (brigade_id, create_at) VALUES (:'brigade_id',:'create_at'::timestamp) ON CONFLICT DO NOTHING;
+		INSERT INTO stats.brigades_stats (brigade_id, created_at) VALUES (:'brigade_id',:'created_at'::timestamp) ON CONFLICT DO NOTHING;
 		UPDATE 
 			stats.brigades_stats 
 		SET 
 			first_visit=CASE WHEN :'first_visit' = '0001-01-01T00:00:00Z' THEN NULL ELSE :'first_visit'::timestamp END,
-			user_count=:user_count 
+			total_users_count=:total_users_count 
 		WHERE 
 			brigades_stats.brigade_id=:'brigade_id';
 	COMMIT;
