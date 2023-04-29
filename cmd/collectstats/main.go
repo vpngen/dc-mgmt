@@ -36,7 +36,7 @@ const (
 	sshkeyRemoteUsername = "_marina_"
 	etcDefaultPath       = "/etc/vg-dc-mgmt"
 	fileTempSuffix       = ".tmp"
-	defautStoreSubdir    = "collectstats"
+	defautStoreSubdir    = "vg-collectstats"
 )
 
 const (
@@ -80,7 +80,7 @@ INSERT INTO %s (
 	total_ipsec_traffic_rx,
 	total_ipsec_traffic_tx,
 	counters_update_time,
-	stats_update_time
+	update_time
 ) VALUES (
 	$1,
 	$2,
@@ -111,7 +111,7 @@ INSERT INTO %s (
 	total_ipsec_traffic_rx = $12,
 	total_ipsec_traffic_tx = $13,
 	counters_update_time = $14,
-	stats_update_time = $15
+	update_time = $15
 ;
 `
 )
@@ -147,6 +147,17 @@ func main() {
 		log.Fatalf("%s: Can't read configs: %s\n", exe, err)
 	}
 
+	storePath, err := parseArgs()
+	if err != nil {
+		log.Fatalf("%s: Can't parse args: %s\n", exe, err)
+	}
+
+	if _, err := os.Stat(storePath); os.IsNotExist(err) {
+		if err := os.MkdirAll(storePath, 0o755); err != nil {
+			log.Fatalf("%s: Can't create store path: %s\n", exe, err)
+		}
+	}
+
 	sshconf, err := createSSHConfig(sshKeyDir)
 	if err != nil {
 		log.Fatalf("%s: Can't create ssh configs: %s\n", exe, err)
@@ -159,7 +170,7 @@ func main() {
 
 	statsFileName := time.Now().UTC().Format("stats-20060102-150405.json")
 
-	if err := pairsWalk(db, sshconf, pairsSchema, brigadesSchema, statsSchema, statsFileName); err != nil {
+	if err := pairsWalk(db, sshconf, pairsSchema, brigadesSchema, statsSchema, filepath.Join(storePath, statsFileName)); err != nil {
 		log.Fatalf("%s: Can't collect stats: %s\n", exe, err)
 	}
 }
