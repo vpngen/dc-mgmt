@@ -368,6 +368,10 @@ func pairsWalk(db *pgxpool.Pool, sshconf *ssh.ClientConfig, pairsSchema, brigade
 
 	wgg.Wait() // Wait for all goroutines to finish
 
+	close(stream)
+
+	wgh.Wait() // Wait for all goroutines to finish
+
 	return nil
 }
 
