@@ -341,6 +341,14 @@ func handleStatsStream(db *pgxpool.Pool, statsSchema string, filename string, st
 
 		return
 	}
+
+	if _, err := os.Stat(filename + fileTempSuffix); !os.IsNotExist(err) {
+		if err := os.Remove(filename + fileTempSuffix); err != nil {
+			fmt.Fprintf(os.Stderr, "remove temp stats file: %s\n", err)
+
+			return
+		}
+	}
 }
 
 // pairsWalk - walk through pairs and collect stats.
