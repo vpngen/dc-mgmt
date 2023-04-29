@@ -62,7 +62,7 @@ const (
 	WHERE
 		created_at < now() - ($1 * INTERVAL '1 days') 
 	AND 
-		first_visit IS NULL
+		active_users_count < $2::int
 	ORDER BY 
 		created_at ASC
 	LIMIT $3::int
@@ -143,8 +143,8 @@ func getInactive(db *pgxpool.Pool, schema string, days, num, min int) ([]byte, e
 	rows, err := tx.Query(ctx,
 		fmt.Sprintf(sqlGetInactive, (pgx.Identifier{"stats", "brigades_stats"}.Sanitize())), // !!!!
 		days,
-		num,
 		min,
+		num,
 	)
 	if err != nil {
 		tx.Rollback(ctx)
