@@ -15,7 +15,7 @@ ALTER TABLE :"schema_stats_name".brigades_stats ADD COLUMN IF NOT EXISTS total_w
 ALTER TABLE :"schema_stats_name".brigades_stats ADD COLUMN IF NOT EXISTS total_wg_traffic_tx            bigint NOT NULL DEFAULT 0;
 ALTER TABLE :"schema_stats_name".brigades_stats ADD COLUMN IF NOT EXISTS total_ipsec_traffic_rx         bigint NOT NULL DEFAULT 0;
 ALTER TABLE :"schema_stats_name".brigades_stats ADD COLUMN IF NOT EXISTS total_ipsec_traffic_tx         bigint NOT NULL DEFAULT 0;
-ALTER TABLE :"schema_stats_name".brigades_stats ADD COLUMN IF NOT EXISTS update_time                    timestamp without time zone NOT NULL,
+ALTER TABLE :"schema_stats_name".brigades_stats ADD COLUMN IF NOT EXISTS update_time                    timestamp without time zone NOT NULL;
 
 GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA :"schema_stats_name" TO :"stats_dbuser";
 
