@@ -108,8 +108,8 @@ func checkBrigade(db *pgxpool.Pool, schema string, brigadeID string) (string, in
 	sqlGetBrigade := `
 	SELECT
 		brigade_id,
-		user_count,
-		create_at,
+		total_users_count,
+		created_at,
 		first_visit
 	FROM %s AS s
 	WHERE
