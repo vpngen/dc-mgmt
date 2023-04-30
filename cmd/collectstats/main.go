@@ -138,40 +138,50 @@ type AggrStatsX struct {
 	Stats      []*storage.Stats `json:"stats"`
 }
 
-func main() {
-	executable, _ := os.Executable()
-	exe := filepath.Base(executable)
+var LogTag = setLogTag()
 
+const defaultLogTag = "getwasted"
+
+func setLogTag() string {
+	executable, err := os.Executable()
+	if err != nil {
+		return defaultLogTag
+	}
+
+	return filepath.Base(executable)
+}
+
+func main() {
 	sshKeyDir, dbname, pairsSchema, brigadesSchema, statsSchema, err := readConfigs()
 	if err != nil {
-		log.Fatalf("%s: Can't read configs: %s\n", exe, err)
+		log.Fatalf("%s: Can't read configs: %s\n", LogTag, err)
 	}
 
 	storePath, err := parseArgs()
 	if err != nil {
-		log.Fatalf("%s: Can't parse args: %s\n", exe, err)
+		log.Fatalf("%s: Can't parse args: %s\n", LogTag, err)
 	}
 
 	if _, err := os.Stat(storePath); os.IsNotExist(err) {
 		if err := os.MkdirAll(storePath, 0o755); err != nil {
-			log.Fatalf("%s: Can't create store path: %s\n", exe, err)
+			log.Fatalf("%s: Can't create store path: %s\n", LogTag, err)
 		}
 	}
 
 	sshconf, err := createSSHConfig(sshKeyDir)
 	if err != nil {
-		log.Fatalf("%s: Can't create ssh configs: %s\n", exe, err)
+		log.Fatalf("%s: Can't create ssh configs: %s\n", LogTag, err)
 	}
 
 	db, err := createDBPool(dbname)
 	if err != nil {
-		log.Fatalf("%s: Can't create db pool: %s\n", exe, err)
+		log.Fatalf("%s: Can't create db pool: %s\n", LogTag, err)
 	}
 
 	statsFileName := time.Now().UTC().Format("stats-20060102-150405.json")
 
 	if err := pairsWalk(db, sshconf, pairsSchema, brigadesSchema, statsSchema, filepath.Join(storePath, statsFileName)); err != nil {
-		log.Fatalf("%s: Can't collect stats: %s\n", exe, err)
+		log.Fatalf("%s: Can't collect stats: %s\n", LogTag, err)
 	}
 }
 
@@ -190,7 +200,7 @@ func collectStats(sshconf *ssh.ClientConfig, addr netip.Addr, brigades [][]byte,
 
 	groupStats, err := fetchStatsBySSH(sshconf, addr, ids)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "fetch stats: %s\n", err)
+		fmt.Fprintf(os.Stderr, "%s: fetch stats: %s\n", LogTag, err)
 
 		return
 	}
@@ -199,7 +209,7 @@ func collectStats(sshconf *ssh.ClientConfig, addr netip.Addr, brigades [][]byte,
 
 	var parsedStats AggrStats
 	if err := json.Unmarshal(groupStats, &parsedStats); err != nil {
-		fmt.Fprintf(os.Stderr, "unmarshal stats: %s\n", err)
+		fmt.Fprintf(os.Stderr, "%s: unmarshal stats: %s\n", LogTag, err)
 
 		return
 	}
@@ -308,14 +318,14 @@ func handleStatsStream(db *pgxpool.Pool, statsSchema string, filename string, st
 			aggrStats.Stats = append(aggrStats.Stats, s)
 
 			if err := updateStats(db, statsSchema, s); err != nil {
-				fmt.Fprintf(os.Stderr, "update stats: %s\n", err)
+				fmt.Fprintf(os.Stderr, "%s: update stats: %s\n", LogTag, err)
 			}
 		}
 	}
 
 	f, err := os.Create(filename + fileTempSuffix)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "create stats file: %s\n", err)
+		fmt.Fprintf(os.Stderr, "%s: create stats file: %s\n", LogTag, err)
 
 		return
 	}
@@ -323,28 +333,28 @@ func handleStatsStream(db *pgxpool.Pool, statsSchema string, filename string, st
 	defer f.Close()
 
 	if err := json.NewEncoder(f).Encode(aggrStats); err != nil {
-		fmt.Fprintf(os.Stderr, "encode stats: %s\n", err)
+		fmt.Fprintf(os.Stderr, "%s: encode stats: %s\n", LogTag, err)
 
 		return
 	}
 
 	if _, err := os.Stat(filename); !os.IsNotExist(err) {
 		if err := os.Remove(filename); err != nil {
-			fmt.Fprintf(os.Stderr, "remove stats file: %s\n", err)
+			fmt.Fprintf(os.Stderr, "%s: remove stats file: %s\n", LogTag, err)
 
 			return
 		}
 	}
 
 	if err := os.Link(filename+fileTempSuffix, filename); err != nil {
-		fmt.Fprintf(os.Stderr, "link stats file: %s\n", err)
+		fmt.Fprintf(os.Stderr, "%s: link stats file: %s\n", LogTag, err)
 
 		return
 	}
 
 	if _, err := os.Stat(filename + fileTempSuffix); !os.IsNotExist(err) {
 		if err := os.Remove(filename + fileTempSuffix); err != nil {
-			fmt.Fprintf(os.Stderr, "remove temp stats file: %s\n", err)
+			fmt.Fprintf(os.Stderr, "%s: remove temp stats file: %s\n", LogTag, err)
 
 			return
 		}

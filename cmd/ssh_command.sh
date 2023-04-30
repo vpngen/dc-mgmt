@@ -15,15 +15,15 @@ fi
 cmd=${1}; shift
 basedir=$(dirname "$0")
 
-if [ "xaddbrigade" = "x${cmd}" ]; then
+if [ "addbrigade" = "${cmd}" ]; then
     "${basedir}"/addbrigade "$@"
     /usr/bin/flock -x -E 0 -n /tmp/kdsync.lock "${basedir}"/kdsync.sh 2>&1 | /usr/bin/logger -p local0.notice -t KDSYNC
-elif [ "xdelbrigade" = "x${cmd}" ]; then
+elif [ "delbrigade" = "${cmd}" ]; then
     "${basedir}"/delbrigade "$@"
     /usr/bin/flock -x -E 0 -n /tmp/kdsync.lock "${basedir}"/kdsync.sh 2>&1 | /usr/bin/logger -p local0.notice -t KDSYNC
-elif [ "xgetwasted" = "x${cmd}" ]; then
+elif [ "getwasted" = "${cmd}" ]; then
     "${basedir}"/getwasted "$@"
-elif [ "xcheckbrigade" = "x${cmd}" ]; then
+elif [ "checkbrigade" = "${cmd}" ]; then
     "${basedir}"/checkbrigade "$@"
 else
     echo "Unknown command: ${cmd}"
