@@ -71,25 +71,35 @@ const (
 
 var errInlalidArgs = errors.New("invalid args")
 
+var LogTag = setLogTag()
+
+const defaultLogTag = "getwasted"
+
+func setLogTag() string {
+	executable, err := os.Executable()
+	if err != nil {
+		return defaultLogTag
+	}
+
+	return filepath.Base(executable)
+}
+
 func main() {
 	var w io.WriteCloser
 
-	executable, _ := os.Executable()
-	exe := filepath.Base(executable)
-
 	chunked, cmd, days, months, num, _, err := parseArgs()
 	if err != nil {
-		log.Fatalf("%s: Can't parse args: %s\n", exe, err)
+		log.Fatalf("%s: Can't parse args: %s\n", LogTag, err)
 	}
 
 	dbURL, schema, err := readConfigs()
 	if err != nil {
-		log.Fatalf("%s: Can't read configs: %s\n", exe, err)
+		log.Fatalf("%s: Can't read configs: %s\n", LogTag, err)
 	}
 
 	db, err := createDBPool(dbURL)
 	if err != nil {
-		log.Fatalf("%s: Can't create db pool: %s\n", exe, err)
+		log.Fatalf("%s: Can't create db pool: %s\n", LogTag, err)
 	}
 
 	var output []byte
@@ -98,7 +108,7 @@ func main() {
 	case CommandNotVisited:
 		output, err = getNotVisited(db, schema, days, num)
 		if err != nil {
-			log.Fatalf("%s: Can't get brigades: %s\n", exe, err)
+			log.Fatalf("%s: Can't get brigades: %s\n", LogTag, err)
 		}
 	case CommandInactive:
 		if time.Now().Day() != 1 {
@@ -107,10 +117,10 @@ func main() {
 
 		output, err = getInactive(db, schema, months, num, defaultMinActiveUsers)
 		if err != nil {
-			log.Fatalf("%s: Can't get brigades: %s\n", exe, err)
+			log.Fatalf("%s: Can't get brigades: %s\n", LogTag, err)
 		}
 	default:
-		log.Fatalf("%s: Unknown command: %s\n", exe, cmd)
+		log.Fatalf("%s: Unknown command: %s\n", LogTag, cmd)
 	}
 
 	switch chunked {
@@ -127,7 +137,7 @@ func main() {
 
 	_, err = w.Write(output)
 	if err != nil {
-		log.Fatalf("%s: Can't print output: %s\n", exe, err)
+		log.Fatalf("%s: Can't print output: %s\n", LogTag, err)
 	}
 }
 
