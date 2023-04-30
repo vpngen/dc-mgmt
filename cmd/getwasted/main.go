@@ -27,10 +27,10 @@ const (
 )
 
 const (
-	defaultFirstVisitDaysLimit  = 1
-	defaultActiveUsersDaysLimit = 27
-	defaultMinActiveUsers       = 5
-	defaultMaxResultRows        = 10
+	defaultFirstVisitDaysLimit        = 1
+	defaultActiveCreatedAtMonthsLimit = 1
+	defaultMinActiveUsers             = 5
+	defaultMaxResultRows              = 10
 )
 
 const (
@@ -60,7 +60,7 @@ const (
 	FROM 
 		%s
 	WHERE
-		created_at < now() - ($1 * INTERVAL '1 days') 
+		created_at < $1
 	AND 
 		active_users_count < $2::int
 	ORDER BY 
@@ -77,7 +77,7 @@ func main() {
 	executable, _ := os.Executable()
 	exe := filepath.Base(executable)
 
-	chunked, cmd, days, num, _, err := parseArgs()
+	chunked, cmd, days, months, num, _, err := parseArgs()
 	if err != nil {
 		log.Fatalf("%s: Can't parse args: %s\n", exe, err)
 	}
@@ -105,7 +105,7 @@ func main() {
 			fmt.Fprintf(os.Stderr, "WARNING!!! This command should be run on the first day of the month\n")
 		}
 
-		output, err = getInactive(db, schema, days, num, defaultMinActiveUsers)
+		output, err = getInactive(db, schema, months, num, defaultMinActiveUsers)
 		if err != nil {
 			log.Fatalf("%s: Can't get brigades: %s\n", exe, err)
 		}
@@ -132,7 +132,11 @@ func main() {
 }
 
 // getInactive - returns list of inactive brigades.
-func getInactive(db *pgxpool.Pool, schema string, days, num, min int) ([]byte, error) {
+func getInactive(db *pgxpool.Pool, schema string, months, num, min int) ([]byte, error) {
+	t := time.Now().UTC()
+	firstDayOfMonth := time.Date(t.Year(), t.Month(), 1, 0, 0, 0, 0, time.UTC)
+	maxCreatedAt := firstDayOfMonth.AddDate(0, -months, 0)
+
 	ctx := context.Background()
 
 	tx, err := db.Begin(ctx)
@@ -142,7 +146,7 @@ func getInactive(db *pgxpool.Pool, schema string, days, num, min int) ([]byte, e
 
 	rows, err := tx.Query(ctx,
 		fmt.Sprintf(sqlGetInactive, (pgx.Identifier{"stats", "brigades_stats"}.Sanitize())), // !!!!
-		days,
+		maxCreatedAt,
 		min,
 		num,
 	)
@@ -232,7 +236,7 @@ func createDBPool(dbURL string) (*pgxpool.Pool, error) {
 	return pool, nil
 }
 
-func parseArgs() (bool, string, int, int, int, error) {
+func parseArgs() (bool, string, int, int, int, int, error) {
 	flag.Usage = func() {
 		fmt.Fprintf(flag.CommandLine.Output(), "usage: %s %s|%s [options]\n", os.Args[0], CommandNotVisited, CommandInactive)
 		flag.PrintDefaults()
@@ -241,7 +245,7 @@ func parseArgs() (bool, string, int, int, int, error) {
 	chunked := flag.Bool("ch", false, "chunked output")
 	flag.Parse()
 	if len(flag.Args()) < 1 {
-		return false, "", 0, 0, 0, fmt.Errorf("no command specified")
+		return false, "", 0, 0, 0, 0, fmt.Errorf("no command specified")
 	}
 
 	switch flag.Args()[0] {
@@ -257,13 +261,13 @@ func parseArgs() (bool, string, int, int, int, error) {
 		notVisitedFlags.Parse(flag.Args()[1:])
 
 		if *num < 1 || *days < 1 {
-			return false, "", 0, 0, 0, fmt.Errorf("num/days: %w", errInlalidArgs)
+			return false, "", 0, 0, 0, 0, fmt.Errorf("num/days: %w", errInlalidArgs)
 		}
 
-		return *chunked, CommandNotVisited, *days, *num, 0, nil
+		return *chunked, CommandNotVisited, *days, 0, *num, 0, nil
 	case CommandInactive:
 		inactiveFlags := flag.NewFlagSet(CommandInactive, flag.ExitOnError)
-		days := inactiveFlags.Int("d", defaultActiveUsersDaysLimit, "days limit from registration")
+		months := inactiveFlags.Int("m", defaultActiveCreatedAtMonthsLimit, "months limit from registration")
 		x := inactiveFlags.Int("x", defaultMinActiveUsers, "minmium active users count for live")
 		num := inactiveFlags.Int("n", defaultMaxResultRows, "how many max rows will return")
 		inactiveFlags.Usage = func() {
@@ -274,12 +278,12 @@ func parseArgs() (bool, string, int, int, int, error) {
 		inactiveFlags.Parse(flag.Args()[1:])
 
 		if *num < 1 || *x < 1 {
-			return false, "", 0, 0, 0, fmt.Errorf("num/x: %w", errInlalidArgs)
+			return false, "", 0, 0, 0, 0, fmt.Errorf("num/x: %w", errInlalidArgs)
 		}
 
-		return *chunked, CommandInactive, *days, *num, *x, nil
+		return *chunked, CommandInactive, 0, *months, *num, *x, nil
 	default:
-		return false, "", 0, 0, 0, fmt.Errorf("unknown command: %w", errInlalidArgs)
+		return false, "", 0, 0, 0, 0, fmt.Errorf("unknown command: %w", errInlalidArgs)
 	}
 }
 
