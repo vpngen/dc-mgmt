@@ -11,7 +11,6 @@ import (
 	"net/http/httputil"
 	"os"
 	"path/filepath"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -30,14 +29,25 @@ const (
 	postgresqlSocket     = "/var/run/postgresql"
 )
 
-const sshTimeOut = time.Duration(5 * time.Second)
-
 const (
 	BrigadeCgnatPrefix = 24
 	BrigadeUlaPrefix   = 64
 )
 
 var errInlalidArgs = errors.New("invalid args")
+
+var LogTag = setLogTag()
+
+const defaultLogTag = "delbrigade"
+
+func setLogTag() string {
+	executable, err := os.Executable()
+	if err != nil {
+		return defaultLogTag
+	}
+
+	return filepath.Base(executable)
+}
 
 func main() {
 	var w io.WriteCloser
@@ -47,32 +57,29 @@ func main() {
 		confDir = etcDefaultPath
 	}
 
-	executable, _ := os.Executable()
-	exe := filepath.Base(executable)
-
 	chunked, bid32, id, err := parseArgs()
 	if err != nil {
-		log.Fatalf("%s: Can't parse args: %s\n", exe, err)
+		log.Fatalf("%s: Can't parse args: %s\n", LogTag, err)
 	}
 
 	dbname, schema, err := readConfigs(confDir)
 	if err != nil {
-		log.Fatalf("%s: Can't read configs: %s\n", exe, err)
+		log.Fatalf("%s: Can't read configs: %s\n", LogTag, err)
 	}
 
 	db, err := createDBPool(dbname)
 	if err != nil {
-		log.Fatalf("%s: Can't create db pool: %s\n", exe, err)
+		log.Fatalf("%s: Can't create db pool: %s\n", LogTag, err)
 	}
 
 	// attention! id - uuid-style string.
 	brigadeGetID, userCount, createdAt, lastVisit, err := checkBrigade(db, schema, id)
 	if err != nil {
-		log.Fatalf("%s: Can't check brigade: %s\n", exe, err)
+		log.Fatalf("%s: Can't check brigade: %s\n", LogTag, err)
 	}
 
 	if brigadeGetID != id {
-		log.Fatalf("Brigade ID not matched: %s vs %s\n", id, brigadeGetID)
+		log.Fatalf("%s: Brigade ID not matched: %s vs %s\n", LogTag, id, brigadeGetID)
 	}
 
 	switch chunked {

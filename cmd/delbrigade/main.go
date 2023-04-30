@@ -64,42 +64,52 @@ const (
 
 var errInlalidArgs = errors.New("invalid args")
 
+var LogTag = setLogTag()
+
+const defaultLogTag = "delbrigade"
+
+func setLogTag() string {
+	executable, err := os.Executable()
+	if err != nil {
+		return defaultLogTag
+	}
+
+	return filepath.Base(executable)
+}
+
 func main() {
 	var w io.WriteCloser
 
-	executable, _ := os.Executable()
-	exe := filepath.Base(executable)
-
 	chunked, brigadeID, id, err := parseArgs()
 	if err != nil {
-		log.Fatalf("%s: Can't parse args: %s\n", exe, err)
+		log.Fatalf("%s: Can't parse args: %s\n", LogTag, err)
 	}
 
 	sshKeyDir, dbname, schema, _, err := readConfigs()
 	if err != nil {
-		log.Fatalf("%s: Can't read configs: %s\n", exe, err)
+		log.Fatalf("%s: Can't read configs: %s\n", LogTag, err)
 	}
 
 	sshconf, err := createSSHConfig(sshKeyDir)
 	if err != nil {
-		log.Fatalf("%s: Can't create ssh configs: %s\n", exe, err)
+		log.Fatalf("%s: Can't create ssh configs: %s\n", LogTag, err)
 	}
 
 	db, err := createDBPool(dbname)
 	if err != nil {
-		log.Fatalf("%s: Can't create db pool: %s\n", exe, err)
+		log.Fatalf("%s: Can't create db pool: %s\n", LogTag, err)
 	}
 
 	// attention! id - uuid-style string.
 	control_ip, err := removeBrigade(db, schema, id)
 	if err != nil {
-		log.Fatalf("%s: Can't remove brigade: %s\n", exe, err)
+		log.Fatalf("%s: Can't remove brigade: %s\n", LogTag, err)
 	}
 
 	// attention! brigadeID - base32-style.
 	output, err := revokeBrigade(db, schema, sshconf, brigadeID, control_ip)
 	if err != nil {
-		log.Fatalf("%s: Can't revoke brigade: %s\n", exe, err)
+		log.Fatalf("%s: Can't revoke brigade: %s\n", LogTag, err)
 	}
 
 	switch chunked {
@@ -116,7 +126,7 @@ func main() {
 
 	_, err = w.Write(output)
 	if err != nil {
-		log.Fatalf("%s: Can't print output: %s\n", exe, err)
+		log.Fatalf("%s: Can't print output: %s\n", LogTag, err)
 	}
 }
 
@@ -176,7 +186,7 @@ func revokeBrigade(db *pgxpool.Pool, schema string, sshconf *ssh.ClientConfig, b
 
 	cmd := fmt.Sprintf("destroy %s chunked", brigadeID)
 
-	fmt.Fprintf(os.Stderr, "%s#%s:22 -> %s\n", sshkeyRemoteUsername, control_ip, cmd)
+	fmt.Fprintf(os.Stderr, "%s: %s#%s:22 -> %s\n", LogTag, sshkeyRemoteUsername, control_ip, cmd)
 
 	client, err := ssh.Dial("tcp", fmt.Sprintf("%s:22", control_ip), sshconf)
 	if err != nil {
@@ -196,9 +206,13 @@ func revokeBrigade(db *pgxpool.Pool, schema string, sshconf *ssh.ClientConfig, b
 	session.Stderr = &e
 
 	if err := session.Run(cmd); err != nil {
-		fmt.Fprintf(os.Stderr, "session errors:\n%s\n", e.String())
+		fmt.Fprintf(os.Stderr, "%s: session errors:\n%s\n", LogTag, e.String())
 
 		return nil, fmt.Errorf("ssh run: %w", err)
+	}
+
+	if errstr := e.String(); errstr != "" {
+		fmt.Fprintf(os.Stderr, "%s: session errors:\n%s\n", LogTag, errstr)
 	}
 
 	/*output, err := io.ReadAll(httputil.NewChunkedReader(&b))

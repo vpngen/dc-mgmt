@@ -182,41 +182,51 @@ var (
 	ErrInvalidPersonURL     = errors.New("invalid person url")
 )
 
+var LogTag = setLogTag()
+
+const defaultLogTag = "addbrigade"
+
+func setLogTag() string {
+	executable, err := os.Executable()
+	if err != nil {
+		return defaultLogTag
+	}
+
+	return filepath.Base(executable)
+}
+
 func main() {
 	var w io.WriteCloser
 
-	executable, _ := os.Executable()
-	exe := filepath.Base(executable)
-
 	chunked, opts, err := parseArgs()
 	if err != nil {
-		log.Fatalf("%s: Can't parse args: %s\n", exe, err)
+		log.Fatalf("%s: Can't parse args: %s\n", LogTag, err)
 	}
 
 	sshKeyDir, dbURL, brigadesSchema, brigadesStatsSchema, err := readConfigs()
 	if err != nil {
-		log.Fatalf("%s: Can't read configs: %s\n", exe, err)
+		log.Fatalf("%s: Can't read configs: %s\n", LogTag, err)
 	}
 
 	sshconf, err := createSSHConfig(sshKeyDir)
 	if err != nil {
-		log.Fatalf("%s: Can't create ssh configs: %s\n", exe, err)
+		log.Fatalf("%s: Can't create ssh configs: %s\n", LogTag, err)
 	}
 
 	db, err := createDBPool(dbURL)
 	if err != nil {
-		log.Fatalf("%s: Can't create db pool: %s\n", exe, err)
+		log.Fatalf("%s: Can't create db pool: %s\n", LogTag, err)
 	}
 
 	err = createBrigade(db, brigadesSchema, brigadesStatsSchema, opts)
 	if err != nil {
-		log.Fatalf("%s: Can't create brigade: %s\n", exe, err)
+		log.Fatalf("%s: Can't create brigade: %s\n", LogTag, err)
 	}
 
 	// wgconfx = chunked (wgconf + keydesk IP)
 	wgconfx, keydesk, err := requestBrigade(db, brigadesSchema, sshconf, opts)
 	if err != nil {
-		log.Fatalf("%s: Can't request brigade: %s\n", exe, err)
+		log.Fatalf("%s: Can't request brigade: %s\n", LogTag, err)
 	}
 
 	switch chunked {
@@ -229,12 +239,12 @@ func main() {
 
 	_, err = fmt.Fprintln(w, keydesk)
 	if err != nil {
-		log.Fatalf("%s: Can't print memo: %s\n", exe, err)
+		log.Fatalf("%s: Can't print memo: %s\n", LogTag, err)
 	}
 
 	_, err = w.Write(wgconfx)
 	if err != nil {
-		log.Fatalf("%s: Can't print wgconfx: %s\n", exe, err)
+		log.Fatalf("%s: Can't print wgconfx: %s\n", LogTag, err)
 	}
 }
 
@@ -301,7 +311,7 @@ func createBrigade(db *pgxpool.Pool, schema, schemaStats string, opts *brigadeOp
 		return fmt.Errorf("pair query: %w", err)
 	}
 
-	fmt.Fprintf(os.Stderr, "ep: %s ctrl: %s\n", pair_endpoint_ipv4, pair_control_ip)
+	fmt.Fprintf(os.Stderr, "%s: ep: %s ctrl: %s\n", LogTag, pair_endpoint_ipv4, pair_control_ip)
 
 	// pick up cgnat
 
@@ -332,7 +342,7 @@ func createBrigade(db *pgxpool.Pool, schema, schemaStats string, opts *brigadeOp
 		}
 	}
 
-	fmt.Fprintf(os.Stderr, "cgnat_gnet: %s cgnat_net: %s\n", cgnat_gnet, cgnat_net)
+	fmt.Fprintf(os.Stderr, "%s: cgnat_gnet: %s cgnat_net: %s\n", LogTag, cgnat_gnet, cgnat_net)
 
 	// pick up ula
 
@@ -364,7 +374,7 @@ func createBrigade(db *pgxpool.Pool, schema, schemaStats string, opts *brigadeOp
 		}
 	}
 
-	fmt.Fprintf(os.Stderr, "ula_gnet: %s ula_net: %s\n", ula_gnet, ula_net)
+	fmt.Fprintf(os.Stderr, "%s: ula_gnet: %s ula_net: %s\n", LogTag, ula_gnet, ula_net)
 
 	// pick up keydesk
 
@@ -391,7 +401,7 @@ func createBrigade(db *pgxpool.Pool, schema, schemaStats string, opts *brigadeOp
 		}
 	}
 
-	fmt.Fprintf(os.Stderr, "keydesk_gnet: %s keydesk: %s\n", keydesk_gnet, keydesk)
+	fmt.Fprintf(os.Stderr, "%s: keydesk_gnet: %s keydesk: %s\n", LogTag, keydesk_gnet, keydesk)
 
 	// create brigade
 
@@ -501,7 +511,7 @@ func requestBrigade(db *pgxpool.Pool, schema string, sshconf *ssh.ClientConfig, 
 		base64.StdEncoding.WithPadding(base64.StdPadding).EncodeToString([]byte(person.URL)),
 	)
 
-	fmt.Fprintf(os.Stderr, "%s#%s:22 -> %s\n", sshkeyRemoteUsername, control_ip, cmd)
+	fmt.Fprintf(os.Stderr, "%s: %s#%s:22 -> %s\n", LogTag, sshkeyRemoteUsername, control_ip, cmd)
 
 	client, err := ssh.Dial("tcp", fmt.Sprintf("%s:22", control_ip), sshconf)
 	if err != nil {
@@ -521,14 +531,18 @@ func requestBrigade(db *pgxpool.Pool, schema string, sshconf *ssh.ClientConfig, 
 	session.Stderr = &e
 
 	if err := session.Run(cmd); err != nil {
-		fmt.Fprintf(os.Stderr, "session errors:\n%s\n", e.String())
+		fmt.Fprintf(os.Stderr, "%s: session errors:\n%s\n", LogTag, e.String())
 
 		return nil, "", fmt.Errorf("ssh run: %w", err)
 	}
 
+	if errstr := e.String(); errstr != "" {
+		fmt.Fprintf(os.Stderr, "%s: session errors:\n%s\n", LogTag, errstr)
+	}
+
 	wgconfx, err := io.ReadAll(httputil.NewChunkedReader(&b))
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "readed data:\n%s\n", wgconfx)
+		fmt.Fprintf(os.Stderr, "%s: readed data:\n%s\n", LogTag, wgconfx)
 
 		return nil, "", fmt.Errorf("chunk read: %w", err)
 	}
