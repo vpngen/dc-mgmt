@@ -200,7 +200,14 @@ func replaceBrigadier(db *pgxpool.Pool, schema string, sshconf *ssh.ClientConfig
 		fmt.Fprintf(os.Stderr, "%s: session errors:\n%s\n", LogTag, errstr)
 	}
 
-	return nil, nil
+	wgconfx, err := io.ReadAll(httputil.NewChunkedReader(&b))
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%s: readed data:\n%s\n", LogTag, wgconfx)
+
+		return nil, fmt.Errorf("chunk read: %w", err)
+	}
+
+	return wgconfx, nil
 }
 
 func createDBPool(dburl string) (*pgxpool.Pool, error) {
