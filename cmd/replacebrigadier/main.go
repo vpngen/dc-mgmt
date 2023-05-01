@@ -49,16 +49,12 @@ const (
 const (
 	sqlGetControlIP = `
 	SELECT
-		control_ip
+		control_ip,
+		keydesk_ipv6
 	FROM %s
 	WHERE
 		brigade_id=$1
 	FOR UPDATE
-	`
-	sqlDelBrigades = `
-	DELETE 
-		FROM %s
-	WHERE brigade_id=$1
 	`
 )
 
@@ -66,7 +62,7 @@ var errInlalidArgs = errors.New("invalid args")
 
 var LogTag = setLogTag()
 
-const defaultLogTag = "delbrigade"
+const defaultLogTag = "replacebrigadier"
 
 func setLogTag() string {
 	executable, err := os.Executable()
@@ -101,15 +97,15 @@ func main() {
 	}
 
 	// attention! id - uuid-style string.
-	control_ip, err := removeBrigade(db, schema, id)
+	control_ip, keydesk_ipv6, err := checkBrigade(db, schema, id)
 	if err != nil {
-		log.Fatalf("%s: Can't remove brigade: %s\n", LogTag, err)
+		log.Fatalf("%s: Can't check brigade: %s\n", LogTag, err)
 	}
 
 	// attention! brigadeID - base32-style.
-	output, err := revokeBrigade(db, schema, sshconf, brigadeID, control_ip)
+	wgconfx, err := replaceBrigadier(db, schema, sshconf, brigadeID, control_ip)
 	if err != nil {
-		log.Fatalf("%s: Can't revoke brigade: %s\n", LogTag, err)
+		log.Fatalf("%s: Can't replace brigadier: %s\n", LogTag, err)
 	}
 
 	switch chunked {
@@ -120,26 +116,34 @@ func main() {
 		w = os.Stdout
 	}
 
-	if output == nil {
-		output = []byte{}
+	_, err = fmt.Fprintln(w, keydesk_ipv6.String())
+	if err != nil {
+		log.Fatalf("%s: Can't print keydesk ipv6: %s\n", LogTag, err)
 	}
 
-	_, err = w.Write(output)
+	if wgconfx == nil {
+		wgconfx = []byte{}
+	}
+
+	_, err = w.Write(wgconfx)
 	if err != nil {
-		log.Fatalf("%s: Can't print output: %s\n", LogTag, err)
+		log.Fatalf("%s: Can't print wgconfx: %s\n", LogTag, err)
 	}
 }
 
-func removeBrigade(db *pgxpool.Pool, schema string, brigadeID string) (netip.Addr, error) {
+func checkBrigade(db *pgxpool.Pool, schema string, brigadeID string) (netip.Addr, netip.Addr, error) {
 	ctx := context.Background()
 	emptyIP := netip.Addr{}
 
 	tx, err := db.Begin(ctx)
 	if err != nil {
-		return emptyIP, fmt.Errorf("begin: %w", err)
+		return emptyIP, emptyIP, fmt.Errorf("begin: %w", err)
 	}
 
-	var control_ip netip.Addr
+	var (
+		control_ip   netip.Addr
+		keydesk_ipv6 netip.Addr
+	)
 
 	err = tx.QueryRow(ctx,
 		fmt.Sprintf(sqlGetControlIP,
@@ -148,43 +152,24 @@ func removeBrigade(db *pgxpool.Pool, schema string, brigadeID string) (netip.Add
 		brigadeID,
 	).Scan(
 		&control_ip,
+		&keydesk_ipv6,
 	)
 	if err != nil {
 		tx.Rollback(ctx)
 
-		return emptyIP, fmt.Errorf("brigade query: %w", err)
-	}
-
-	_, err = tx.Exec(ctx, fmt.Sprintf(sqlDelBrigades, (pgx.Identifier{schema, "brigades"}.Sanitize())), brigadeID)
-	if err != nil {
-		tx.Rollback(ctx)
-
-		return emptyIP, fmt.Errorf("brigade delete: %w", err)
+		return emptyIP, emptyIP, fmt.Errorf("brigade query: %w", err)
 	}
 
 	err = tx.Commit(ctx)
 	if err != nil {
-		return emptyIP, fmt.Errorf("commit: %w", err)
+		return emptyIP, emptyIP, fmt.Errorf("commit: %w", err)
 	}
 
-	return control_ip, nil
+	return control_ip, keydesk_ipv6, nil
 }
 
-func revokeBrigade(db *pgxpool.Pool, schema string, sshconf *ssh.ClientConfig, brigadeID string, control_ip netip.Addr) ([]byte, error) {
-	/*
-		ctx := context.Background()
-		tx, err := db.Begin(ctx)
-		if err != nil {
-			return nil, "", fmt.Errorf("begin: %w", err)
-		}
-
-		err = tx.Commit(ctx)
-		if err != nil {
-			return nil, "", fmt.Errorf("commit: %w", err)
-		}
-	*/
-
-	cmd := fmt.Sprintf("destroy %s chunked", brigadeID)
+func replaceBrigadier(db *pgxpool.Pool, schema string, sshconf *ssh.ClientConfig, brigadeID string, control_ip netip.Addr) ([]byte, error) {
+	cmd := fmt.Sprintf("replace %s chunked", brigadeID)
 
 	fmt.Fprintf(os.Stderr, "%s: %s#%s:22 -> %s\n", LogTag, sshkeyRemoteUsername, control_ip, cmd)
 
@@ -214,13 +199,6 @@ func revokeBrigade(db *pgxpool.Pool, schema string, sshconf *ssh.ClientConfig, b
 	if errstr := e.String(); errstr != "" {
 		fmt.Fprintf(os.Stderr, "%s: session errors:\n%s\n", LogTag, errstr)
 	}
-
-	/*output, err := io.ReadAll(httputil.NewChunkedReader(&b))
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "readed data:\n%s\n", output)
-
-		return nil, fmt.Errorf("chunk read: %w", err)
-	}*/
 
 	return nil, nil
 }

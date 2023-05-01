@@ -21,6 +21,8 @@ if [ "addbrigade" = "${cmd}" ]; then
 elif [ "delbrigade" = "${cmd}" ]; then
     "${basedir}"/delbrigade "$@"
     /usr/bin/flock -x -E 0 -n /tmp/kdsync.lock "${basedir}"/kdsync.sh 2>&1 | /usr/bin/logger -p local0.notice -t KDSYNC
+elif [ "replacebrigadier" = "${cmd}" ]; then
+    "${basedir}"/replacebrigadier "$@"
 elif [ "getwasted" = "${cmd}" ]; then
     "${basedir}"/getwasted "$@"
 elif [ "checkbrigade" = "${cmd}" ]; then
