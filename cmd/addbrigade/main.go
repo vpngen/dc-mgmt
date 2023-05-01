@@ -46,7 +46,7 @@ const (
 	defaultDatabaseURL   = "postgresql:///vgrealm"
 )
 
-const sshTimeOut = time.Duration(5 * time.Second)
+const sshTimeOut = time.Duration(75 * time.Second)
 
 const (
 	BrigadeCgnatPrefix = 24
@@ -239,7 +239,7 @@ func main() {
 
 	_, err = fmt.Fprintln(w, keydesk)
 	if err != nil {
-		log.Fatalf("%s: Can't print memo: %s\n", LogTag, err)
+		log.Fatalf("%s: Can't print keydesk ipc6: %s\n", LogTag, err)
 	}
 
 	_, err = w.Write(wgconfx)

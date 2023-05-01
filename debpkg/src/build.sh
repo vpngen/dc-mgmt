@@ -7,6 +7,7 @@ export CGO_ENABLED=0
 go build -C dc-mgmt/cmd/addbrigade -o ../../../bin/addbrigade
 go build -C dc-mgmt/cmd/addbrigade/gen -o ../../../../bin/gen
 go build -C dc-mgmt/cmd/delbrigade -o ../../../bin/delbrigade
+go build -C dc-mgmt/cmd/delbrigade -o ../../../bin/replacebrigadier
 go build -C dc-mgmt/cmd/getwasted -o ../../../bin/getwasted
 go build -C dc-mgmt/cmd/collectstats -o ../../../bin/collectstats
 
