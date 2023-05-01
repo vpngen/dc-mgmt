@@ -96,6 +96,12 @@ contents:
     mode: 0005
     owner: root
     group: root
+- src: bin/replacebrigadier
+  dst: /opt/vg-dc-vpnapi/replacebrigadier
+  file_info:
+    mode: 0005
+    owner: root
+    group: root
 - src: bin/getwasted
   dst: /opt/vg-dc-vpnapi/getwasted
   file_info:
