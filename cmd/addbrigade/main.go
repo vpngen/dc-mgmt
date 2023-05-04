@@ -46,7 +46,7 @@ const (
 	defaultDatabaseURL   = "postgresql:///vgrealm"
 )
 
-const sshTimeOut = time.Duration(75 * time.Second)
+const sshTimeOut = time.Duration(15 * time.Second)
 
 const (
 	BrigadeCgnatPrefix = 24

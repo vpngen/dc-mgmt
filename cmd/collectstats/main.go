@@ -46,7 +46,7 @@ const (
 
 const (
 	ParallelCollectorsLimit = 16
-	sshTimeOut              = time.Duration(5 * time.Second)
+	sshTimeOut              = time.Duration(15 * time.Second)
 )
 
 const (
