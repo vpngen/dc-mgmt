@@ -10,7 +10,9 @@ import (
 	"log"
 	"net/http/httputil"
 	"os"
+	"os/user"
 	"path/filepath"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -19,26 +21,28 @@ import (
 )
 
 const (
-	dbnameFilename     = "dbname"
-	schemaNameFilename = "schema"
-	etcDefaultPath     = "/etc/vg-dc-mgmt"
+	defaultBrigadesSchema      = "brigades"
+	defaultBrigadesStatsSchema = "stats"
+)
+
+const (
+	sshkeyFilename       = "id_ecdsa"
+	sshkeyRemoteUsername = "_serega_"
+	etcDefaultPath       = "/etc/vg-dc-mgmt"
 )
 
 const (
 	maxPostgresqlNameLen = 63
-	postgresqlSocket     = "/var/run/postgresql"
+	defaultDatabaseURL   = "postgresql:///vgrealm"
 )
 
-const (
-	BrigadeCgnatPrefix = 24
-	BrigadeUlaPrefix   = 64
-)
+const sshTimeOut = time.Duration(15 * time.Second)
 
 var errInlalidArgs = errors.New("invalid args")
 
 var LogTag = setLogTag()
 
-const defaultLogTag = "delbrigade"
+const defaultLogTag = "checkbrigade"
 
 func setLogTag() string {
 	executable, err := os.Executable()
@@ -52,17 +56,12 @@ func setLogTag() string {
 func main() {
 	var w io.WriteCloser
 
-	confDir := os.Getenv("CONFDIR")
-	if confDir == "" {
-		confDir = etcDefaultPath
-	}
-
 	chunked, bid32, id, err := parseArgs()
 	if err != nil {
 		log.Fatalf("%s: Can't parse args: %s\n", LogTag, err)
 	}
 
-	dbname, schema, err := readConfigs(confDir)
+	_, dbname, schemaBrigades, schemaStats, err := readConfigs()
 	if err != nil {
 		log.Fatalf("%s: Can't read configs: %s\n", LogTag, err)
 	}
@@ -73,7 +72,7 @@ func main() {
 	}
 
 	// attention! id - uuid-style string.
-	brigadeGetID, userCount, createdAt, lastVisit, err := checkBrigade(db, schema, id)
+	brigadeGetID, totalUsersCount, activeUsersCount, createdAt, firstVisit, err := checkBrigade(db, schemaBrigades, schemaStats, id)
 	if err != nil {
 		log.Fatalf("%s: Can't check brigade: %s\n", LogTag, err)
 	}
@@ -92,64 +91,69 @@ func main() {
 
 	fmt.Fprintln(w, brigadeGetID)
 	fmt.Fprintln(w, bid32)
-	fmt.Fprintln(w, userCount)
+	fmt.Fprintln(w, totalUsersCount)
+	fmt.Fprintln(w, activeUsersCount)
 	fmt.Fprintln(w, createdAt)
-	fmt.Fprintln(w, lastVisit)
+	fmt.Fprintln(w, firstVisit)
 }
 
-func checkBrigade(db *pgxpool.Pool, schema string, brigadeID string) (string, int, string, string, error) {
+func checkBrigade(db *pgxpool.Pool, schemaBrigades, schemaStats, brigadeID string) (string, int, int, string, string, error) {
 	ctx := context.Background()
 
 	tx, err := db.Begin(ctx)
 	if err != nil {
-		return "", 0, "", "", fmt.Errorf("begin: %w", err)
+		return "", 0, 0, "", "", fmt.Errorf("begin: %w", err)
 	}
 
 	var (
-		bid  string
-		ucnt int
-		ct   pgtype.Timestamp
-		lv   pgtype.Timestamp
+		bid              string
+		totalUsersCount  int
+		activeUsersCount int
+		createdAt        pgtype.Timestamp
+		firstVisit       pgtype.Timestamp
 	)
 
 	sqlGetBrigade := `
 	SELECT
-		brigade_id,
-		total_users_count,
-		created_at,
-		first_visit
-	FROM %s AS s
+		b.brigade_id,
+		s.total_users_count,
+		s.active_users_count,
+		s.created_at,
+		s.first_visit
+	FROM %s b LEFT JOIN %s s ON b.brigade_id=s.brigade_id
 	WHERE
-		brigade_id=$1
+		b.brigade_id=$1
 	`
 
 	err = tx.QueryRow(ctx,
 		fmt.Sprintf(sqlGetBrigade,
-			(pgx.Identifier{"stats", "brigades_stats"}.Sanitize()),
+			(pgx.Identifier{schemaBrigades, "brigades"}.Sanitize()),
+			(pgx.Identifier{schemaStats, "brigades_stats"}.Sanitize()),
 		),
 		brigadeID,
 	).Scan(
 		&bid,
-		&ucnt,
-		&ct,
-		&lv,
+		&totalUsersCount,
+		&activeUsersCount,
+		&createdAt,
+		&firstVisit,
 	)
 	if err != nil {
 		tx.Rollback(ctx)
 
-		return "", 0, "", "", fmt.Errorf("brigade query: %w", err)
+		return "", 0, 0, "", "", fmt.Errorf("brigade query: %w", err)
 	}
 
 	err = tx.Commit(ctx)
 	if err != nil {
-		return "", 0, "", "", fmt.Errorf("commit: %w", err)
+		return "", 0, 0, "", "", fmt.Errorf("commit: %w", err)
 	}
 
-	return bid, ucnt, ct.Time.String(), lv.Time.String(), nil
+	return bid, totalUsersCount, activeUsersCount, createdAt.Time.String(), firstVisit.Time.String(), nil
 }
 
-func createDBPool(dbname string) (*pgxpool.Pool, error) {
-	config, err := pgxpool.ParseConfig(fmt.Sprintf("host=%s dbname=%s", postgresqlSocket, dbname))
+func createDBPool(dburl string) (*pgxpool.Pool, error) {
+	config, err := pgxpool.ParseConfig(dburl)
 	if err != nil {
 		return nil, fmt.Errorf("conn string: %w", err)
 	}
@@ -197,26 +201,35 @@ func parseArgs() (bool, string, string, error) {
 	}
 }
 
-func readConfigs(path string) (string, string, error) {
-	f, err := os.Open(filepath.Join(path, dbnameFilename))
-	if err != nil {
-		return "", "", fmt.Errorf("can't open: %s: %w", dbnameFilename, err)
+func readConfigs() (string, string, string, string, error) {
+	dbURL := os.Getenv("DB_URL")
+	if dbURL == "" {
+		dbURL = defaultDatabaseURL
 	}
 
-	dbname, err := io.ReadAll(io.LimitReader(f, maxPostgresqlNameLen))
-	if err != nil {
-		return "", "", fmt.Errorf("can't read: %s: %w", dbnameFilename, err)
+	brigadeSchema := os.Getenv("BRIGADES_SCHEMA")
+	if brigadeSchema == "" {
+		brigadeSchema = defaultBrigadesSchema
 	}
 
-	f, err = os.Open(filepath.Join(path, schemaNameFilename))
-	if err != nil {
-		return "", "", fmt.Errorf("can't open: %s: %w", schemaNameFilename, err)
+	brigadesStatsSchema := os.Getenv("BRIGADES_STATS_SCHEMA")
+	if brigadesStatsSchema == "" {
+		brigadesStatsSchema = defaultBrigadesStatsSchema
 	}
 
-	schema, err := io.ReadAll(io.LimitReader(f, maxPostgresqlNameLen))
-	if err != nil {
-		return "", "", fmt.Errorf("can't read: %s: %w", schemaNameFilename, err)
+	sshKeyDir := os.Getenv("CONFDIR")
+	if sshKeyDir == "" {
+		sysUser, err := user.Current()
+		if err != nil {
+			return "", "", "", "", fmt.Errorf("user: %w", err)
+		}
+
+		sshKeyDir = filepath.Join(sysUser.HomeDir, ".ssh")
 	}
 
-	return string(dbname), string(schema), nil
+	if fstat, err := os.Stat(sshKeyDir); err != nil || !fstat.IsDir() {
+		sshKeyDir = etcDefaultPath
+	}
+
+	return sshKeyDir, dbURL, brigadeSchema, brigadesStatsSchema, nil
 }
