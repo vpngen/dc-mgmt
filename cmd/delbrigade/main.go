@@ -14,6 +14,7 @@ import (
 	"os"
 	"os/user"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -39,7 +40,7 @@ const (
 	defaultDatabaseURL   = "postgresql:///vgrealm"
 )
 
-const sshTimeOut = time.Duration(75 * time.Second)
+const sshTimeOut = time.Duration(15 * time.Second)
 
 const (
 	BrigadeCgnatPrefix = 24
@@ -171,19 +172,6 @@ func removeBrigade(db *pgxpool.Pool, schema string, brigadeID string) (netip.Add
 }
 
 func revokeBrigade(db *pgxpool.Pool, schema string, sshconf *ssh.ClientConfig, brigadeID string, control_ip netip.Addr) ([]byte, error) {
-	/*
-		ctx := context.Background()
-		tx, err := db.Begin(ctx)
-		if err != nil {
-			return nil, "", fmt.Errorf("begin: %w", err)
-		}
-
-		err = tx.Commit(ctx)
-		if err != nil {
-			return nil, "", fmt.Errorf("commit: %w", err)
-		}
-	*/
-
 	cmd := fmt.Sprintf("destroy %s chunked", brigadeID)
 
 	fmt.Fprintf(os.Stderr, "%s: %s#%s:22 -> %s\n", LogTag, sshkeyRemoteUsername, control_ip, cmd)
@@ -205,22 +193,23 @@ func revokeBrigade(db *pgxpool.Pool, schema string, sshconf *ssh.ClientConfig, b
 	session.Stdout = &b
 	session.Stderr = &e
 
-	if err := session.Run(cmd); err != nil {
-		fmt.Fprintf(os.Stderr, "%s: session errors:\n%s\n", LogTag, e.String())
+	defer func() {
+		fmt.Fprintf(os.Stderr, "%s: SSH Session StdErr:", LogTag)
 
+		switch errstr := e.String(); errstr {
+		case "":
+			fmt.Fprintln(os.Stderr, " empty")
+		default:
+			fmt.Fprintln(os.Stderr)
+			for _, line := range strings.Split(errstr, "\n") {
+				fmt.Fprintf(os.Stderr, "%s:    | %s\n", LogTag, line)
+			}
+		}
+	}()
+
+	if err := session.Run(cmd); err != nil {
 		return nil, fmt.Errorf("ssh run: %w", err)
 	}
-
-	if errstr := e.String(); errstr != "" {
-		fmt.Fprintf(os.Stderr, "%s: session errors:\n%s\n", LogTag, errstr)
-	}
-
-	/*output, err := io.ReadAll(httputil.NewChunkedReader(&b))
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "readed data:\n%s\n", output)
-
-		return nil, fmt.Errorf("chunk read: %w", err)
-	}*/
 
 	return nil, nil
 }
