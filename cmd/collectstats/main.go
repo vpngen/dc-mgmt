@@ -215,14 +215,6 @@ func collectStats(sshconf *ssh.ClientConfig, addr netip.Addr, brigades [][]byte,
 	}
 
 	stream <- &parsedStats
-
-	/*for _, stats := range parsedStats.Stats {
-		if err := insertStats(db, statsSchema, stats); err != nil {
-			fmt.Fprintf(os.Stderr, "insert stats: %s\n", err)
-
-			return
-		}
-	}*/
 }
 
 // updateStats - update stats in the database.
@@ -462,16 +454,26 @@ func fetchStatsBySSH(sshconf *ssh.ClientConfig, addr netip.Addr, ids []string) (
 	session.Stdout = &b
 	session.Stderr = &e
 
-	if err := session.Run(cmd); err != nil {
-		fmt.Fprintf(os.Stderr, "session errors:\n%s\n", e.String())
+	defer func() {
+		fmt.Fprintf(os.Stderr, "%s: SSH Session StdErr:\n", LogTag)
 
+		switch errstr := e.String(); errstr {
+		case "":
+			fmt.Fprintln(os.Stderr, " empty")
+		default:
+			fmt.Fprintln(os.Stderr)
+			for _, line := range strings.Split(errstr, "\n") {
+				fmt.Fprintf(os.Stderr, "%s:    | %s\n", LogTag, line)
+			}
+		}
+	}()
+
+	if err := session.Run(cmd); err != nil {
 		return nil, fmt.Errorf("ssh run: %w", err)
 	}
 
 	groupStats, err := io.ReadAll(httputil.NewChunkedReader(&b))
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "readed data:\n%s\n", groupStats)
-
 		return nil, fmt.Errorf("chunk read: %w", err)
 	}
 
