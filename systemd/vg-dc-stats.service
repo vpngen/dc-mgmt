@@ -8,6 +8,7 @@ User=vgstats
 Group=vgstats
 WorkingDirectory=/home/vgstats
 ExecStart=/opt/vg-dc-stats/collectstats
+ExecStart=/opt/vg-dc-stats/stats-sync.sh
 
 [Install]
 WantedBy=multi-user.target

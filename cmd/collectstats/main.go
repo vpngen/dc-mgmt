@@ -131,16 +131,31 @@ type AggrStats struct {
 	Stats []*storage.Stats `json:"stats"`
 }
 
+const DataCenterStatsVersion = 1
+
+// DataCenterStats - structure for data center stats.
+type DataCenterStats struct {
+	Version              int `json:"version"`
+	TotalFreeSlotsCount  int `json:"total_free_slots_count"`
+	ActiveFreeSlotsCount int `json:"active_free_slots_count"`
+	TotalPairsCount      int `json:"total_pairs_count"`
+	ActivePairsCount     int `json:"active_pairs_count"`
+}
+
+// AggrStatsVersion - current version of aggregated stats.
+const AggrStatsXVersion = 2
+
 // AggrStatsX - structure for aggregated stats with additional fields.
 type AggrStatsX struct {
-	Ver        int              `json:"version"`
-	UpdateTime time.Time        `json:"update_time"`
-	Stats      []*storage.Stats `json:"stats"`
+	Version         int              `json:"version"`
+	UpdateTime      time.Time        `json:"update_time"`
+	Stats           []*storage.Stats `json:"stats"`
+	DataCenterStats `json:"data_center_stats"`
 }
 
 var LogTag = setLogTag()
 
-const defaultLogTag = "getwasted"
+const defaultLogTag = "collectstats"
 
 func setLogTag() string {
 	executable, err := os.Executable()
@@ -297,12 +312,14 @@ func updateStats(db *pgxpool.Pool, statsSchema string, stats *storage.Stats) err
 }
 
 // handleStatsStream - handle stats stream and update stats in the database and write to the file.
-func handleStatsStream(db *pgxpool.Pool, statsSchema string, filename string, stream <-chan *AggrStats, wg *sync.WaitGroup) {
+func handleStatsStream(db *pgxpool.Pool, statsSchema string, filename string, stream <-chan *AggrStats, wg *sync.WaitGroup, dataCenterStats DataCenterStats) {
 	defer wg.Done()
 
 	aggrStats := &AggrStatsX{
-		UpdateTime: time.Now().UTC(),
-		Stats:      make([]*storage.Stats, 0),
+		Version:         AggrStatsXVersion,
+		UpdateTime:      time.Now().UTC(),
+		Stats:           make([]*storage.Stats, 0),
+		DataCenterStats: dataCenterStats,
 	}
 
 	for stats := range stream {
@@ -353,8 +370,79 @@ func handleStatsStream(db *pgxpool.Pool, statsSchema string, filename string, st
 	}
 }
 
+func getDataCenterStats(db *pgxpool.Pool, pairsSchema, brigadesSchema string) DataCenterStats {
+	ctx := context.Background()
+
+	tx, err := db.Begin(ctx)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "begin transaction: %s\n", err)
+
+		return DataCenterStats{}
+	}
+
+	defer tx.Rollback(ctx)
+
+	var TotalPairsCount int
+
+	sqlGetTotalPairsCont := `SELECT count(*) FROM %s`
+	if err := tx.QueryRow(
+		ctx,
+		fmt.Sprintf(sqlGetTotalPairsCont, pgx.Identifier{pairsSchema, "pairs"}.Sanitize()),
+	).Scan(&TotalPairsCount); err != nil && err != pgx.ErrNoRows {
+		fmt.Fprintf(os.Stderr, "get total pairs count: %s\n", err)
+
+		return DataCenterStats{}
+	}
+
+	var ActivePairsCount int
+	sqlGetActivePairsCount := `SELECT count(*) FROM %s WHERE is_active = true`
+	if err := tx.QueryRow(
+		ctx,
+		fmt.Sprintf(sqlGetActivePairsCount, pgx.Identifier{pairsSchema, "pairs"}.Sanitize()),
+	).Scan(&ActivePairsCount); err != nil && err != pgx.ErrNoRows {
+		fmt.Fprintf(os.Stderr, "get active pairs count: %s\n", err)
+
+		return DataCenterStats{}
+	}
+
+	var TotalFreeSlotsCount int
+	sqlGetTotalFreeSlotsCount := `SELECT count(*) FROM %s`
+	if err := tx.QueryRow(
+		ctx,
+		fmt.Sprintf(sqlGetTotalFreeSlotsCount, pgx.Identifier{brigadesSchema, "slots"}.Sanitize()),
+	).Scan(&TotalFreeSlotsCount); err != nil && err != pgx.ErrNoRows {
+		fmt.Fprintf(os.Stderr, "get total free slots count: %s\n", err)
+
+		return DataCenterStats{}
+	}
+
+	var ActiveFreeSlotsCount int
+	sqlGetActiveFreeSlotsCount := `SELECT sum(free_slots_count) FROM %s`
+	if err := tx.QueryRow(
+		ctx,
+		fmt.Sprintf(sqlGetActiveFreeSlotsCount, pgx.Identifier{brigadesSchema, "active_pairs"}.Sanitize()),
+	).Scan(&ActiveFreeSlotsCount); err != nil && err != pgx.ErrNoRows {
+		fmt.Fprintf(os.Stderr, "get active free slots count: %s\n", err)
+
+		return DataCenterStats{}
+	}
+
+	fmt.Fprintf(os.Stdout, "DataCenterStats: pairs: %d(%d), slots: %d (%d)\n",
+		TotalPairsCount, ActivePairsCount, TotalFreeSlotsCount, ActiveFreeSlotsCount)
+
+	return DataCenterStats{
+		Version:              DataCenterStatsVersion,
+		TotalPairsCount:      TotalPairsCount,
+		ActivePairsCount:     ActivePairsCount,
+		TotalFreeSlotsCount:  TotalFreeSlotsCount,
+		ActiveFreeSlotsCount: ActiveFreeSlotsCount,
+	}
+}
+
 // pairsWalk - walk through pairs and collect stats.
 func pairsWalk(db *pgxpool.Pool, sshconf *ssh.ClientConfig, pairsSchema, brigadesSchema, statsSchema, statsfile string) error {
+	dataCenterStats := getDataCenterStats(db, pairsSchema, brigadesSchema)
+
 	groups, err := getBrigadesGroups(db, pairsSchema, brigadesSchema)
 	if err != nil {
 		return fmt.Errorf("get brigades groups: %w", err)
@@ -367,7 +455,7 @@ func pairsWalk(db *pgxpool.Pool, sshconf *ssh.ClientConfig, pairsSchema, brigade
 	var wgh sync.WaitGroup
 
 	wgh.Add(1)
-	go handleStatsStream(db, statsSchema, statsfile, stream, &wgh)
+	go handleStatsStream(db, statsSchema, statsfile, stream, &wgh, dataCenterStats)
 
 	for _, group := range groups {
 		sem <- struct{}{} // Acquire the semaphore
@@ -455,15 +543,13 @@ func fetchStatsBySSH(sshconf *ssh.ClientConfig, addr netip.Addr, ids []string) (
 	session.Stderr = &e
 
 	defer func() {
-		fmt.Fprintf(os.Stderr, "%s: SSH Session StdErr:\n", LogTag)
-
 		switch errstr := e.String(); errstr {
 		case "":
-			fmt.Fprintln(os.Stderr, " empty")
+			fmt.Fprintf(os.Stderr, "%s: SSH Session StdErr: empty\n", LogTag)
 		default:
-			fmt.Fprintln(os.Stderr)
+			fmt.Fprintf(os.Stderr, "%s: SSH Session StdErr:\n", LogTag)
 			for _, line := range strings.Split(errstr, "\n") {
-				fmt.Fprintf(os.Stderr, "%s:    | %s\n", LogTag, line)
+				fmt.Fprintf(os.Stderr, "%s: | %s\n", LogTag, line)
 			}
 		}
 	}()
