@@ -194,15 +194,13 @@ func revokeBrigade(db *pgxpool.Pool, schema string, sshconf *ssh.ClientConfig, b
 	session.Stderr = &e
 
 	defer func() {
-		fmt.Fprintf(os.Stderr, "%s: SSH Session StdErr:", LogTag)
-
 		switch errstr := e.String(); errstr {
 		case "":
-			fmt.Fprintln(os.Stderr, " empty")
+			fmt.Fprintf(os.Stderr, "%s: SSH Session StdErr: empty\n", LogTag)
 		default:
-			fmt.Fprintln(os.Stderr)
+			fmt.Fprintf(os.Stderr, "%s: SSH Session StdErr:\n", LogTag)
 			for _, line := range strings.Split(errstr, "\n") {
-				fmt.Fprintf(os.Stderr, "%s:    | %s\n", LogTag, line)
+				fmt.Fprintf(os.Stderr, "%s: | %s\n", LogTag, line)
 			}
 		}
 	}()
