@@ -146,6 +146,12 @@ contents:
     mode: 0005
     owner: root
     group: root
+- src: dc-mgmt/cmd/stats-sync.sh
+  dst: /opt/vg-dc-stats/stats-sync.sh
+  file_info:
+    mode: 0005
+    owner: root
+    group: root
 
 - src: dc-mgmt/systemd/vg-dc-stats.timer
   dst: /etc/systemd/system/vg-dc-stats.timer
