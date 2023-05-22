@@ -4,7 +4,10 @@ remove() {
         printf "Pre Remove of a normal remove\n"
 
         printf "Stop the service unit\n"
-        systemctl stop --force vg-dc-stats.service vg-dc-stats.timer ||:
+        systemctl stop --force vg-dc-stats.timer ||:
+        systemctl stop --force vg-dc-stats.service ||:
+        systemctl stop --force vg-dc-gfsn.service ||:
+
 }
 
 upgrade() {
