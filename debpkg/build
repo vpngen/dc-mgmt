@@ -68,12 +68,12 @@ constract_version () {
 
 }
 
-if [ "x$1" = "xpkg" ]; then
+if [ "$1" = "pkg" ]; then
         set -e
 
-        export USER_UID=${USER_UID}
-        export BRANCH=${BRANCH}
-        export VERMETADATA=${VERMETADATA}
+        export USER_UID="${USER_UID}"
+        export BRANCH="${BRANCH}"
+        export VERMETADATA="${VERMETADATA}"
 
         if [ -z "${BRANCH}" ]; then
                 echo "No branch specified"
