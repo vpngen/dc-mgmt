@@ -14,7 +14,7 @@ REMOTE_DATADIR=${REMOTE_DATADIR:-"~/vg-collectstats"}
 echo "[i] Sync file... ${STATS_SYNC_SERVER_ADDR}:${STATS_SYNC_SERVER_PORT}"
 
 rsync \
-        -e "ssh -o IdentitiesOnly=yes -o IdentityFile=${SSH_KEY} -o StrictHostKeyChecking=no -p ${STATS_SYNC_SERVER_PORT}" \
+        -e "ssh -o IdentitiesOnly=yes -o IdentityFile=${SSH_KEY} -o StrictHostKeyChecking=no -o ConnectTimeout=10 -p ${STATS_SYNC_SERVER_PORT}" \
         -avz \
         --remove-source-files \
         "${DATADIR}/" "${STATS_SYNC_SERVER_ADDR}:${REMOTE_DATADIR}/"

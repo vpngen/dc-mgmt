@@ -35,7 +35,7 @@ CSV_FILENAME_TMP="${CSV_FILENAME}.tmp"
 
 cmd="cat > ${CSV_FILENAME_TMP} && mv -f ${CSV_FILENAME_TMP} ${CSV_FILENAME} && touch vpn-works-keydesks.reload"
 set +x
-echo "${list}" | ssh -o IdentitiesOnly=yes -o IdentityFile="${SSH_KEY}" -o StrictHostKeyChecking=no -T "${VPN_WORKS_KEYDESKS_SERVER_ADDR}" -p "${VPN_WORKS_KEYDESKS_SERVER_PORT}" "${cmd}"
+echo "${list}" | ssh -o IdentitiesOnly=yes -o IdentityFile="${SSH_KEY}" -o StrictHostKeyChecking=no -o ConnectTimeout=10 -T "${VPN_WORKS_KEYDESKS_SERVER_ADDR}" -p "${VPN_WORKS_KEYDESKS_SERVER_PORT}" "${cmd}"
 rc=$?
 if [ $rc -ne 0 ]; then
 	echo "[-] Can't ssh: $rc"
