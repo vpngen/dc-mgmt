@@ -73,7 +73,7 @@ contents:
     group: vgstats
 
 - src: dc-mgmt/debpkg/src/stats-sync.env-sample
-  dst: /etc/vg-dc-stats/stats-sync.env
+  dst: /etc/vg-dc-stats/stats-sync.env-sample
   file_info:
     mode: 0444
     owner: root
