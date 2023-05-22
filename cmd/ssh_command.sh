@@ -18,7 +18,7 @@ printdef() {
 
 vpn_works_keysesks_sync() {
         # shellcheck source=/dev/null
-        . /etc/vg-dc-vpnapi/vpn-works-keysesks-sync.env
+        . /etc/vg-dc-vpnapi/vpn-works-keydesks-sync.env
 
         export VPN_WORKS_KEYDESKS_SERVER_ADDR
         export VPN_WORKS_KEYDESKS_SERVER_PORT
