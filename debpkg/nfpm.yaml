@@ -207,12 +207,6 @@ contents:
     mode: 0005
     owner: root
     group: root
-- src: dc-mgmt/cmd/stats-loop.sh
-  dst: /opt/vg-dc-stats/stats-loop.sh
-  file_info:
-    mode: 0005
-    owner: root
-    group: root
 - src: dc-mgmt/cmd/stats-sync.sh
   dst: /opt/vg-dc-stats/stats-sync.sh
   file_info:
