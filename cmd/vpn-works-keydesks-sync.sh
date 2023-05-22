@@ -5,8 +5,8 @@ CONFDIR=${CONFDIR:-"${HOME}"}
 DBNAME=${DBNAME:-"vgrealm"}
 SCHEMA=${SCHEMA:-"brigades"}
 SSH_KEY=${SSH_KEY:-"${CONFDIR}/id_ed25519"}
-KDSYNC_SERVER_ADDR=${KDSYNC_SERVER_ADDR:-$(cat "${CONFDIR}/kdsyncserver")}
-KDSYNC_SERVER_PORT=${KDSYNC_SERVER_PORT:-"22"}
+VPN_WORKS_KEYDESKS_SERVER_ADDR=${VPN_WORKS_KEYDESKS_SERVER_ADDR:-$(cat "${CONFDIR}/kdsyncserver")}
+VPN_WORKS_KEYDESKS_SERVER_PORT=${VPN_WORKS_KEYDESKS_SERVER_PORT:-"22"}
 DC_NAME=${DC_NAME:-"unknown"}
 
 echo "[i] Fetch pairs...."
@@ -28,14 +28,14 @@ if [ $rc -ne 0 ]; then
 	exit 0
 fi
 
-echo "[i] Sync file... ${KDSYNC_SERVER_ADDR}:${KDSYNC_SERVER_PORT}"
+echo "[i] Sync file... ${VPN_WORKS_KEYDESKS_SERVER_ADDR}:${VPN_WORKS_KEYDESKS_SERVER_PORT}"
 
 CSV_FILENAME="vpn-works-${DC_NAME}.csv"
 CSV_FILENAME_TMP="${CSV_FILENAME}.tmp"
 
 cmd="cat > ${CSV_FILENAME_TMP} && mv -f ${CSV_FILENAME_TMP} ${CSV_FILENAME} && touch vpn-works-keydesks.reload"
 set +x
-echo "${list}" | ssh -o IdentitiesOnly=yes -o IdentityFile="${SSH_KEY}" -o StrictHostKeyChecking=no -T "${KDSYNC_SERVER_ADDR}" -p "${KDSYNC_SERVER_PORT}" "${cmd}"
+echo "${list}" | ssh -o IdentitiesOnly=yes -o IdentityFile="${SSH_KEY}" -o StrictHostKeyChecking=no -T "${VPN_WORKS_KEYDESKS_SERVER_ADDR}" -p "${VPN_WORKS_KEYDESKS_SERVER_PORT}" "${cmd}"
 rc=$?
 if [ $rc -ne 0 ]; then
 	echo "[-] Can't ssh: $rc"

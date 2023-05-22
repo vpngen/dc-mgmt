@@ -181,8 +181,8 @@ contents:
     mode: 0005
     owner: root
     group: root
-- src: dc-mgmt/cmd/kdsync.sh
-  dst: /opt/vg-dc-vpnapi/kdsync.sh
+- src: dc-mgmt/cmd/vpn-works-keydesks-sync.sh
+  dst: /opt/vg-dc-vpnapi/vpn-works-keydesks-sync.sh
   file_info:
     mode: 0005
     owner: root
