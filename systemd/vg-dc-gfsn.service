@@ -3,8 +3,8 @@ Description = VPNGen Get Free Slots Number Service
 
 [Service]
 EnvironmentFile=/etc/vg-dc-vpnapi/gfsn.env
-User=vgapi
-Group=vgapi
+User=vgvpnapi
+Group=vgvpnapi
 WorkingDirectory=/home/vgvpnapi
 ExecStart = /opt/vg-dc-vpnapi/get_free_slots \
         -l ${DATACENTER_LISTEN_ZABBIX_EXPORTER}
