@@ -1,7 +1,5 @@
 #!/bin/sh
 
-set -e
-
 CONFDIR=${CONFDIR:-"${HOME}"}
 
 STATS_SYNC_SERVER_ADDR=${STATS_SYNC_SERVER_ADDR:-$(cat "${CONFDIR}/statssyncserver")}
@@ -18,3 +16,8 @@ rsync \
         -avz \
         --remove-source-files \
         "${DATADIR}/" "${STATS_SYNC_SERVER_ADDR}:${REMOTE_DATADIR}/"
+
+if [ "$?" -ne 0 ]; then
+        echo "[-] Can't rsync"
+        exit 0
+fi
