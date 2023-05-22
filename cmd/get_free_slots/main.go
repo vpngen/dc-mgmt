@@ -72,17 +72,9 @@ func main() {
 			output []byte
 		)
 
-		switch active {
-		case true:
-			num, err = getActiveFreeSlotsNumber(db, schema)
-			if err != nil {
-				log.Fatalf("%s: Can't get active free slots number: %s\n", LogTag, err)
-			}
-		default:
-			num, err = getTotalFreeSlotsNumber(db, schema)
-			if err != nil {
-				log.Fatalf("%s: Can't get total free slots number: %s\n", LogTag, err)
-			}
+		num, err = getFreeSlotsNumber(db, schema, active)
+		if err != nil {
+			log.Fatalf("%s: Can't get free slots number: %s\n", LogTag, err)
 		}
 
 		output, err = getFormattedFreeSlotsNumber(num, active, jsonFormat)
@@ -175,7 +167,7 @@ func zabbixRequestHandler(w http.ResponseWriter, r *http.Request, db *pgxpool.Po
 
 	switch r.URL.Query().Get("action") {
 	case "request_total_free_slots_number":
-		num, err := getTotalFreeSlotsNumber(db, schema)
+		num, err := getFreeSlotsNumber(db, schema, false)
 		if err == nil {
 			zabbixResponse := fmt.Sprintf("%d\n", num)
 			w.Header().Set("Content-Type", "text/plain")
@@ -188,7 +180,7 @@ func zabbixRequestHandler(w http.ResponseWriter, r *http.Request, db *pgxpool.Po
 		w.WriteHeader(http.StatusNotFound)
 		w.Write([]byte("Not found"))
 	case "request_active_free_slots_number":
-		num, err := getActiveFreeSlotsNumber(db, schema)
+		num, err := getFreeSlotsNumber(db, schema, true)
 		if err == nil {
 			zabbixResponse := fmt.Sprintf("%d\n", num)
 			w.Header().Set("Content-Type", "text/plain")
@@ -224,9 +216,13 @@ func getFormattedFreeSlotsNumber(num int32, active, jsonFormat bool) ([]byte, er
 	return output, nil
 }
 
-func getActiveFreeSlotsNumber(db *pgxpool.Pool, schema string) (int32, error) {
+func getFreeSlotsNumber(db *pgxpool.Pool, schema string, active bool) (int32, error) {
+	var (
+		num int32
+		sql string
+	)
+
 	ctx := context.Background()
-	num := int32(0)
 
 	tx, err := db.Begin(ctx)
 	if err != nil {
@@ -235,44 +231,17 @@ func getActiveFreeSlotsNumber(db *pgxpool.Pool, schema string) (int32, error) {
 
 	defer tx.Rollback(ctx)
 
-	sqlGetFreeSlotNumbers := `
-SELECT 
-        SUM(free_slots_count)
-FROM
-	%s
-`
-
-	if err := tx.QueryRow(ctx,
-		fmt.Sprintf(sqlGetFreeSlotNumbers, (pgx.Identifier{schema, "active_pairs"}.Sanitize())),
-	).Scan(&num); err != nil {
-		return 0, fmt.Errorf("active slots query: %w", err)
+	switch active {
+	case true:
+		sql = fmt.Sprintf("SELECT SUM(free_slots_count) FROM %s", (pgx.Identifier{schema, "active_pairs"}.Sanitize()))
+	default:
+		sql = fmt.Sprintf("SELECT COUNT(*) FROM %s", (pgx.Identifier{schema, "slots"}.Sanitize()))
 	}
 
-	return num, nil
-}
-
-func getTotalFreeSlotsNumber(db *pgxpool.Pool, schema string) (int32, error) {
-	ctx := context.Background()
-	num := int32(0)
-
-	tx, err := db.Begin(ctx)
-	if err != nil {
-		return 0, fmt.Errorf("begin: %w", err)
-	}
-
-	defer tx.Rollback(ctx)
-
-	sqlGetFreeSlotNumbers := `
-SELECT 
-        COUNT(*)
-FROM
-	%s
-`
-
 	if err := tx.QueryRow(ctx,
-		fmt.Sprintf(sqlGetFreeSlotNumbers, (pgx.Identifier{schema, "slots"}.Sanitize())),
+		sql,
 	).Scan(&num); err != nil {
-		return 0, fmt.Errorf("total slots query: %w", err)
+		return 0, fmt.Errorf("slots query: %w", err)
 	}
 
 	return num, nil
