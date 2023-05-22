@@ -65,7 +65,7 @@ func main() {
 		log.Fatalf("%s: Can't create db pool: %s\n", LogTag, err)
 	}
 
-	if listener != nil {
+	if listener == nil {
 
 		var (
 			num    int32
@@ -85,7 +85,7 @@ func main() {
 			}
 		}
 
-		output, err = getFormattedFreeSlotsNumber(num, jsonFormat)
+		output, err = getFormattedFreeSlotsNumber(num, active, jsonFormat)
 		if err != nil {
 			log.Fatalf("%s: Can't format nums: %s\n", LogTag, err)
 		}
@@ -206,12 +206,17 @@ func zabbixRequestHandler(w http.ResponseWriter, r *http.Request, db *pgxpool.Po
 	}
 }
 
-func getFormattedFreeSlotsNumber(num int32, jsonFormat bool) ([]byte, error) {
+func getFormattedFreeSlotsNumber(num int32, active, jsonFormat bool) ([]byte, error) {
 	var output []byte
 
 	switch jsonFormat {
 	case true:
-		output = fmt.Appendf(output, "{\"free_slots\":%d}", num)
+		switch active {
+		case true:
+			output = fmt.Appendf(output, "{\"active_free_slots\":%d}", num)
+		default:
+			output = fmt.Appendf(output, "{\"total_free_slots\":%d}", num)
+		}
 	default:
 		output = fmt.Appendf(output, "%d", num)
 	}
@@ -265,7 +270,7 @@ FROM
 `
 
 	if err := tx.QueryRow(ctx,
-		fmt.Sprintf(sqlGetFreeSlotNumbers, (pgx.Identifier{schema, "free_slots"}.Sanitize())),
+		fmt.Sprintf(sqlGetFreeSlotNumbers, (pgx.Identifier{schema, "slots"}.Sanitize())),
 	).Scan(&num); err != nil {
 		return 0, fmt.Errorf("total slots query: %w", err)
 	}
