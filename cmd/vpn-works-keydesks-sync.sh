@@ -7,6 +7,8 @@ SCHEMA=${SCHEMA:-"brigades"}
 SSH_KEY=${SSH_KEY:-"${CONFDIR}/id_ed25519"}
 VPN_WORKS_KEYDESKS_SERVER_ADDR=${VPN_WORKS_KEYDESKS_SERVER_ADDR:-$(cat "${CONFDIR}/kdsyncserver")}
 VPN_WORKS_KEYDESKS_SERVER_PORT=${VPN_WORKS_KEYDESKS_SERVER_PORT:-"22"}
+VPN_WORKS_KEYDESKS_SERVER_JUMPS=${VPN_WORKS_KEYDESKS_SERVER_JUMPS:-""} # separated by commas
+
 DC_NAME=${DC_NAME:-"unknown"}
 
 echo "[i] Fetch pairs...."
@@ -28,14 +30,29 @@ if [ $rc -ne 0 ]; then
 	exit 0
 fi
 
+jumps=""
+for jump_hosts in $(echo "${VPN_WORKS_KEYDESKS_SERVER_JUMPS}" | tr "," "\n"); do
+        jumps="${jumps} -J ${jump_hosts}"
+done
+
 echo "[i] Sync file... ${VPN_WORKS_KEYDESKS_SERVER_ADDR}:${VPN_WORKS_KEYDESKS_SERVER_PORT}"
+if [ -n "${jumps}" ]; then
+        echo "[i] Jumps: ${jumps}"
+fi
 
 CSV_FILENAME="vpn-works-${DC_NAME}.csv"
 CSV_FILENAME_TMP="${CSV_FILENAME}.tmp"
 
 cmd="cat > ${CSV_FILENAME_TMP} && mv -f ${CSV_FILENAME_TMP} ${CSV_FILENAME} && touch vpn-works-keydesks.reload"
 set +x
-echo "${list}" | ssh -o IdentitiesOnly=yes -o IdentityFile="${SSH_KEY}" -o StrictHostKeyChecking=no -o ConnectTimeout=10 -T "${VPN_WORKS_KEYDESKS_SERVER_ADDR}" -p "${VPN_WORKS_KEYDESKS_SERVER_PORT}" "${cmd}"
+echo "${list}" | ssh -o IdentitiesOnly=yes \
+                -o IdentityFile="${SSH_KEY}" \
+                -o StrictHostKeyChecking=no \
+                -o ConnectTimeout=10 \
+                -T "${VPN_WORKS_KEYDESKS_SERVER_ADDR}" \
+                -p "${VPN_WORKS_KEYDESKS_SERVER_PORT}" \
+                ${jumps} \
+                "${cmd}"
 rc=$?
 if [ $rc -ne 0 ]; then
 	echo "[-] Can't ssh: $rc"
