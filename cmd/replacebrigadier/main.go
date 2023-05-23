@@ -20,7 +20,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/vpngen/realm-admin/internal/kdlib"
 
 	"golang.org/x/crypto/ssh"
 )
@@ -51,16 +50,12 @@ const (
 const (
 	sqlGetControlIP = `
 	SELECT
-		control_ip
+		control_ip,
+		keydesk_ipv6
 	FROM %s
 	WHERE
 		brigade_id=$1
 	FOR UPDATE
-	`
-	sqlDelBrigades = `
-	DELETE 
-		FROM %s
-	WHERE brigade_id=$1
 	`
 )
 
@@ -68,7 +63,7 @@ var errInlalidArgs = errors.New("invalid args")
 
 var LogTag = setLogTag()
 
-const defaultLogTag = "delbrigade"
+const defaultLogTag = "replacebrigadier"
 
 func setLogTag() string {
 	executable, err := os.Executable()
@@ -82,7 +77,7 @@ func setLogTag() string {
 func main() {
 	var w io.WriteCloser
 
-	chunked, base32String, uuidString, err := parseArgs()
+	chunked, brigadeID, id, err := parseArgs()
 	if err != nil {
 		log.Fatalf("%s: Can't parse args: %s\n", LogTag, err)
 	}
@@ -102,21 +97,16 @@ func main() {
 		log.Fatalf("%s: Can't create db pool: %s\n", LogTag, err)
 	}
 
-	control_ip, err := getBrigadeControlIP(db, schema, uuidString)
-	if err != nil {
-		log.Fatalf("%s: Can't get control ip: %s\n", LogTag, err)
-	}
-
 	// attention! id - uuid-style string.
-	num, err := removeBrigade(db, schema, uuidString)
+	control_ip, keydesk_ipv6, err := checkBrigade(db, schema, id)
 	if err != nil {
-		log.Fatalf("%s: Can't remove brigade: %s\n", LogTag, err)
+		log.Fatalf("%s: Can't check brigade: %s\n", LogTag, err)
 	}
 
 	// attention! brigadeID - base32-style.
-	output, err := revokeBrigade(db, schema, sshconf, base32String, control_ip)
+	wgconfx, err := replaceBrigadier(db, schema, sshconf, brigadeID, control_ip)
 	if err != nil {
-		log.Fatalf("%s: Can't revoke brigade: %s\n", LogTag, err)
+		log.Fatalf("%s: Can't replace brigadier: %s\n", LogTag, err)
 	}
 
 	switch chunked {
@@ -127,74 +117,60 @@ func main() {
 		w = os.Stdout
 	}
 
-	fmt.Fprintf(w, "%d\n", num)
-
-	if output == nil {
-		output = []byte{}
+	_, err = fmt.Fprintln(w, keydesk_ipv6.String())
+	if err != nil {
+		log.Fatalf("%s: Can't print keydesk ipv6: %s\n", LogTag, err)
 	}
 
-	_, err = w.Write(output)
+	if wgconfx == nil {
+		wgconfx = []byte{}
+	}
+
+	_, err = w.Write(wgconfx)
 	if err != nil {
-		log.Fatalf("%s: Can't print output: %s\n", LogTag, err)
+		log.Fatalf("%s: Can't print wgconfx: %s\n", LogTag, err)
 	}
 }
 
-func getBrigadeControlIP(db *pgxpool.Pool, schema string, brigadeID string) (netip.Addr, error) {
+func checkBrigade(db *pgxpool.Pool, schema string, brigadeID string) (netip.Addr, netip.Addr, error) {
 	ctx := context.Background()
 	emptyIP := netip.Addr{}
 
 	tx, err := db.Begin(ctx)
 	if err != nil {
-		return emptyIP, fmt.Errorf("begin: %w", err)
+		return emptyIP, emptyIP, fmt.Errorf("begin: %w", err)
 	}
 
-	defer tx.Rollback(ctx)
+	var (
+		control_ip   netip.Addr
+		keydesk_ipv6 netip.Addr
+	)
 
-	var control_ip netip.Addr
-
-	if err := tx.QueryRow(ctx,
+	err = tx.QueryRow(ctx,
 		fmt.Sprintf(sqlGetControlIP,
 			(pgx.Identifier{schema, "meta_brigades"}.Sanitize()),
 		),
 		brigadeID,
 	).Scan(
 		&control_ip,
-	); err != nil {
-		return emptyIP, fmt.Errorf("brigade query: %w", err)
-	}
-
-	return control_ip, nil
-}
-
-func removeBrigade(db *pgxpool.Pool, schema string, brigadeID string) (int32, error) {
-	ctx := context.Background()
-
-	tx, err := db.Begin(ctx)
+		&keydesk_ipv6,
+	)
 	if err != nil {
-		return 0, fmt.Errorf("begin: %w", err)
+		tx.Rollback(ctx)
+
+		return emptyIP, emptyIP, fmt.Errorf("brigade query: %w", err)
 	}
 
-	defer tx.Rollback(ctx)
-
-	if _, err := tx.Exec(ctx, fmt.Sprintf(sqlDelBrigades, (pgx.Identifier{schema, "brigades"}.Sanitize())), brigadeID); err != nil {
-		return 0, fmt.Errorf("brigade delete: %w", err)
+	err = tx.Commit(ctx)
+	if err != nil {
+		return emptyIP, emptyIP, fmt.Errorf("commit: %w", err)
 	}
 
-	num := int32(0)
-
-	if err := tx.QueryRow(ctx, kdlib.GetFreeSlotsNumberStatement(schema, true)).Scan(&num); err != nil {
-		return 0, fmt.Errorf("free slots query: %w", err)
-	}
-
-	if err := tx.Commit(ctx); err != nil {
-		return 0, fmt.Errorf("commit: %w", err)
-	}
-
-	return num, nil
+	return control_ip, keydesk_ipv6, nil
 }
 
-func revokeBrigade(db *pgxpool.Pool, schema string, sshconf *ssh.ClientConfig, brigadeID string, control_ip netip.Addr) ([]byte, error) {
-	cmd := fmt.Sprintf("destroy %s chunked", brigadeID)
+func replaceBrigadier(db *pgxpool.Pool, schema string, sshconf *ssh.ClientConfig, brigadeID string, control_ip netip.Addr) ([]byte, error) {
+	cmd := fmt.Sprintf("replace %s chunked", brigadeID)
 
 	fmt.Fprintf(os.Stderr, "%s: %s#%s:22 -> %s\n", LogTag, sshkeyRemoteUsername, control_ip, cmd)
 
@@ -231,7 +207,12 @@ func revokeBrigade(db *pgxpool.Pool, schema string, sshconf *ssh.ClientConfig, b
 		return nil, fmt.Errorf("ssh run: %w", err)
 	}
 
-	return nil, nil
+	wgconfx, err := io.ReadAll(httputil.NewChunkedReader(&b))
+	if err != nil {
+		return nil, fmt.Errorf("chunk read: %w", err)
+	}
+
+	return wgconfx, nil
 }
 
 func createDBPool(dburl string) (*pgxpool.Pool, error) {

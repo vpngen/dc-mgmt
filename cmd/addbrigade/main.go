@@ -17,6 +17,7 @@ import (
 	"os"
 	"os/user"
 	"path/filepath"
+	"strings"
 	"time"
 	"unicode/utf8"
 
@@ -46,7 +47,7 @@ const (
 	defaultDatabaseURL   = "postgresql:///vgrealm"
 )
 
-const sshTimeOut = time.Duration(5 * time.Second)
+const sshTimeOut = time.Duration(15 * time.Second)
 
 const (
 	BrigadeCgnatPrefix = 24
@@ -182,41 +183,51 @@ var (
 	ErrInvalidPersonURL     = errors.New("invalid person url")
 )
 
+var LogTag = setLogTag()
+
+const defaultLogTag = "addbrigade"
+
+func setLogTag() string {
+	executable, err := os.Executable()
+	if err != nil {
+		return defaultLogTag
+	}
+
+	return filepath.Base(executable)
+}
+
 func main() {
 	var w io.WriteCloser
 
-	executable, _ := os.Executable()
-	exe := filepath.Base(executable)
-
 	chunked, opts, err := parseArgs()
 	if err != nil {
-		log.Fatalf("%s: Can't parse args: %s\n", exe, err)
+		log.Fatalf("%s: Can't parse args: %s\n", LogTag, err)
 	}
 
 	sshKeyDir, dbURL, brigadesSchema, brigadesStatsSchema, err := readConfigs()
 	if err != nil {
-		log.Fatalf("%s: Can't read configs: %s\n", exe, err)
+		log.Fatalf("%s: Can't read configs: %s\n", LogTag, err)
 	}
 
 	sshconf, err := createSSHConfig(sshKeyDir)
 	if err != nil {
-		log.Fatalf("%s: Can't create ssh configs: %s\n", exe, err)
+		log.Fatalf("%s: Can't create ssh configs: %s\n", LogTag, err)
 	}
 
 	db, err := createDBPool(dbURL)
 	if err != nil {
-		log.Fatalf("%s: Can't create db pool: %s\n", exe, err)
+		log.Fatalf("%s: Can't create db pool: %s\n", LogTag, err)
 	}
 
-	err = createBrigade(db, brigadesSchema, brigadesStatsSchema, opts)
+	num, err := createBrigade(db, brigadesSchema, brigadesStatsSchema, opts)
 	if err != nil {
-		log.Fatalf("%s: Can't create brigade: %s\n", exe, err)
+		log.Fatalf("%s: Can't create brigade: %s\n", LogTag, err)
 	}
 
 	// wgconfx = chunked (wgconf + keydesk IP)
 	wgconfx, keydesk, err := requestBrigade(db, brigadesSchema, sshconf, opts)
 	if err != nil {
-		log.Fatalf("%s: Can't request brigade: %s\n", exe, err)
+		log.Fatalf("%s: Can't request brigade: %s\n", LogTag, err)
 	}
 
 	switch chunked {
@@ -227,30 +238,32 @@ func main() {
 		w = os.Stdout
 	}
 
-	_, err = fmt.Fprintln(w, keydesk)
-	if err != nil {
-		log.Fatalf("%s: Can't print memo: %s\n", exe, err)
+	if _, err := fmt.Fprintf(w, "%d\n", num); err != nil {
+		log.Fatalf("%s: Can't print free slots num: %s\n", LogTag, err)
 	}
 
-	_, err = w.Write(wgconfx)
-	if err != nil {
-		log.Fatalf("%s: Can't print wgconfx: %s\n", exe, err)
+	if _, err = fmt.Fprintln(w, keydesk); err != nil {
+		log.Fatalf("%s: Can't print keydesk ipv6: %s\n", LogTag, err)
+	}
+
+	if _, err = w.Write(wgconfx); err != nil {
+		log.Fatalf("%s: Can't print wgconfx: %s\n", LogTag, err)
 	}
 }
 
-func createBrigade(db *pgxpool.Pool, schema, schemaStats string, opts *brigadeOpts) error {
+func createBrigade(db *pgxpool.Pool, schema, schemaStats string, opts *brigadeOpts) (int32, error) {
 	ctx := context.Background()
 
 	tx, err := db.Begin(ctx)
 	if err != nil {
-		return fmt.Errorf("begin: %w", err)
+		return 0, fmt.Errorf("begin: %w", err)
 	}
+
+	defer tx.Rollback(ctx)
 
 	rows, err := tx.Query(ctx, fmt.Sprintf(sqlGetBrigades, (pgx.Identifier{schema, "brigades"}.Sanitize())))
 	if err != nil {
-		tx.Rollback(ctx)
-
-		return fmt.Errorf("brigades query: %w", err)
+		return 0, fmt.Errorf("brigades query: %w", err)
 	}
 
 	// lock on brigades, register used nets
@@ -265,7 +278,7 @@ func createBrigade(db *pgxpool.Pool, schema, schemaStats string, opts *brigadeOp
 		ipv6_ula     netip.Prefix
 	)
 
-	_, err = pgx.ForEachRow(rows, []any{&keydesk_ipv6, &ipv4_cgnat, &ipv6_ula}, func() error {
+	if _, err := pgx.ForEachRow(rows, []any{&keydesk_ipv6, &ipv4_cgnat, &ipv6_ula}, func() error {
 		// fmt.Fprintf(os.Stderr, "Brigade:\n  keydesk_ipv6: %v\n  ipv4_cgnat: %v\n  ipv6_ula: %v\n", keydesk_ipv6, ipv4_cgnat, ipv6_ula)
 
 		kd6[keydesk_ipv6.String()] = struct{}{}
@@ -273,11 +286,8 @@ func createBrigade(db *pgxpool.Pool, schema, schemaStats string, opts *brigadeOp
 		ula[ipv6_ula.Masked().Addr().String()] = struct{}{}
 
 		return nil
-	})
-	if err != nil {
-		tx.Rollback(ctx)
-
-		return fmt.Errorf("brigade row: %w", err)
+	}); err != nil {
+		return 0, fmt.Errorf("brigade row: %w", err)
 	}
 
 	// pick up a less used pair
@@ -296,12 +306,10 @@ func createBrigade(db *pgxpool.Pool, schema, schemaStats string, opts *brigadeOp
 	}
 
 	if err != nil {
-		tx.Rollback(ctx)
-
-		return fmt.Errorf("pair query: %w", err)
+		return 0, fmt.Errorf("pair query: %w", err)
 	}
 
-	fmt.Fprintf(os.Stderr, "ep: %s ctrl: %s\n", pair_endpoint_ipv4, pair_control_ip)
+	fmt.Fprintf(os.Stderr, "%s: ep: %s ctrl: %s\n", LogTag, pair_endpoint_ipv4, pair_control_ip)
 
 	// pick up cgnat
 
@@ -310,11 +318,8 @@ func createBrigade(db *pgxpool.Pool, schema, schemaStats string, opts *brigadeOp
 		cgnat_net  netip.Prefix
 	)
 
-	err = tx.QueryRow(ctx, fmt.Sprintf(sqlPickCGNATNet, (pgx.Identifier{schema, "ipv4_cgnat_nets_weight"}.Sanitize()))).Scan(&cgnat_gnet)
-	if err != nil {
-		tx.Rollback(ctx)
-
-		return fmt.Errorf("cgnat weight query: %w", err)
+	if err := tx.QueryRow(ctx, fmt.Sprintf(sqlPickCGNATNet, (pgx.Identifier{schema, "ipv4_cgnat_nets_weight"}.Sanitize()))).Scan(&cgnat_gnet); err != nil {
+		return 0, fmt.Errorf("cgnat weight query: %w", err)
 	}
 
 	for {
@@ -332,7 +337,7 @@ func createBrigade(db *pgxpool.Pool, schema, schemaStats string, opts *brigadeOp
 		}
 	}
 
-	fmt.Fprintf(os.Stderr, "cgnat_gnet: %s cgnat_net: %s\n", cgnat_gnet, cgnat_net)
+	fmt.Fprintf(os.Stderr, "%s: cgnat_gnet: %s cgnat_net: %s\n", LogTag, cgnat_gnet, cgnat_net)
 
 	// pick up ula
 
@@ -341,11 +346,8 @@ func createBrigade(db *pgxpool.Pool, schema, schemaStats string, opts *brigadeOp
 		ula_net  netip.Prefix
 	)
 
-	err = tx.QueryRow(ctx, fmt.Sprintf(sqlPickULANet, (pgx.Identifier{schema, "ipv6_ula_nets_iweight"}.Sanitize()))).Scan(&ula_gnet)
-	if err != nil {
-		tx.Rollback(ctx)
-
-		return fmt.Errorf("ula weight query: %w", err)
+	if err := tx.QueryRow(ctx, fmt.Sprintf(sqlPickULANet, (pgx.Identifier{schema, "ipv6_ula_nets_iweight"}.Sanitize()))).Scan(&ula_gnet); err != nil {
+		return 0, fmt.Errorf("ula weight query: %w", err)
 	}
 
 	for {
@@ -364,7 +366,7 @@ func createBrigade(db *pgxpool.Pool, schema, schemaStats string, opts *brigadeOp
 		}
 	}
 
-	fmt.Fprintf(os.Stderr, "ula_gnet: %s ula_net: %s\n", ula_gnet, ula_net)
+	fmt.Fprintf(os.Stderr, "%s: ula_gnet: %s ula_net: %s\n", LogTag, ula_gnet, ula_net)
 
 	// pick up keydesk
 
@@ -373,11 +375,8 @@ func createBrigade(db *pgxpool.Pool, schema, schemaStats string, opts *brigadeOp
 		keydesk      netip.Addr
 	)
 
-	err = tx.QueryRow(ctx, fmt.Sprintf(sqlPickKeydeskNet, (pgx.Identifier{schema, "ipv6_keydesk_nets_iweight"}.Sanitize()))).Scan(&keydesk_gnet)
-	if err != nil {
-		tx.Rollback(ctx)
-
-		return fmt.Errorf("keydesk iweight query: %w", err)
+	if err := tx.QueryRow(ctx, fmt.Sprintf(sqlPickKeydeskNet, (pgx.Identifier{schema, "ipv6_keydesk_nets_iweight"}.Sanitize()))).Scan(&keydesk_gnet); err != nil {
+		return 0, fmt.Errorf("keydesk iweight query: %w", err)
 	}
 
 	for {
@@ -391,7 +390,12 @@ func createBrigade(db *pgxpool.Pool, schema, schemaStats string, opts *brigadeOp
 		}
 	}
 
-	fmt.Fprintf(os.Stderr, "keydesk_gnet: %s keydesk: %s\n", keydesk_gnet, keydesk)
+	fmt.Fprintf(os.Stderr, "%s: keydesk_gnet: %s keydesk: %s\n", LogTag, keydesk_gnet, keydesk)
+
+	num := int32(0)
+	if err := tx.QueryRow(ctx, kdlib.GetFreeSlotsNumberStatement(schema, true)).Scan(&num); err != nil {
+		return 0, fmt.Errorf("slots query: %w", err)
+	}
 
 	// create brigade
 
@@ -409,27 +413,21 @@ func createBrigade(db *pgxpool.Pool, schema, schemaStats string, opts *brigadeOp
 		opts.person,
 	)
 	if err != nil {
-		tx.Rollback(ctx)
-
-		return fmt.Errorf("create brigade: %w", err)
+		return 0, fmt.Errorf("create brigade: %w", err)
 	}
 
-	_, err = tx.Exec(ctx,
+	if _, err = tx.Exec(ctx,
 		fmt.Sprintf(sqlInsertStats, (pgx.Identifier{schemaStats, "brigades_stats"}.Sanitize())),
 		opts.id,
-	)
-	if err != nil {
-		tx.Rollback(ctx)
-
-		return fmt.Errorf("create stats: %w", err)
+	); err != nil {
+		return 0, fmt.Errorf("create stats: %w", err)
 	}
 
-	err = tx.Commit(ctx)
-	if err != nil {
-		return fmt.Errorf("commit: %w", err)
+	if err := tx.Commit(ctx); err != nil {
+		return 0, fmt.Errorf("commit: %w", err)
 	}
 
-	return nil
+	return num - 1, nil
 }
 
 func requestBrigade(db *pgxpool.Pool, schema string, sshconf *ssh.ClientConfig, opts *brigadeOpts) ([]byte, string, error) {
@@ -501,7 +499,7 @@ func requestBrigade(db *pgxpool.Pool, schema string, sshconf *ssh.ClientConfig, 
 		base64.StdEncoding.WithPadding(base64.StdPadding).EncodeToString([]byte(person.URL)),
 	)
 
-	fmt.Fprintf(os.Stderr, "%s#%s:22 -> %s\n", sshkeyRemoteUsername, control_ip, cmd)
+	fmt.Fprintf(os.Stderr, "%s: %s#%s:22 -> %s\n", LogTag, sshkeyRemoteUsername, control_ip, cmd)
 
 	client, err := ssh.Dial("tcp", fmt.Sprintf("%s:22", control_ip), sshconf)
 	if err != nil {
@@ -520,16 +518,24 @@ func requestBrigade(db *pgxpool.Pool, schema string, sshconf *ssh.ClientConfig, 
 	session.Stdout = &b
 	session.Stderr = &e
 
-	if err := session.Run(cmd); err != nil {
-		fmt.Fprintf(os.Stderr, "session errors:\n%s\n", e.String())
+	defer func() {
+		switch errstr := e.String(); errstr {
+		case "":
+			fmt.Fprintf(os.Stderr, "%s: SSH Session StdErr: empty\n", LogTag)
+		default:
+			fmt.Fprintf(os.Stderr, "%s: SSH Session StdErr:\n", LogTag)
+			for _, line := range strings.Split(errstr, "\n") {
+				fmt.Fprintf(os.Stderr, "%s: | %s\n", LogTag, line)
+			}
+		}
+	}()
 
+	if err := session.Run(cmd); err != nil {
 		return nil, "", fmt.Errorf("ssh run: %w", err)
 	}
 
 	wgconfx, err := io.ReadAll(httputil.NewChunkedReader(&b))
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "readed data:\n%s\n", wgconfx)
-
 		return nil, "", fmt.Errorf("chunk read: %w", err)
 	}
 

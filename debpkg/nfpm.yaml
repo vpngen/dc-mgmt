@@ -21,6 +21,67 @@ homepage: "http://vpngen.org"
 license: "LGPL"
 
 contents:
+- dst: /etc/vg-dc-mgmt
+  type: dir
+  file_info:
+    mode: 0111
+    owner: root
+    group: root
+
+- src: dc-mgmt/debpkg/src/dc-name.env-sample
+  dst: /etc/vg-dc-mgmt/dc-name.env-sample
+  file_info:
+    mode: 0444
+    owner: root
+    group: root
+
+- src: dc-mgmt/debpkg/src/dc-name.env
+  type: ghost
+
+- dst: /etc/vg-dc-vpnapi
+  type: dir
+  file_info:
+    mode: 0110
+    owner: root
+    group: vgvpnapi
+
+- src: dc-mgmt/debpkg/src/vpn-works-keydesks-sync.env-sample
+  dst: /etc/vg-dc-vpnapi/vpn-works-keydesks-sync.env-sample
+  file_info:
+    mode: 0444
+    owner: root
+    group: root
+
+- src: dc-mgmt/debpkg/src/vpn-works-keydesks-sync.env
+  type: ghost
+
+- src: dc-mgmt/debpkg/src/gfsn.env-sample
+  dst: /etc/vg-dc-vpnapi/gfsn.env-sample
+  file_info:
+    mode: 0444
+    owner: root
+    group: root
+
+- src: dc-mgmt/debpkg/src/gfsn.env
+  type: ghost
+
+- dst: /etc/vg-dc-stats
+  type: dir
+  file_info:
+    mode: 0110
+    owner: root
+    group: vgstats
+
+- src: dc-mgmt/debpkg/src/stats-sync.env-sample
+  dst: /etc/vg-dc-stats/stats-sync.env-sample
+  file_info:
+    mode: 0444
+    owner: root
+    group: root
+
+- src: dc-mgmt/debpkg/src/stats-sync.env
+  type: ghost
+
 - dst: /opt/vg-dc-admin
   type: dir
   file_info:
@@ -96,14 +157,32 @@ contents:
     mode: 0005
     owner: root
     group: root
+- src: bin/checkbrigade
+  dst: /opt/vg-dc-vpnapi/checkbrigade
+  file_info:
+    mode: 0005
+    owner: root
+    group: root
+- src: bin/replacebrigadier
+  dst: /opt/vg-dc-vpnapi/replacebrigadier
+  file_info:
+    mode: 0005
+    owner: root
+    group: root
 - src: bin/getwasted
   dst: /opt/vg-dc-vpnapi/getwasted
   file_info:
     mode: 0005
     owner: root
     group: root
-- src: dc-mgmt/cmd/kdsync.sh
-  dst: /opt/vg-dc-vpnapi/kdsync.sh
+- src: bin/get_free_slots
+  dst: /opt/vg-dc-vpnapi/get_free_slots
+  file_info:
+    mode: 0005
+    owner: root
+    group: root
+- src: dc-mgmt/cmd/vpn-works-keydesks-sync.sh
+  dst: /opt/vg-dc-vpnapi/vpn-works-keydesks-sync.sh
   file_info:
     mode: 0005
     owner: root
@@ -128,8 +207,8 @@ contents:
     mode: 0005
     owner: root
     group: root
-- src: dc-mgmt/cmd/stats-loop.sh
-  dst: /opt/vg-dc-stats/stats-loop.sh
+- src: dc-mgmt/cmd/stats-sync.sh
+  dst: /opt/vg-dc-stats/stats-sync.sh
   file_info:
     mode: 0005
     owner: root
@@ -143,6 +222,13 @@ contents:
     group: root
 - src: dc-mgmt/systemd/vg-dc-stats.service
   dst: /etc/systemd/system/vg-dc-stats.service
+  file_info:
+    mode: 0644
+    owner: root
+    group: root
+
+- src: dc-mgmt/systemd/vg-dc-gfsn.service
+  dst: /etc/systemd/system/vg-dc-gfsn.service
   file_info:
     mode: 0644
     owner: root
