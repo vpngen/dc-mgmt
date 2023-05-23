@@ -21,6 +21,7 @@ vpn_works_keysesks_sync() {
 
         export VPN_WORKS_KEYDESKS_SERVER_ADDR
         export VPN_WORKS_KEYDESKS_SERVER_PORT
+        export VPN_WORKS_KEYDESKS_SERVER_JUMPS
 
         # shellcheck source=/dev/null
         . /etc/vg-dc-mgmt/dc-name.env
