@@ -30,6 +30,7 @@ const (
 	defaultPairsSchema         = "pairs"
 	defaultBrigadesSchema      = "brigades"
 	defaultBrigadesStatsSchema = "stats"
+	defaultDCName              = "unknown"
 )
 
 const (
@@ -119,7 +120,7 @@ func setLogTag() string {
 }
 
 func main() {
-	sshKeyFilename, dbname, pairsSchema, brigadesSchema, statsSchema, err := readConfigs()
+	sshKeyFilename, dbname, pairsSchema, brigadesSchema, statsSchema, dcName, err := readConfigs()
 	if err != nil {
 		log.Fatalf("%s: Can't read configs: %s\n", LogTag, err)
 	}
@@ -145,7 +146,8 @@ func main() {
 		log.Fatalf("%s: Can't create db pool: %s\n", LogTag, err)
 	}
 
-	statsFileName := time.Now().UTC().Format("stats-20060102-150405.json")
+	dateSuffix := time.Now().UTC().Format("20060102-150405")
+	statsFileName := fmt.Sprintf("stats-%s-%s.json", dcName, dateSuffix)
 
 	if err := pairsWalk(db, sshconf, pairsSchema, brigadesSchema, statsSchema, filepath.Join(storePath, statsFileName)); err != nil {
 		log.Fatalf("%s: Can't collect stats: %s\n", LogTag, err)
@@ -548,7 +550,7 @@ func parseArgs() (string, error) {
 }
 
 // readConfigs - reads configs from environment variables.
-func readConfigs() (string, string, string, string, string, error) {
+func readConfigs() (string, string, string, string, string, string, error) {
 	dbURL := os.Getenv("DB_URL")
 	if dbURL == "" {
 		dbURL = defaultDatabaseURL
@@ -569,14 +571,19 @@ func readConfigs() (string, string, string, string, string, error) {
 		brigadesStatsSchema = defaultBrigadesStatsSchema
 	}
 
+	dcName := os.Getenv("DC_NAME")
+	if dcName == "" {
+		dcName = defaultDCName
+	}
+
 	sshKeyFile := os.Getenv("SSH_KEY")
 	if sshKeyFile != "" {
-		return sshKeyFile, dbURL, pairsSchema, brigadesSchema, brigadesStatsSchema, nil
+		return sshKeyFile, dbURL, pairsSchema, brigadesSchema, brigadesStatsSchema, dcName, nil
 	}
 
 	sysUser, err := user.Current()
 	if err != nil {
-		return "", "", "", "", "", fmt.Errorf("user: %w", err)
+		return "", "", "", "", "", "", fmt.Errorf("user: %w", err)
 	}
 
 	sshKeyDirs := []string{filepath.Join(sysUser.HomeDir, ".ssh"), sshkeyDefaultPath}
@@ -587,11 +594,11 @@ func readConfigs() (string, string, string, string, string, error) {
 
 		keyFilename := filepath.Join(dir, sshkeyED25519Filename)
 		if _, err := os.Stat(keyFilename); err == nil {
-			return keyFilename, dbURL, pairsSchema, brigadesSchema, brigadesStatsSchema, nil
+			return keyFilename, dbURL, pairsSchema, brigadesSchema, brigadesStatsSchema, dcName, nil
 		}
 	}
 
-	return "", "", "", "", "", ErrNoSSHKeyFile
+	return "", "", "", "", "", "", ErrNoSSHKeyFile
 }
 
 // createSSHConfig - creates ssh client config.
