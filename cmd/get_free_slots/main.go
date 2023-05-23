@@ -26,6 +26,8 @@ import (
 
 const (
 	defaultBrigadesSchema = "brigades"
+	defaultDCName         = "unknown"
+	defaultDCID           = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
 )
 
 const (
@@ -56,7 +58,7 @@ func main() {
 		log.Fatalf("%s: Can't parse args: %s\n", LogTag, err)
 	}
 
-	dbURL, schema, err := readConfigs()
+	dbURL, schema, dcName, dcID, err := readConfigs()
 	if err != nil {
 		log.Fatalf("%s: Can't read configs: %s\n", LogTag, err)
 	}
@@ -104,8 +106,8 @@ func main() {
 	}
 
 	router := mux.NewRouter()
-	router.HandleFunc("/metrics/datacenter", func(w http.ResponseWriter, r *http.Request) {
-		zabbixRequestHandler(w, r, db, schema)
+	router.HandleFunc("/metrics/datacenter/free_slots", func(w http.ResponseWriter, r *http.Request) {
+		zabbixRequestHandler(w, r, db, schema, dcName, dcID)
 	})
 
 	server := &http.Server{
@@ -190,7 +192,7 @@ func getFormattedFreeSlotsNumber(num int32, active, jsonFormat bool) ([]byte, er
 	return fmt.Appendf([]byte{}, "%d", num), nil
 }
 
-func zabbixRequestHandler(w http.ResponseWriter, r *http.Request, db *pgxpool.Pool, schema string) {
+func zabbixRequestHandler(w http.ResponseWriter, r *http.Request, db *pgxpool.Pool, schema, dcName, dcID string) {
 	if r.URL.Query().Get("format") != "zabbix" {
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte("Invalid request"))
@@ -198,32 +200,64 @@ func zabbixRequestHandler(w http.ResponseWriter, r *http.Request, db *pgxpool.Po
 	}
 
 	switch r.URL.Query().Get("action") {
-	case "request_total_free_slots_number":
+	case "list":
+		zabbixResponse := fmt.Sprintf(
+			"[{\"{#VPNGEN_DATACENTER_NAME}\": \"%s\", \"{#VPNGEN_DATACENTER_ID}\": \"%s\"}]",
+			dcName,
+			dcID,
+		)
+
+		w.Header().Set("Content-Type", "text/plain")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(zabbixResponse))
+
+		return
+	case "get_total_number":
+		id := r.URL.Query().Get("id")
+		if id != dcID {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte("Invalid request"))
+
+			return
+		}
+
 		num, err := getFreeSlotsNumber(db, schema, false)
-		if err == nil {
-			zabbixResponse := fmt.Sprintf("%d\n", num)
-			w.Header().Set("Content-Type", "text/plain")
-			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(zabbixResponse))
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte("Internal server error"))
 
 			return
 		}
 
-		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte("Not found"))
-	case "request_active_free_slots_number":
+		zabbixResponse := fmt.Sprintf("%d\n", num)
+		w.Header().Set("Content-Type", "text/plain")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(zabbixResponse))
+
+		return
+	case "get_active_number":
+		id := r.URL.Query().Get("id")
+		if id != dcID {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte("Invalid request"))
+
+			return
+		}
+
 		num, err := getFreeSlotsNumber(db, schema, true)
-		if err == nil {
-			zabbixResponse := fmt.Sprintf("%d\n", num)
-			w.Header().Set("Content-Type", "text/plain")
-			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(zabbixResponse))
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte("Internal server error"))
 
 			return
 		}
 
-		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte("Not found"))
+		zabbixResponse := fmt.Sprintf("%d\n", num)
+		w.Header().Set("Content-Type", "text/plain")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(zabbixResponse))
+
+		return
 	default:
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte("Invalid request"))
@@ -272,7 +306,7 @@ func parseArgs() (bool, bool, bool, net.Listener, error) {
 	return *chunked, *jsonFormat, *active, nil, nil
 }
 
-func readConfigs() (string, string, error) {
+func readConfigs() (string, string, string, string, error) {
 	dbURL := os.Getenv("DB_URL")
 	if dbURL == "" {
 		dbURL = defaultDatabaseURL
@@ -283,5 +317,15 @@ func readConfigs() (string, string, error) {
 		brigadesSchema = defaultBrigadesSchema
 	}
 
-	return dbURL, brigadesSchema, nil
+	dcName := os.Getenv("DC_NAME")
+	if dcName == "" {
+		dcName = defaultDCName
+	}
+
+	dcID := os.Getenv("DC_ID")
+	if dcID == "" {
+		dcID = defaultDCID
+	}
+
+	return dbURL, brigadesSchema, dcName, dcID, nil
 }
