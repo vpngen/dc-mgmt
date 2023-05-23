@@ -82,7 +82,7 @@ func setLogTag() string {
 func main() {
 	var w io.WriteCloser
 
-	chunked, brigadeID, id, err := parseArgs()
+	chunked, base32String, uuidString, err := parseArgs()
 	if err != nil {
 		log.Fatalf("%s: Can't parse args: %s\n", LogTag, err)
 	}
@@ -102,19 +102,19 @@ func main() {
 		log.Fatalf("%s: Can't create db pool: %s\n", LogTag, err)
 	}
 
-	control_ip, err := getBrigadeControlIP(db, schema, brigadeID)
+	control_ip, err := getBrigadeControlIP(db, schema, uuidString)
 	if err != nil {
 		log.Fatalf("%s: Can't get control ip: %s\n", LogTag, err)
 	}
 
 	// attention! id - uuid-style string.
-	num, err := removeBrigade(db, schema, id)
+	num, err := removeBrigade(db, schema, uuidString)
 	if err != nil {
 		log.Fatalf("%s: Can't remove brigade: %s\n", LogTag, err)
 	}
 
 	// attention! brigadeID - base32-style.
-	output, err := revokeBrigade(db, schema, sshconf, brigadeID, control_ip)
+	output, err := revokeBrigade(db, schema, sshconf, base32String, control_ip)
 	if err != nil {
 		log.Fatalf("%s: Can't revoke brigade: %s\n", LogTag, err)
 	}

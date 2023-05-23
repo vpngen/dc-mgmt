@@ -392,9 +392,14 @@ func createBrigade(db *pgxpool.Pool, schema, schemaStats string, opts *brigadeOp
 
 	fmt.Fprintf(os.Stderr, "%s: keydesk_gnet: %s keydesk: %s\n", LogTag, keydesk_gnet, keydesk)
 
+	num := int32(0)
+	if err := tx.QueryRow(ctx, kdlib.GetFreeSlotsNumberStatement(schema, true)).Scan(&num); err != nil {
+		return 0, fmt.Errorf("slots query: %w", err)
+	}
+
 	// create brigade
 
-	if _, err := tx.Exec(ctx,
+	_, err = tx.Exec(ctx,
 		fmt.Sprintf(sqlCreateBrigade, (pgx.Identifier{schema, "brigades"}.Sanitize())),
 		opts.id,
 		pair_id,
@@ -406,7 +411,8 @@ func createBrigade(db *pgxpool.Pool, schema, schemaStats string, opts *brigadeOp
 		cgnat_net.String(),
 		ula_net.String(),
 		opts.person,
-	); err != nil {
+	)
+	if err != nil {
 		return 0, fmt.Errorf("create brigade: %w", err)
 	}
 
@@ -417,19 +423,11 @@ func createBrigade(db *pgxpool.Pool, schema, schemaStats string, opts *brigadeOp
 		return 0, fmt.Errorf("create stats: %w", err)
 	}
 
-	num := int32(0)
-
-	if err := tx.QueryRow(ctx,
-		kdlib.GetFreeSlotsNumberStatement(schema, true),
-	).Scan(&num); err != nil {
-		return 0, fmt.Errorf("slots query: %w", err)
-	}
-
 	if err := tx.Commit(ctx); err != nil {
 		return 0, fmt.Errorf("commit: %w", err)
 	}
 
-	return num, nil
+	return num - 1, nil
 }
 
 func requestBrigade(db *pgxpool.Pool, schema string, sshconf *ssh.ClientConfig, opts *brigadeOpts) ([]byte, string, error) {
