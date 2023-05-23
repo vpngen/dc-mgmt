@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/base32"
 	"encoding/json"
-	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -23,6 +22,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype/zeronull"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/vpngen/keydesk/keydesk/storage"
+	"github.com/vpngen/realm-admin/internal/kdlib"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -34,11 +34,10 @@ const (
 )
 
 const (
-	sshkeyED25519Filename = "id_ed25519"
-	sshkeyDefaultPath     = "/etc/vg-dc-stats"
-	sshkeyRemoteUsername  = "_marina_"
-	fileTempSuffix        = ".tmp"
-	defautStoreSubdir     = "vg-collectstats"
+	sshKeyDefaultPath    = "/etc/vg-dc-stats"
+	sshkeyRemoteUsername = "_marina_"
+	fileTempSuffix       = ".tmp"
+	defautStoreSubdir    = "vg-collectstats"
 )
 
 const (
@@ -104,8 +103,6 @@ type AggrStatsX struct {
 	DataCenterStats `json:"data_center_stats"`
 }
 
-var ErrNoSSHKeyFile = errors.New("no ssh key file")
-
 var LogTag = setLogTag()
 
 const defaultLogTag = "collectstats"
@@ -136,7 +133,7 @@ func main() {
 		}
 	}
 
-	sshconf, err := createSSHConfig(sshKeyFilename)
+	sshconf, err := kdlib.CreateSSHConfig(sshKeyFilename, sshkeyRemoteUsername, kdlib.SSHDefaultTimeOut)
 	if err != nil {
 		log.Fatalf("%s: Can't create ssh configs: %s\n", LogTag, err)
 	}
@@ -576,54 +573,10 @@ func readConfigs() (string, string, string, string, string, string, error) {
 		dcName = defaultDCName
 	}
 
-	sshKeyFile := os.Getenv("SSH_KEY")
-	if sshKeyFile != "" {
-		return sshKeyFile, dbURL, pairsSchema, brigadesSchema, brigadesStatsSchema, dcName, nil
-	}
-
-	sysUser, err := user.Current()
+	sshKeyFilename, err := kdlib.LookupForSSHKeyfile(os.Getenv("SSH_KEY"), sshKeyDefaultPath)
 	if err != nil {
-		return "", "", "", "", "", "", fmt.Errorf("user: %w", err)
+		return "", "", "", "", "", "", fmt.Errorf("ssh key: %w", err)
 	}
 
-	sshKeyDirs := []string{filepath.Join(sysUser.HomeDir, ".ssh"), sshkeyDefaultPath}
-	for _, dir := range sshKeyDirs {
-		if fstat, err := os.Stat(dir); err != nil || !fstat.IsDir() {
-			continue
-		}
-
-		keyFilename := filepath.Join(dir, sshkeyED25519Filename)
-		if _, err := os.Stat(keyFilename); err == nil {
-			return keyFilename, dbURL, pairsSchema, brigadesSchema, brigadesStatsSchema, dcName, nil
-		}
-	}
-
-	return "", "", "", "", "", "", ErrNoSSHKeyFile
-}
-
-// createSSHConfig - creates ssh client config.
-func createSSHConfig(filename string) (*ssh.ClientConfig, error) {
-	// var hostKey ssh.PublicKey
-
-	key, err := os.ReadFile(filename)
-	if err != nil {
-		return nil, fmt.Errorf("read private key: %w", err)
-	}
-
-	signer, err := ssh.ParsePrivateKey(key)
-	if err != nil {
-		return nil, fmt.Errorf("parse private key: %w", err)
-	}
-
-	config := &ssh.ClientConfig{
-		User: sshkeyRemoteUsername,
-		Auth: []ssh.AuthMethod{
-			ssh.PublicKeys(signer),
-		},
-		// HostKeyCallback: ssh.FixedHostKey(hostKey),
-		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
-		Timeout:         sshTimeOut,
-	}
-
-	return config, nil
+	return sshKeyFilename, dbURL, pairsSchema, brigadesSchema, brigadesStatsSchema, dcName, nil
 }

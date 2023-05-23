@@ -10,9 +10,7 @@ import (
 	"log"
 	"net/http/httputil"
 	"os"
-	"os/user"
 	"path/filepath"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -26,17 +24,9 @@ const (
 )
 
 const (
-	sshkeyFilename       = "id_ecdsa"
-	sshkeyRemoteUsername = "_serega_"
-	etcDefaultPath       = "/etc/vg-dc-mgmt"
-)
-
-const (
 	maxPostgresqlNameLen = 63
 	defaultDatabaseURL   = "postgresql:///vgrealm"
 )
-
-const sshTimeOut = time.Duration(15 * time.Second)
 
 var errInlalidArgs = errors.New("invalid args")
 
@@ -61,7 +51,7 @@ func main() {
 		log.Fatalf("%s: Can't parse args: %s\n", LogTag, err)
 	}
 
-	_, dbname, schemaBrigades, schemaStats, err := readConfigs()
+	dbname, schemaBrigades, schemaStats, err := readConfigs()
 	if err != nil {
 		log.Fatalf("%s: Can't read configs: %s\n", LogTag, err)
 	}
@@ -201,7 +191,7 @@ func parseArgs() (bool, string, string, error) {
 	}
 }
 
-func readConfigs() (string, string, string, string, error) {
+func readConfigs() (string, string, string, error) {
 	dbURL := os.Getenv("DB_URL")
 	if dbURL == "" {
 		dbURL = defaultDatabaseURL
@@ -217,19 +207,5 @@ func readConfigs() (string, string, string, string, error) {
 		brigadesStatsSchema = defaultBrigadesStatsSchema
 	}
 
-	sshKeyDir := os.Getenv("CONFDIR")
-	if sshKeyDir == "" {
-		sysUser, err := user.Current()
-		if err != nil {
-			return "", "", "", "", fmt.Errorf("user: %w", err)
-		}
-
-		sshKeyDir = filepath.Join(sysUser.HomeDir, ".ssh")
-	}
-
-	if fstat, err := os.Stat(sshKeyDir); err != nil || !fstat.IsDir() {
-		sshKeyDir = etcDefaultPath
-	}
-
-	return sshKeyDir, dbURL, brigadeSchema, brigadesStatsSchema, nil
+	return dbURL, brigadeSchema, brigadesStatsSchema, nil
 }
