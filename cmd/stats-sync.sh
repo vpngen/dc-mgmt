@@ -11,13 +11,13 @@ DATADIR=${DATADIR:-"${CONFDIR}/vg-collectstats"}
 REMOTE_DATADIR=${REMOTE_DATADIR:-"~/vg-collectstats"}
 
 jumps=""
-for jump_hosts in $(echo "${STATS_SYNC_SERVER_JUMPS}" | tr "," "\n"); do
-        jumps="${jumps} -J ${jump_hosts}"
-done
+if [ -n "${STATS_SYNC_SERVER_JUMPS}" ]; then
+        jumps="-J ${STATS_SYNC_SERVER_JUMPS}"
+fi
 
 echo "[i] Sync file... ${STATS_SYNC_SERVER_ADDR}:${STATS_SYNC_SERVER_PORT}"
-if [ -n "${jumps}" ]; then
-        echo "[i] Jumps: ${jumps}"
+if [ -n "${STATS_SYNC_SERVER_JUMPS}" ]; then
+        echo "[i] Jumps: ${STATS_SYNC_SERVER_JUMPS}"
 fi
 
 rsync \

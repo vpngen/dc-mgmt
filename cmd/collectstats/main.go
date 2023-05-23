@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/base32"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -32,11 +33,11 @@ const (
 )
 
 const (
-	sshkeyFilename       = "id_ecdsa"
-	sshkeyRemoteUsername = "_marina_"
-	etcDefaultPath       = "/etc/vg-dc-mgmt"
-	fileTempSuffix       = ".tmp"
-	defautStoreSubdir    = "vg-collectstats"
+	sshkeyED25519Filename = "id_ed25519"
+	sshkeyDefaultPath     = "/etc/vg-dc-stats"
+	sshkeyRemoteUsername  = "_marina_"
+	fileTempSuffix        = ".tmp"
+	defautStoreSubdir     = "vg-collectstats"
 )
 
 const (
@@ -62,57 +63,6 @@ GROUP BY
 	p.pair_id
 HAVING
 	COUNT(b.brigade_id) > 0;
-`
-
-	sqlInsertStats = `
-INSERT INTO %s (
-	brigade_id,
-	first_visit,
-	total_users_count,
-	throttled_users_count,
-	active_users_count,
-	active_wg_users_count,
-	active_ipsec_users_count,
-	total_traffic_rx,
-	total_traffic_tx,
-	total_wg_traffic_rx,
-	total_wg_traffic_tx,
-	total_ipsec_traffic_rx,
-	total_ipsec_traffic_tx,
-	counters_update_time,
-	update_time
-) VALUES (
-	$1,
-	$2,
-	$3,
-	$4,
-	$5,
-	$6,
-	$7,
-	$8,
-	$9,
-	$10,
-	$11,
-	$12,
-	$13,
-	$14,
-	$15
-) ON CONFLICT (brigade_id,align_time) DO UPDATE SET
-	first_visit = $2,
-	total_users_count = $3,
-	throttled_users_count = $4,
-	active_users_count = $5,
-	active_wg_users_count = $6,
-	active_ipsec_users_count = $7,
-	total_traffic_rx = $8,
-	total_traffic_tx = $9,
-	total_wg_traffic_rx = $10,
-	total_wg_traffic_tx = $11,
-	total_ipsec_traffic_rx = $12,
-	total_ipsec_traffic_tx = $13,
-	counters_update_time = $14,
-	update_time = $15
-;
 `
 )
 
@@ -153,6 +103,8 @@ type AggrStatsX struct {
 	DataCenterStats `json:"data_center_stats"`
 }
 
+var ErrNoSSHKeyFile = errors.New("no ssh key file")
+
 var LogTag = setLogTag()
 
 const defaultLogTag = "collectstats"
@@ -167,7 +119,7 @@ func setLogTag() string {
 }
 
 func main() {
-	sshKeyDir, dbname, pairsSchema, brigadesSchema, statsSchema, err := readConfigs()
+	sshKeyFilename, dbname, pairsSchema, brigadesSchema, statsSchema, err := readConfigs()
 	if err != nil {
 		log.Fatalf("%s: Can't read configs: %s\n", LogTag, err)
 	}
@@ -183,7 +135,7 @@ func main() {
 		}
 	}
 
-	sshconf, err := createSSHConfig(sshKeyDir)
+	sshconf, err := createSSHConfig(sshKeyFilename)
 	if err != nil {
 		log.Fatalf("%s: Can't create ssh configs: %s\n", LogTag, err)
 	}
@@ -473,52 +425,6 @@ func pairsWalk(db *pgxpool.Pool, sshconf *ssh.ClientConfig, pairsSchema, brigade
 	return nil
 }
 
-// insertStats - inserts stats into database.
-func insertStats(db *pgxpool.Pool, schema string, stats *storage.Stats) error {
-	ctx := context.Background()
-
-	tx, err := db.Begin(ctx)
-	if err != nil {
-		return fmt.Errorf("begin: %w", err)
-	}
-
-	brigadeID, err := base32.StdEncoding.WithPadding(base32.NoPadding).DecodeString(stats.BrigadeID)
-	if err != nil {
-		return fmt.Errorf("decode brigade id: %w", err)
-	}
-
-	_, err = tx.Exec(ctx,
-		fmt.Sprintf(sqlInsertStats, (pgx.Identifier{schema, "brigades_statistics"}.Sanitize())),
-		brigadeID,
-		stats.KeydeskFirstVisit,
-		stats.TotalUsersCount,
-		stats.ThrottledUsersCount,
-		stats.ActiveUsersCount,
-		stats.ActiveWgUsersCount,
-		stats.ActiveIPSecUsersCount,
-		stats.TotalTraffic.Rx,
-		stats.TotalTraffic.Tx,
-		stats.TotalWgTraffic.Rx,
-		stats.TotalWgTraffic.Tx,
-		stats.TotalIPSecTraffic.Rx,
-		stats.TotalIPSecTraffic.Tx,
-		stats.CountersUpdateTime,
-		stats.UpdateTime,
-	)
-	if err != nil {
-		tx.Rollback(ctx)
-
-		return fmt.Errorf("create stats: %w", err)
-	}
-
-	err = tx.Commit(ctx)
-	if err != nil {
-		return fmt.Errorf("commit: %w", err)
-	}
-
-	return nil
-}
-
 // fetchStatsBySSH - fetch brigades stats from remote host by ssh.
 func fetchStatsBySSH(sshconf *ssh.ClientConfig, addr netip.Addr, ids []string) ([]byte, error) {
 	cmd := fmt.Sprintf("fetchstats -b %s -ch", strings.Join(ids, ","))
@@ -663,28 +569,36 @@ func readConfigs() (string, string, string, string, string, error) {
 		brigadesStatsSchema = defaultBrigadesStatsSchema
 	}
 
-	sshKeyDir := os.Getenv("CONFDIR")
-	if sshKeyDir == "" {
-		sysUser, err := user.Current()
-		if err != nil {
-			return "", "", "", "", "", fmt.Errorf("user: %w", err)
+	sshKeyFile := os.Getenv("SSH_KEY")
+	if sshKeyFile != "" {
+		return sshKeyFile, dbURL, pairsSchema, brigadesSchema, brigadesStatsSchema, nil
+	}
+
+	sysUser, err := user.Current()
+	if err != nil {
+		return "", "", "", "", "", fmt.Errorf("user: %w", err)
+	}
+
+	sshKeyDirs := []string{filepath.Join(sysUser.HomeDir, ".ssh"), sshkeyDefaultPath}
+	for _, dir := range sshKeyDirs {
+		if fstat, err := os.Stat(dir); err != nil || !fstat.IsDir() {
+			continue
 		}
 
-		sshKeyDir = filepath.Join(sysUser.HomeDir, ".ssh")
+		keyFilename := filepath.Join(dir, sshkeyED25519Filename)
+		if _, err := os.Stat(keyFilename); err == nil {
+			return keyFilename, dbURL, pairsSchema, brigadesSchema, brigadesStatsSchema, nil
+		}
 	}
 
-	if fstat, err := os.Stat(sshKeyDir); err != nil || !fstat.IsDir() {
-		sshKeyDir = etcDefaultPath
-	}
-
-	return sshKeyDir, dbURL, pairsSchema, brigadesSchema, brigadesStatsSchema, nil
+	return "", "", "", "", "", ErrNoSSHKeyFile
 }
 
 // createSSHConfig - creates ssh client config.
-func createSSHConfig(path string) (*ssh.ClientConfig, error) {
+func createSSHConfig(filename string) (*ssh.ClientConfig, error) {
 	// var hostKey ssh.PublicKey
 
-	key, err := os.ReadFile(filepath.Join(path, sshkeyFilename))
+	key, err := os.ReadFile(filename)
 	if err != nil {
 		return nil, fmt.Errorf("read private key: %w", err)
 	}

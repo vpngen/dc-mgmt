@@ -31,13 +31,13 @@ if [ $rc -ne 0 ]; then
 fi
 
 jumps=""
-for jump_hosts in $(echo "${VPN_WORKS_KEYDESKS_SERVER_JUMPS}" | tr "," "\n"); do
-        jumps="${jumps} -J ${jump_hosts}"
-done
+if [ -n "${VPN_WORKS_KEYDESKS_SERVER_JUMPS}" ]; then
+        jumps=" -J ${VPN_WORKS_KEYDESKS_SERVER_JUMPS}"
+fi
 
 echo "[i] Sync file... ${VPN_WORKS_KEYDESKS_SERVER_ADDR}:${VPN_WORKS_KEYDESKS_SERVER_PORT}"
-if [ -n "${jumps}" ]; then
-        echo "[i] Jumps: ${jumps}"
+if [ -n "${VPN_WORKS_KEYDESKS_SERVER_JUMPS}" ]; then
+        echo "[i] Jumps: ${VPN_WORKS_KEYDESKS_SERVER_JUMPS}"
 fi
 
 CSV_FILENAME="vpn-works-${DC_NAME}.csv"
