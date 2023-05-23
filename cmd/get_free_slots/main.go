@@ -17,9 +17,10 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/vpngen/realm-admin/internal/kdlib"
+
 	"github.com/coreos/go-systemd/activation"
 	"github.com/gorilla/mux"
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -158,6 +159,37 @@ func main() {
 	<-done
 }
 
+func getFreeSlotsNumber(db *pgxpool.Pool, schema string, active bool) (int32, error) {
+	var num int32
+
+	ctx := context.Background()
+
+	tx, err := db.Begin(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("begin: %w", err)
+	}
+
+	defer tx.Rollback(ctx)
+
+	sql := kdlib.GetFreeSlotsNumberStatement(schema, active)
+
+	if err := tx.QueryRow(ctx,
+		sql,
+	).Scan(&num); err != nil {
+		return 0, fmt.Errorf("slots query: %w", err)
+	}
+
+	return num, nil
+}
+
+func getFormattedFreeSlotsNumber(num int32, active, jsonFormat bool) ([]byte, error) {
+	if jsonFormat {
+		return kdlib.GetFreeSlotsNumberJSONBytes(num, active), nil
+	}
+
+	return fmt.Appendf([]byte{}, "%d", num), nil
+}
+
 func zabbixRequestHandler(w http.ResponseWriter, r *http.Request, db *pgxpool.Pool, schema string) {
 	if r.URL.Query().Get("format") != "zabbix" {
 		w.WriteHeader(http.StatusBadRequest)
@@ -196,55 +228,6 @@ func zabbixRequestHandler(w http.ResponseWriter, r *http.Request, db *pgxpool.Po
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte("Invalid request"))
 	}
-}
-
-func getFormattedFreeSlotsNumber(num int32, active, jsonFormat bool) ([]byte, error) {
-	var output []byte
-
-	switch jsonFormat {
-	case true:
-		switch active {
-		case true:
-			output = fmt.Appendf(output, "{\"active_free_slots\":%d}", num)
-		default:
-			output = fmt.Appendf(output, "{\"total_free_slots\":%d}", num)
-		}
-	default:
-		output = fmt.Appendf(output, "%d", num)
-	}
-
-	return output, nil
-}
-
-func getFreeSlotsNumber(db *pgxpool.Pool, schema string, active bool) (int32, error) {
-	var (
-		num int32
-		sql string
-	)
-
-	ctx := context.Background()
-
-	tx, err := db.Begin(ctx)
-	if err != nil {
-		return 0, fmt.Errorf("begin: %w", err)
-	}
-
-	defer tx.Rollback(ctx)
-
-	switch active {
-	case true:
-		sql = fmt.Sprintf("SELECT SUM(free_slots_count) FROM %s", (pgx.Identifier{schema, "active_pairs"}.Sanitize()))
-	default:
-		sql = fmt.Sprintf("SELECT COUNT(*) FROM %s", (pgx.Identifier{schema, "slots"}.Sanitize()))
-	}
-
-	if err := tx.QueryRow(ctx,
-		sql,
-	).Scan(&num); err != nil {
-		return 0, fmt.Errorf("slots query: %w", err)
-	}
-
-	return num, nil
 }
 
 func createDBPool(dbURL string) (*pgxpool.Pool, error) {
