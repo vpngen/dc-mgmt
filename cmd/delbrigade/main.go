@@ -20,6 +20,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/vpngen/realm-admin/internal/kdlib"
 
 	"golang.org/x/crypto/ssh"
 )
@@ -101,8 +102,13 @@ func main() {
 		log.Fatalf("%s: Can't create db pool: %s\n", LogTag, err)
 	}
 
+	control_ip, err := getBrigadeControlIP(db, schema, brigadeID)
+	if err != nil {
+		log.Fatalf("%s: Can't get control ip: %s\n", LogTag, err)
+	}
+
 	// attention! id - uuid-style string.
-	control_ip, err := removeBrigade(db, schema, id)
+	num, err := removeBrigade(db, schema, id)
 	if err != nil {
 		log.Fatalf("%s: Can't remove brigade: %s\n", LogTag, err)
 	}
@@ -121,6 +127,8 @@ func main() {
 		w = os.Stdout
 	}
 
+	fmt.Fprintf(w, "%d\n", num)
+
 	if output == nil {
 		output = []byte{}
 	}
@@ -131,7 +139,7 @@ func main() {
 	}
 }
 
-func removeBrigade(db *pgxpool.Pool, schema string, brigadeID string) (netip.Addr, error) {
+func getBrigadeControlIP(db *pgxpool.Pool, schema string, brigadeID string) (netip.Addr, error) {
 	ctx := context.Background()
 	emptyIP := netip.Addr{}
 
@@ -140,35 +148,49 @@ func removeBrigade(db *pgxpool.Pool, schema string, brigadeID string) (netip.Add
 		return emptyIP, fmt.Errorf("begin: %w", err)
 	}
 
+	defer tx.Rollback(ctx)
+
 	var control_ip netip.Addr
 
-	err = tx.QueryRow(ctx,
+	if err := tx.QueryRow(ctx,
 		fmt.Sprintf(sqlGetControlIP,
 			(pgx.Identifier{schema, "meta_brigades"}.Sanitize()),
 		),
 		brigadeID,
 	).Scan(
 		&control_ip,
-	)
-	if err != nil {
-		tx.Rollback(ctx)
-
+	); err != nil {
 		return emptyIP, fmt.Errorf("brigade query: %w", err)
 	}
 
-	_, err = tx.Exec(ctx, fmt.Sprintf(sqlDelBrigades, (pgx.Identifier{schema, "brigades"}.Sanitize())), brigadeID)
-	if err != nil {
-		tx.Rollback(ctx)
-
-		return emptyIP, fmt.Errorf("brigade delete: %w", err)
-	}
-
-	err = tx.Commit(ctx)
-	if err != nil {
-		return emptyIP, fmt.Errorf("commit: %w", err)
-	}
-
 	return control_ip, nil
+}
+
+func removeBrigade(db *pgxpool.Pool, schema string, brigadeID string) (int32, error) {
+	ctx := context.Background()
+
+	tx, err := db.Begin(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("begin: %w", err)
+	}
+
+	defer tx.Rollback(ctx)
+
+	if _, err := tx.Exec(ctx, fmt.Sprintf(sqlDelBrigades, (pgx.Identifier{schema, "brigades"}.Sanitize())), brigadeID); err != nil {
+		return 0, fmt.Errorf("brigade delete: %w", err)
+	}
+
+	num := int32(0)
+
+	if err := tx.QueryRow(ctx, kdlib.GetFreeSlotsNumberStatement(schema, true)).Scan(&num); err != nil {
+		return 0, fmt.Errorf("free slots query: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return 0, fmt.Errorf("commit: %w", err)
+	}
+
+	return num, nil
 }
 
 func revokeBrigade(db *pgxpool.Pool, schema string, sshconf *ssh.ClientConfig, brigadeID string, control_ip netip.Addr) ([]byte, error) {
