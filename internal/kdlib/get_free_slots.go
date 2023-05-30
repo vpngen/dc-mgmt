@@ -50,9 +50,9 @@ func GetFreeSlotsNumberJSONBytes(num int32, active bool) []byte {
 func GetAllSlotsNumberStatement(schema string, active bool) string {
 	switch active {
 	case true:
-		return fmt.Sprintf(sqlGetActiveAllSlotsNumber, (pgx.Identifier{schema, "pairs.pairs"}.Sanitize()), (pgx.Identifier{schema, "pairs.pairs_endpoints_ipv4"}.Sanitize()))
+		return fmt.Sprintf(sqlGetActiveAllSlotsNumber, (pgx.Identifier{schema, "pairs"}.Sanitize()), (pgx.Identifier{schema, "pairs_endpoints_ipv4"}.Sanitize()))
 	default:
-		return fmt.Sprintf(sqlGetTotalAllSlotsNumber, (pgx.Identifier{schema, "pairs.pairs_endpoints_ipv4"}.Sanitize()))
+		return fmt.Sprintf(sqlGetTotalAllSlotsNumber, (pgx.Identifier{schema, "pairs_endpoints_ipv4"}.Sanitize()))
 	}
 }
 

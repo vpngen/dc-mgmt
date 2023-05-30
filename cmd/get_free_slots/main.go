@@ -26,6 +26,7 @@ import (
 
 const (
 	defaultBrigadesSchema = "brigades"
+	defaultPairsSchema    = "pairs"
 	defaultDCName         = "unknown"
 	defaultDCID           = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
 )
@@ -65,7 +66,7 @@ func main() {
 		log.Fatalf("%s: Can't parse args: %s\n", LogTag, err)
 	}
 
-	dbURL, schema, dcName, dcID, err := readConfigs()
+	dbURL, pairsSchema, brigadesSchema, dcName, dcID, err := readConfigs()
 	if err != nil {
 		log.Fatalf("%s: Can't read configs: %s\n", LogTag, err)
 	}
@@ -84,7 +85,7 @@ func main() {
 
 		switch active {
 		case KeySlotsFreeTotal:
-			num, err = getFreeSlotsNumber(db, schema, false)
+			num, err = getFreeSlotsNumber(db, brigadesSchema, false)
 			if err != nil {
 				log.Fatalf("%s: Can't get free slots number: %s\n", LogTag, err)
 			}
@@ -94,7 +95,7 @@ func main() {
 				log.Fatalf("%s: Can't format nums: %s\n", LogTag, err)
 			}
 		case KeySlotsFreeActive:
-			num, err = getFreeSlotsNumber(db, schema, true)
+			num, err = getFreeSlotsNumber(db, brigadesSchema, true)
 			if err != nil {
 				log.Fatalf("%s: Can't get free slots number: %s\n", LogTag, err)
 			}
@@ -104,7 +105,7 @@ func main() {
 				log.Fatalf("%s: Can't format nums: %s\n", LogTag, err)
 			}
 		case KeySlotsAllTotal:
-			num, err = getAllSlotsNumber(db, schema, false)
+			num, err = getAllSlotsNumber(db, pairsSchema, false)
 			if err != nil {
 				log.Fatalf("%s: Can't get all slots number: %s\n", LogTag, err)
 			}
@@ -114,7 +115,7 @@ func main() {
 				log.Fatalf("%s: Can't format nums: %s\n", LogTag, err)
 			}
 		case KeySlotsAllActive:
-			num, err = getAllSlotsNumber(db, schema, true)
+			num, err = getAllSlotsNumber(db, pairsSchema, true)
 			if err != nil {
 				log.Fatalf("%s: Can't get all slots number: %s\n", LogTag, err)
 			}
@@ -147,10 +148,10 @@ func main() {
 
 	router := mux.NewRouter()
 	router.HandleFunc("/metrics/datacenter/free_slots", func(w http.ResponseWriter, r *http.Request) {
-		zabbixRequestFreeSlotsHandler(w, r, db, schema, dcName, dcID)
+		zabbixRequestFreeSlotsHandler(w, r, db, brigadesSchema, dcName, dcID)
 	})
 	router.HandleFunc("/metrics/datacenter/all_slots", func(w http.ResponseWriter, r *http.Request) {
-		zabbixRequestAllSlotsHandler(w, r, db, schema, dcName, dcID)
+		zabbixRequestAllSlotsHandler(w, r, db, brigadesSchema, dcName, dcID)
 	})
 
 	server := &http.Server{
@@ -471,7 +472,7 @@ func parseArgs() (bool, bool, int, net.Listener, error) {
 	return *chunked, *jsonFormat, KeySlotsAllTotal, nil, nil
 }
 
-func readConfigs() (string, string, string, string, error) {
+func readConfigs() (string, string, string, string, string, error) {
 	dbURL := os.Getenv("DB_URL")
 	if dbURL == "" {
 		dbURL = defaultDatabaseURL
@@ -480,6 +481,11 @@ func readConfigs() (string, string, string, string, error) {
 	brigadesSchema := os.Getenv("BRIGADES_SCHEMA")
 	if brigadesSchema == "" {
 		brigadesSchema = defaultBrigadesSchema
+	}
+
+	pairsSchema := os.Getenv("PAIRS_SCHEMA")
+	if brigadesSchema == "" {
+		pairsSchema = defaultPairsSchema
 	}
 
 	dcName := os.Getenv("DC_NAME")
@@ -492,5 +498,5 @@ func readConfigs() (string, string, string, string, error) {
 		dcID = defaultDCID
 	}
 
-	return dbURL, brigadesSchema, dcName, dcID, nil
+	return dbURL, pairsSchema, brigadesSchema, dcName, dcID, nil
 }
