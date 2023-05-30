@@ -151,7 +151,7 @@ func main() {
 		zabbixRequestFreeSlotsHandler(w, r, db, brigadesSchema, dcName, dcID)
 	})
 	router.HandleFunc("/metrics/datacenter/all_slots", func(w http.ResponseWriter, r *http.Request) {
-		zabbixRequestAllSlotsHandler(w, r, db, brigadesSchema, dcName, dcID)
+		zabbixRequestAllSlotsHandler(w, r, db, pairsSchema, dcName, dcID)
 	})
 
 	server := &http.Server{
@@ -484,7 +484,7 @@ func readConfigs() (string, string, string, string, string, error) {
 	}
 
 	pairsSchema := os.Getenv("PAIRS_SCHEMA")
-	if brigadesSchema == "" {
+	if pairsSchema == "" {
 		pairsSchema = defaultPairsSchema
 	}
 
