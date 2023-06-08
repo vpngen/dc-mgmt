@@ -7,7 +7,7 @@ import (
 )
 
 const (
-	sqlGetActiveFreeSlotsNumber = "SELECT SUM(free_slots_count) FROM %s"
+	sqlGetActiveFreeSlotsNumber = "SELECT COALESCE(SUM(free_slots_count),0) FROM %s"
 	sqlGetTotalFreeSlotsNumber  = "SELECT COUNT(*) FROM %s"
 
 	sqlGetTotalAllSlotsNumber  = "SELECT COUNT(*) FROM %s"                                                               // pairs.pairs_endpoints_ipv4
