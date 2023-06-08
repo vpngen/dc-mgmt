@@ -12,10 +12,8 @@ import (
 	"net/http/httputil"
 	"net/netip"
 	"os"
-	"os/user"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -31,17 +29,14 @@ const (
 )
 
 const (
-	sshkeyFilename       = "id_ecdsa"
 	sshkeyRemoteUsername = "_serega_"
-	etcDefaultPath       = "/etc/vg-dc-mgmt"
+	sshKeyDefaultPath    = "/etc/vg-dc-vpnapi"
 )
 
 const (
 	maxPostgresqlNameLen = 63
 	defaultDatabaseURL   = "postgresql:///vgrealm"
 )
-
-const sshTimeOut = time.Duration(15 * time.Second)
 
 const (
 	BrigadeCgnatPrefix = 24
@@ -92,7 +87,7 @@ func main() {
 		log.Fatalf("%s: Can't read configs: %s\n", LogTag, err)
 	}
 
-	sshconf, err := createSSHConfig(sshKeyDir)
+	sshconf, err := kdlib.CreateSSHConfig(sshKeyDir, sshkeyRemoteUsername, kdlib.SSHDefaultTimeOut)
 	if err != nil {
 		log.Fatalf("%s: Can't create ssh configs: %s\n", LogTag, err)
 	}
@@ -299,45 +294,10 @@ func readConfigs() (string, string, string, string, error) {
 		brigadesStatsSchema = defaultBrigadesStatsSchema
 	}
 
-	sshKeyDir := os.Getenv("CONFDIR")
-	if sshKeyDir == "" {
-		sysUser, err := user.Current()
-		if err != nil {
-			return "", "", "", "", fmt.Errorf("user: %w", err)
-		}
-
-		sshKeyDir = filepath.Join(sysUser.HomeDir, ".ssh")
-	}
-
-	if fstat, err := os.Stat(sshKeyDir); err != nil || !fstat.IsDir() {
-		sshKeyDir = etcDefaultPath
-	}
-
-	return sshKeyDir, dbURL, brigadeSchema, brigadesStatsSchema, nil
-}
-
-func createSSHConfig(path string) (*ssh.ClientConfig, error) {
-	// var hostKey ssh.PublicKey
-
-	key, err := os.ReadFile(filepath.Join(path, sshkeyFilename))
+	sshKeyFilename, err := kdlib.LookupForSSHKeyfile(os.Getenv("SSH_KEY"), sshKeyDefaultPath)
 	if err != nil {
-		return nil, fmt.Errorf("read private key: %w", err)
+		return "", "", "", "", fmt.Errorf("ssh key: %w", err)
 	}
 
-	signer, err := ssh.ParsePrivateKey(key)
-	if err != nil {
-		return nil, fmt.Errorf("parse private key: %w", err)
-	}
-
-	config := &ssh.ClientConfig{
-		User: sshkeyRemoteUsername,
-		Auth: []ssh.AuthMethod{
-			ssh.PublicKeys(signer),
-		},
-		// HostKeyCallback: ssh.FixedHostKey(hostKey),
-		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
-		Timeout:         sshTimeOut,
-	}
-
-	return config, nil
+	return sshKeyFilename, dbURL, brigadeSchema, brigadesStatsSchema, nil
 }

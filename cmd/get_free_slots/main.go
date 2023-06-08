@@ -26,6 +26,7 @@ import (
 
 const (
 	defaultBrigadesSchema = "brigades"
+	defaultPairsSchema    = "pairs"
 	defaultDCName         = "unknown"
 	defaultDCID           = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
 )
@@ -33,6 +34,13 @@ const (
 const (
 	maxPostgresqlNameLen = 63
 	defaultDatabaseURL   = "postgresql:///vgrealm"
+)
+
+const (
+	KeySlotsAllTotal = iota
+	KeySlotsAllActive
+	KeySlotsFreeTotal
+	KeySlotsFreeActive
 )
 
 var ErrNoListener = errors.New("no listener")
@@ -58,7 +66,7 @@ func main() {
 		log.Fatalf("%s: Can't parse args: %s\n", LogTag, err)
 	}
 
-	dbURL, schema, dcName, dcID, err := readConfigs()
+	dbURL, pairsSchema, brigadesSchema, dcName, dcID, err := readConfigs()
 	if err != nil {
 		log.Fatalf("%s: Can't read configs: %s\n", LogTag, err)
 	}
@@ -75,14 +83,47 @@ func main() {
 			output []byte
 		)
 
-		num, err = getFreeSlotsNumber(db, schema, active)
-		if err != nil {
-			log.Fatalf("%s: Can't get free slots number: %s\n", LogTag, err)
-		}
+		switch active {
+		case KeySlotsFreeTotal:
+			num, err = getFreeSlotsNumber(db, brigadesSchema, false)
+			if err != nil {
+				log.Fatalf("%s: Can't get free slots number: %s\n", LogTag, err)
+			}
 
-		output, err = getFormattedFreeSlotsNumber(num, active, jsonFormat)
-		if err != nil {
-			log.Fatalf("%s: Can't format nums: %s\n", LogTag, err)
+			output, err = getFormattedFreeSlotsNumber(num, false, jsonFormat)
+			if err != nil {
+				log.Fatalf("%s: Can't format nums: %s\n", LogTag, err)
+			}
+		case KeySlotsFreeActive:
+			num, err = getFreeSlotsNumber(db, brigadesSchema, true)
+			if err != nil {
+				log.Fatalf("%s: Can't get free slots number: %s\n", LogTag, err)
+			}
+
+			output, err = getFormattedFreeSlotsNumber(num, true, jsonFormat)
+			if err != nil {
+				log.Fatalf("%s: Can't format nums: %s\n", LogTag, err)
+			}
+		case KeySlotsAllTotal:
+			num, err = getAllSlotsNumber(db, pairsSchema, false)
+			if err != nil {
+				log.Fatalf("%s: Can't get all slots number: %s\n", LogTag, err)
+			}
+
+			output, err = getFormattedAllSlotsNumber(num, false, jsonFormat)
+			if err != nil {
+				log.Fatalf("%s: Can't format nums: %s\n", LogTag, err)
+			}
+		case KeySlotsAllActive:
+			num, err = getAllSlotsNumber(db, pairsSchema, true)
+			if err != nil {
+				log.Fatalf("%s: Can't get all slots number: %s\n", LogTag, err)
+			}
+
+			output, err = getFormattedAllSlotsNumber(num, true, jsonFormat)
+			if err != nil {
+				log.Fatalf("%s: Can't format nums: %s\n", LogTag, err)
+			}
 		}
 
 		switch chunked {
@@ -107,7 +148,10 @@ func main() {
 
 	router := mux.NewRouter()
 	router.HandleFunc("/metrics/datacenter/free_slots", func(w http.ResponseWriter, r *http.Request) {
-		zabbixRequestHandler(w, r, db, schema, dcName, dcID)
+		zabbixRequestFreeSlotsHandler(w, r, db, brigadesSchema, dcName, dcID)
+	})
+	router.HandleFunc("/metrics/datacenter/all_slots", func(w http.ResponseWriter, r *http.Request) {
+		zabbixRequestAllSlotsHandler(w, r, db, pairsSchema, dcName, dcID)
 	})
 
 	server := &http.Server{
@@ -184,6 +228,29 @@ func getFreeSlotsNumber(db *pgxpool.Pool, schema string, active bool) (int32, er
 	return num, nil
 }
 
+func getAllSlotsNumber(db *pgxpool.Pool, schema string, active bool) (int32, error) {
+	var num int32
+
+	ctx := context.Background()
+
+	tx, err := db.Begin(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("begin: %w", err)
+	}
+
+	defer tx.Rollback(ctx)
+
+	sql := kdlib.GetAllSlotsNumberStatement(schema, active)
+
+	if err := tx.QueryRow(ctx,
+		sql,
+	).Scan(&num); err != nil {
+		return 0, fmt.Errorf("slots query: %w", err)
+	}
+
+	return num, nil
+}
+
 func getFormattedFreeSlotsNumber(num int32, active, jsonFormat bool) ([]byte, error) {
 	if jsonFormat {
 		return kdlib.GetFreeSlotsNumberJSONBytes(num, active), nil
@@ -192,7 +259,87 @@ func getFormattedFreeSlotsNumber(num int32, active, jsonFormat bool) ([]byte, er
 	return fmt.Appendf([]byte{}, "%d", num), nil
 }
 
-func zabbixRequestHandler(w http.ResponseWriter, r *http.Request, db *pgxpool.Pool, schema, dcName, dcID string) {
+func getFormattedAllSlotsNumber(num int32, active, jsonFormat bool) ([]byte, error) {
+	if jsonFormat {
+		return kdlib.GetAllSlotsNumberJSONBytes(num, active), nil
+	}
+
+	return fmt.Appendf([]byte{}, "%d", num), nil
+}
+
+func zabbixRequestAllSlotsHandler(w http.ResponseWriter, r *http.Request, db *pgxpool.Pool, schema, dcName, dcID string) {
+	if r.URL.Query().Get("format") != "zabbix" {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("Invalid request"))
+		return
+	}
+
+	switch r.URL.Query().Get("action") {
+	case "list":
+		zabbixResponse := fmt.Sprintf(
+			"[{\"{#VPNGEN_DATACENTER_NAME}\": \"%s\", \"{#VPNGEN_DATACENTER_ID}\": \"%s\"}]",
+			dcName,
+			dcID,
+		)
+
+		w.Header().Set("Content-Type", "text/plain")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(zabbixResponse))
+
+		return
+	case "get_total_number":
+		id := r.URL.Query().Get("id")
+		if id != dcID {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte("Invalid request"))
+
+			return
+		}
+
+		num, err := getAllSlotsNumber(db, schema, false)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte("Internal server error"))
+
+			return
+		}
+
+		zabbixResponse := fmt.Sprintf("%d\n", num)
+		w.Header().Set("Content-Type", "text/plain")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(zabbixResponse))
+
+		return
+	case "get_active_number":
+		id := r.URL.Query().Get("id")
+		if id != dcID {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte("Invalid request"))
+
+			return
+		}
+
+		num, err := getAllSlotsNumber(db, schema, true)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte("Internal server error"))
+
+			return
+		}
+
+		zabbixResponse := fmt.Sprintf("%d\n", num)
+		w.Header().Set("Content-Type", "text/plain")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(zabbixResponse))
+
+		return
+	default:
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("Invalid request"))
+	}
+}
+
+func zabbixRequestFreeSlotsHandler(w http.ResponseWriter, r *http.Request, db *pgxpool.Pool, schema, dcName, dcID string) {
 	if r.URL.Query().Get("format") != "zabbix" {
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte("Invalid request"))
@@ -278,9 +425,12 @@ func createDBPool(dbURL string) (*pgxpool.Pool, error) {
 	return pool, nil
 }
 
-func parseArgs() (bool, bool, bool, net.Listener, error) {
+func parseArgs() (bool, bool, int, net.Listener, error) {
 	chunked := flag.Bool("ch", false, "chunked output")
-	active := flag.Bool("a", false, "only active free slots")
+	slotsAllTotal := flag.Bool("at", false, "all slots")
+	slotsAllActive := flag.Bool("aa", false, "all active slots")
+	slotsFreeTotal := flag.Bool("ft", false, "free slots")
+	slotsFreeActive := flag.Bool("fa", false, "free active slots")
 	jsonFormat := flag.Bool("j", false, "json output")
 	listenAddr := flag.String("l", "", "Listen addr:port (http and https separate with commas)")
 
@@ -288,25 +438,41 @@ func parseArgs() (bool, bool, bool, net.Listener, error) {
 
 	if *listenAddr != "" {
 		if l, err := net.Listen("tcp", *listenAddr); err == nil {
-			return *chunked, *jsonFormat, *active, l, nil
+			return *chunked, *jsonFormat, 0, l, nil
 		}
 
 		listeners, err := activation.Listeners()
 		if err != nil {
-			return false, false, false, nil, ErrNoListener
+			return false, false, 0, nil, ErrNoListener
 		}
 
 		if len(listeners) == 0 {
-			return false, false, false, nil, ErrNoListener
+			return false, false, 0, nil, ErrNoListener
 		}
 
-		return *chunked, *jsonFormat, *active, listeners[0], nil
+		return *chunked, *jsonFormat, 0, listeners[0], nil
 	}
 
-	return *chunked, *jsonFormat, *active, nil, nil
+	if *slotsAllTotal {
+		return *chunked, *jsonFormat, KeySlotsAllTotal, nil, nil
+	}
+
+	if *slotsAllActive {
+		return *chunked, *jsonFormat, KeySlotsAllActive, nil, nil
+	}
+
+	if *slotsFreeTotal {
+		return *chunked, *jsonFormat, KeySlotsFreeTotal, nil, nil
+	}
+
+	if *slotsFreeActive {
+		return *chunked, *jsonFormat, KeySlotsFreeActive, nil, nil
+	}
+
+	return *chunked, *jsonFormat, KeySlotsAllTotal, nil, nil
 }
 
-func readConfigs() (string, string, string, string, error) {
+func readConfigs() (string, string, string, string, string, error) {
 	dbURL := os.Getenv("DB_URL")
 	if dbURL == "" {
 		dbURL = defaultDatabaseURL
@@ -315,6 +481,11 @@ func readConfigs() (string, string, string, string, error) {
 	brigadesSchema := os.Getenv("BRIGADES_SCHEMA")
 	if brigadesSchema == "" {
 		brigadesSchema = defaultBrigadesSchema
+	}
+
+	pairsSchema := os.Getenv("PAIRS_SCHEMA")
+	if pairsSchema == "" {
+		pairsSchema = defaultPairsSchema
 	}
 
 	dcName := os.Getenv("DC_NAME")
@@ -327,5 +498,5 @@ func readConfigs() (string, string, string, string, error) {
 		dcID = defaultDCID
 	}
 
-	return dbURL, brigadesSchema, dcName, dcID, nil
+	return dbURL, pairsSchema, brigadesSchema, dcName, dcID, nil
 }

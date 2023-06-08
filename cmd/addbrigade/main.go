@@ -15,10 +15,8 @@ import (
 	"net/netip"
 	"net/url"
 	"os"
-	"os/user"
 	"path/filepath"
 	"strings"
-	"time"
 	"unicode/utf8"
 
 	"github.com/google/uuid"
@@ -37,17 +35,14 @@ const (
 )
 
 const (
-	sshkeyFilename       = "id_ecdsa"
 	sshkeyRemoteUsername = "_serega_"
-	etcDefaultPath       = "/etc/vg-dc-mgmt"
+	sshkeyDefaultPath    = "/etc/vg-dc-vpnapi"
 )
 
 const (
 	maxPostgresqlNameLen = 63
 	defaultDatabaseURL   = "postgresql:///vgrealm"
 )
-
-const sshTimeOut = time.Duration(15 * time.Second)
 
 const (
 	BrigadeCgnatPrefix = 24
@@ -181,6 +176,7 @@ var (
 	ErrInvalidPersonName    = errors.New("invalid person name")
 	ErrInvalidPersonDesc    = errors.New("invalid person desc")
 	ErrInvalidPersonURL     = errors.New("invalid person url")
+	ErrNoSSHKeyFile         = errors.New("no ssh key file")
 )
 
 var LogTag = setLogTag()
@@ -204,12 +200,12 @@ func main() {
 		log.Fatalf("%s: Can't parse args: %s\n", LogTag, err)
 	}
 
-	sshKeyDir, dbURL, brigadesSchema, brigadesStatsSchema, err := readConfigs()
+	sshKeyFilename, dbURL, brigadesSchema, brigadesStatsSchema, err := readConfigs()
 	if err != nil {
 		log.Fatalf("%s: Can't read configs: %s\n", LogTag, err)
 	}
 
-	sshconf, err := createSSHConfig(sshKeyDir)
+	sshconf, err := kdlib.CreateSSHConfig(sshKeyFilename, sshkeyRemoteUsername, kdlib.SSHDefaultTimeOut)
 	if err != nil {
 		log.Fatalf("%s: Can't create ssh configs: %s\n", LogTag, err)
 	}
@@ -666,9 +662,9 @@ func readConfigs() (string, string, string, string, error) {
 		dbURL = defaultDatabaseURL
 	}
 
-	brigadeSchema := os.Getenv("BRIGADES_SCHEMA")
-	if brigadeSchema == "" {
-		brigadeSchema = defaultBrigadesSchema
+	brigadesSchema := os.Getenv("BRIGADES_SCHEMA")
+	if brigadesSchema == "" {
+		brigadesSchema = defaultBrigadesSchema
 	}
 
 	brigadesStatsSchema := os.Getenv("BRIGADES_STATS_SCHEMA")
@@ -676,45 +672,10 @@ func readConfigs() (string, string, string, string, error) {
 		brigadesStatsSchema = defaultBrigadesStatsSchema
 	}
 
-	sshKeyDir := os.Getenv("CONFDIR")
-	if sshKeyDir == "" {
-		sysUser, err := user.Current()
-		if err != nil {
-			return "", "", "", "", fmt.Errorf("user: %w", err)
-		}
-
-		sshKeyDir = filepath.Join(sysUser.HomeDir, ".ssh")
-	}
-
-	if fstat, err := os.Stat(sshKeyDir); err != nil || !fstat.IsDir() {
-		sshKeyDir = etcDefaultPath
-	}
-
-	return sshKeyDir, dbURL, brigadeSchema, brigadesStatsSchema, nil
-}
-
-func createSSHConfig(path string) (*ssh.ClientConfig, error) {
-	// var hostKey ssh.PublicKey
-
-	key, err := os.ReadFile(filepath.Join(path, sshkeyFilename))
+	sshKeyFilename, err := kdlib.LookupForSSHKeyfile(os.Getenv("SSH_KEY"), sshkeyDefaultPath)
 	if err != nil {
-		return nil, fmt.Errorf("read private key: %w", err)
+		return "", "", "", "", fmt.Errorf("lookup for ssh key: %w", err)
 	}
 
-	signer, err := ssh.ParsePrivateKey(key)
-	if err != nil {
-		return nil, fmt.Errorf("parse private key: %w", err)
-	}
-
-	config := &ssh.ClientConfig{
-		User: sshkeyRemoteUsername,
-		Auth: []ssh.AuthMethod{
-			ssh.PublicKeys(signer),
-		},
-		// HostKeyCallback: ssh.FixedHostKey(hostKey),
-		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
-		Timeout:         sshTimeOut,
-	}
-
-	return config, nil
+	return sshKeyFilename, dbURL, brigadesSchema, brigadesStatsSchema, nil
 }
