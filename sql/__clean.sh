@@ -19,7 +19,7 @@ echo "brigades user: $STATS_DBUSER"
 
 set -x
 
-cat $(dirname $0)/init/*.sql | sudo -i -u postgres psql -v -d "${DBNAME}" \
+cat <<EOF | sudo -i -u postgres psql \
     --set schema_pairs_name="${SCHEMA_PAIRS}" \
     --set pairs_dbuser="${PAIRS_DBUSER}" \
     --set schema_brigades_name="${SCHEMA_BRIGADES}" \
@@ -27,10 +27,10 @@ cat $(dirname $0)/init/*.sql | sudo -i -u postgres psql -v -d "${DBNAME}" \
     --set schema_stats_name="${SCHEMA_STATS}" \
     --set stats_dbuser="${STATS_DBUSER}" 
 
-cat $(dirname $0)/patches/*.sql | sudo -i -u postgres psql -v -d "${DBNAME}" \
-    --set schema_pairs_name="${SCHEMA_PAIRS}" \
-    --set pairs_dbuser="${PAIRS_DBUSER}" \
-    --set schema_brigades_name="${SCHEMA_BRIGADES}" \
-    --set brigades_dbuser="${BRIGADES_DBUSER}" \
-    --set schema_stats_name="${SCHEMA_STATS}" \
-    --set stats_dbuser="${STATS_DBUSER}" 
+DROP DATABASE IF EXISTS "${DBNAME}";
+DROP ROLE IF EXISTS "${PAIRS_DBUSER}";
+DROP ROLE IF EXISTS "${BRIGADES_DBUSER}";
+DROP ROLE IF EXISTS "${STATS_DBUSER}";
+CREATE DATABASE "${DBNAME}";
+
+EOF
