@@ -9,6 +9,7 @@ go build -C dc-mgmt/cmd/addbrigade/gen -o ../../../../bin/gen
 go build -C dc-mgmt/cmd/delbrigade -o ../../../bin/delbrigade
 go build -C dc-mgmt/cmd/checkbrigade -o ../../../bin/checkbrigade
 go build -C dc-mgmt/cmd/replacebrigadier -o ../../../bin/replacebrigadier
+go build -C dc-mgmt/cmd/reset -o ../../../bin/reset
 go build -C dc-mgmt/cmd/getwasted -o ../../../bin/getwasted
 go build -C dc-mgmt/cmd/collectstats -o ../../../bin/collectstats
 go build -C dc-mgmt/cmd/get_free_slots -o ../../../bin/get_free_slots
