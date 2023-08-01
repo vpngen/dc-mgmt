@@ -75,7 +75,7 @@ pair_id = (
 		ORDER BY free_slots_count DESC 
 		LIMIT 1
 		)
-ORDER BY pair_id DESC
+ORDER BY domain_name NULLS LAST
 LIMIT 1
 `
 
@@ -88,6 +88,7 @@ SELECT
 FROM %s
 WHERE
 	control_ip=$1
+ORDER BY domain_name NULLS LAST
 LIMIT 1
 `
 

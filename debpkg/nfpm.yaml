@@ -125,6 +125,12 @@ contents:
     mode: 0005
     owner: root
     group: root
+- src: bin/reset
+  dst: /opt/vg-dc-admin/reset
+  file_info:
+    mode: 0005
+    owner: root
+    group: root
 
 - dst: /opt/vg-dc-vpnapi
   type: dir
