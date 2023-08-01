@@ -4,7 +4,18 @@ CONFDIR=${CONFDIR:-"${HOME}"}
 
 DBNAME=${DBNAME:-"vgrealm"}
 SCHEMA=${SCHEMA:-"brigades"}
-SSH_KEY=${SSH_KEY:-"${CONFDIR}/id_ed25519"}
+SSH_KEY=${SSH_KEY:-"${CONFDIR}/.ssh/id_ed25519"}
+
+if [ -s "/etc/vg-dc-vpnapi/vpn-works-keydesks-sync.env" ]; then
+        # shellcheck source=/dev/null
+        . "/etc/vg-dc-vpnapi/vpn-works-keydesks-sync.env"
+fi
+
+if [ -s  "/etc/vg-dc-mgmt/dc-name.env" ]; then
+        # shellcheck source=/dev/null
+        . "/etc/vg-dc-mgmt/dc-name.env"
+fi
+
 VPN_WORKS_KEYDESKS_SERVER_ADDR=${VPN_WORKS_KEYDESKS_SERVER_ADDR:-$(cat "${CONFDIR}/kdsyncserver")}
 VPN_WORKS_KEYDESKS_SERVER_PORT=${VPN_WORKS_KEYDESKS_SERVER_PORT:-"22"}
 VPN_WORKS_KEYDESKS_SERVER_JUMPS=${VPN_WORKS_KEYDESKS_SERVER_JUMPS:-""} # separated by commas

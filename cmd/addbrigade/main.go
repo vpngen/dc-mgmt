@@ -21,6 +21,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/jackc/pgx/v5/pgtype/zeronull"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"golang.org/x/crypto/ssh"
@@ -62,7 +64,8 @@ FOR UPDATE`
 SELECT
 	pair_id,
 	control_ip,
-	endpoint_ipv4
+	endpoint_ipv4,
+	domain_name
 FROM %s
 WHERE
 pair_id = (
@@ -72,7 +75,7 @@ pair_id = (
 		ORDER BY free_slots_count DESC 
 		LIMIT 1
 		)
-ORDER BY pair_id DESC
+ORDER BY domain_name NULLS LAST
 LIMIT 1
 `
 
@@ -80,10 +83,12 @@ LIMIT 1
 SELECT
 	pair_id,
 	control_ip,
-	endpoint_ipv4
+	endpoint_ipv4,
+	domain_name
 FROM %s
 WHERE
 	control_ip=$1
+ORDER BY domain_name NULLS LAST
 LIMIT 1
 `
 
@@ -117,7 +122,8 @@ INSERT INTO %s
 			brigade_id,  
 			pair_id,    
 			brigadier,           
-			endpoint_ipv4,       
+			endpoint_ipv4,
+			domain_name,       
 			dns_ipv4,            
 			dns_ipv6,            
 			keydesk_ipv6,        
@@ -136,7 +142,8 @@ VALUES
 			$7,
 			$8,
 			$9,
-			$10
+			$10,
+			$11
 		)
 `
 
@@ -145,6 +152,7 @@ SELECT
 	meta_brigades.brigade_id,
 	meta_brigades.brigadier,
 	meta_brigades.endpoint_ipv4,
+	meta_brigades.domain_name,
 	meta_brigades.dns_ipv4,
 	meta_brigades.dns_ipv6,
 	meta_brigades.keydesk_ipv6,
@@ -292,13 +300,27 @@ func createBrigade(db *pgxpool.Pool, schema, schemaStats string, opts *brigadeOp
 		pair_id            string
 		pair_endpoint_ipv4 netip.Addr
 		pair_control_ip    netip.Addr
+		domain_name        pgtype.Text
 	)
 
 	switch opts.forceIP {
 	case netip.Addr{}:
-		err = tx.QueryRow(ctx, fmt.Sprintf(sqlPickPair, (pgx.Identifier{schema, "slots"}.Sanitize()), (pgx.Identifier{schema, "active_pairs"}.Sanitize()))).Scan(&pair_id, &pair_control_ip, &pair_endpoint_ipv4)
+		err = tx.QueryRow(
+			ctx,
+			fmt.Sprintf(
+				sqlPickPair,
+				pgx.Identifier{schema, "slots"}.Sanitize(),
+				pgx.Identifier{schema, "active_pairs"}.Sanitize(),
+			),
+		).Scan(&pair_id, &pair_control_ip, &pair_endpoint_ipv4, &domain_name)
 	default:
-		err = tx.QueryRow(ctx, fmt.Sprintf(sqlPickPairForcedIP, (pgx.Identifier{schema, "slots"}.Sanitize())), opts.forceIP.String()).Scan(&pair_id, &pair_control_ip, &pair_endpoint_ipv4)
+		err = tx.QueryRow(
+			ctx,
+			fmt.Sprintf(
+				sqlPickPairForcedIP,
+				pgx.Identifier{schema, "slots"}.Sanitize()),
+			opts.forceIP.String(),
+		).Scan(&pair_id, &pair_control_ip, &pair_endpoint_ipv4, &domain_name)
 	}
 
 	if err != nil {
@@ -306,6 +328,9 @@ func createBrigade(db *pgxpool.Pool, schema, schemaStats string, opts *brigadeOp
 	}
 
 	fmt.Fprintf(os.Stderr, "%s: ep: %s ctrl: %s\n", LogTag, pair_endpoint_ipv4, pair_control_ip)
+	if domain_name.Valid {
+		fmt.Fprintf(os.Stderr, "%s: domain: %s\n", LogTag, domain_name.String)
+	}
 
 	// pick up cgnat
 
@@ -314,7 +339,10 @@ func createBrigade(db *pgxpool.Pool, schema, schemaStats string, opts *brigadeOp
 		cgnat_net  netip.Prefix
 	)
 
-	if err := tx.QueryRow(ctx, fmt.Sprintf(sqlPickCGNATNet, (pgx.Identifier{schema, "ipv4_cgnat_nets_weight"}.Sanitize()))).Scan(&cgnat_gnet); err != nil {
+	if err := tx.QueryRow(
+		ctx,
+		fmt.Sprintf(sqlPickCGNATNet, pgx.Identifier{schema, "ipv4_cgnat_nets_weight"}.Sanitize()),
+	).Scan(&cgnat_gnet); err != nil {
 		return 0, fmt.Errorf("cgnat weight query: %w", err)
 	}
 
@@ -396,11 +424,12 @@ func createBrigade(db *pgxpool.Pool, schema, schemaStats string, opts *brigadeOp
 	// create brigade
 
 	_, err = tx.Exec(ctx,
-		fmt.Sprintf(sqlCreateBrigade, (pgx.Identifier{schema, "brigades"}.Sanitize())),
+		fmt.Sprintf(sqlCreateBrigade, pgx.Identifier{schema, "brigades"}.Sanitize()),
 		opts.id,
 		pair_id,
 		opts.name,
 		pair_endpoint_ipv4.String(),
+		zeronull.Text(domain_name.String),
 		cgnat_net.Addr().String(),
 		ula_net.Addr().String(),
 		keydesk.String(),
@@ -438,6 +467,7 @@ func requestBrigade(db *pgxpool.Pool, schema string, sshconf *ssh.ClientConfig, 
 		brigade_id    []byte
 		fullname      string
 		endpoint_ipv4 netip.Addr
+		domain_name   pgtype.Text
 		dns_ipv4      netip.Addr
 		dns_ipv6      netip.Addr
 		keydesk_ipv6  netip.Addr
@@ -456,6 +486,7 @@ func requestBrigade(db *pgxpool.Pool, schema string, sshconf *ssh.ClientConfig, 
 		&brigade_id,
 		&fullname,
 		&endpoint_ipv4,
+		&domain_name,
 		&dns_ipv4,
 		&dns_ipv6,
 		&keydesk_ipv6,
@@ -481,7 +512,7 @@ func requestBrigade(db *pgxpool.Pool, schema string, sshconf *ssh.ClientConfig, 
 		return nil, "", fmt.Errorf("person: %w", err)
 	}
 
-	cmd := fmt.Sprintf("create %s %s %s %s %s %s %s %s %s %s %s chunked",
+	cmd := fmt.Sprintf("create %s %s %s %s %s %s %s %s %s %s %s chunked %s",
 		base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(brigade_id),
 		endpoint_ipv4,
 		ipv4_cgnat,
@@ -493,6 +524,7 @@ func requestBrigade(db *pgxpool.Pool, schema string, sshconf *ssh.ClientConfig, 
 		base64.StdEncoding.WithPadding(base64.StdPadding).EncodeToString([]byte(person.Name)),
 		base64.StdEncoding.WithPadding(base64.StdPadding).EncodeToString([]byte(person.Desc)),
 		base64.StdEncoding.WithPadding(base64.StdPadding).EncodeToString([]byte(person.URL)),
+		domain_name.String,
 	)
 
 	fmt.Fprintf(os.Stderr, "%s: %s#%s:22 -> %s\n", LogTag, sshkeyRemoteUsername, control_ip, cmd)
