@@ -29,11 +29,11 @@ delegation_sync() {
 }
 
 if [ "addbrigade" = "${cmd}" ]; then
-        HOST="${SUBDOMAIN_API_SERVER}" TOKEN="${SUBDOMAIN_API_TOKEN}" "${basedir}"/addbrigade "$@"
+        SUBDOMAIN_API_SERVER="${SUBDOMAIN_API_SERVER}" SUBDOMAIN_API_TOKEN="${SUBDOMAIN_API_TOKEN}" "${basedir}"/addbrigade "$@"
         vpn_works_keysesks_sync
         delegation_sync
 elif [ "delbrigade" = "${cmd}" ]; then
-        HOST="${SUBDOMAIN_API_SERVER}" TOKEN="${SUBDOMAIN_API_TOKEN}" "${basedir}"/delbrigade "$@"
+        SUBDOMAIN_API_SERVER="${SUBDOMAIN_API_SERVER}" SUBDOMAIN_API_TOKEN="${SUBDOMAIN_API_TOKEN}" "${basedir}"/delbrigade "$@"
         vpn_works_keysesks_sync
         delegation_sync
 elif [ "replacebrigadier" = "${cmd}" ]; then

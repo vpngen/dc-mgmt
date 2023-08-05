@@ -757,7 +757,7 @@ func readConfigs() (string, string, string, string, string, string, error) {
 		return "", "", "", "", "", "", fmt.Errorf("lookup for ssh key: %w", err)
 	}
 
-	subdomainAPIHost := os.Getenv("SUBDOMAPI_HOST")
+	subdomainAPIHost := os.Getenv("SUBDOMAIN_API_HOST")
 	if subdomainAPIHost == "" {
 		return "", "", "", "", "", "", errors.New("empty subdomapi host")
 	}
@@ -766,7 +766,7 @@ func readConfigs() (string, string, string, string, string, string, error) {
 		return "", "", "", "", "", "", fmt.Errorf("parse subdomapi host: %w", err)
 	}
 
-	subdomainAPIToken := os.Getenv("SUBDOMAPI_TOKEN")
+	subdomainAPIToken := os.Getenv("SUBDOMAIN_API_TOKEN")
 	if subdomainAPIToken == "" {
 		return "", "", "", "", "", "", errors.New("empty subdomapi token")
 	}
