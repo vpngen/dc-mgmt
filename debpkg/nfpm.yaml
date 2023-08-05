@@ -193,6 +193,12 @@ contents:
     mode: 0005
     owner: root
     group: root
+- src: dc-mgmt/cmd/delegations-sync.sh
+  dst: /opt/vg-dc-vpnapi/delegations-sync.sh
+  file_info:
+    mode: 0005
+    owner: root
+    group: root
 - src: dc-mgmt/cmd/ssh_command.sh
   dst: /opt/vg-dc-vpnapi/ssh_command.sh
   file_info:

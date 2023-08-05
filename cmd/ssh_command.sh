@@ -15,16 +15,27 @@ fi
 cmd=${1}; shift
 basedir=$(dirname "$0")
 
+if [ -s "/etc/vg-dc-vpnapi/subdomain-api.env" ]; then
+        # shellcheck source=/dev/null
+        . "/etc/vg-dc-vpnapi/subdomain-api.env"
+fi
+
 vpn_works_keysesks_sync() {
         /usr/bin/flock -x -E 0 -n /tmp/vpn-works-keydesk-sync.lock "${basedir}"/vpn-works-keydesks-sync.sh 2>&1 | /usr/bin/logger -p local0.notice -t KDSYNC
 }
 
+delegation_sync() {
+        /usr/bin/flock -x -E 0 -n /tmp/delegation-sync.lock "${basedir}"/delegation-sync.sh 2>&1 | /usr/bin/logger -p local0.notice -t DOMSYNC
+}
+
 if [ "addbrigade" = "${cmd}" ]; then
-        "${basedir}"/addbrigade "$@"
+        HOST="${SUBDOMAIN_API_SERVER}" TOKEN="${SUBDOMAIN_API_TOKEN}" "${basedir}"/addbrigade "$@"
         vpn_works_keysesks_sync
+        delegation_sync
 elif [ "delbrigade" = "${cmd}" ]; then
-        "${basedir}"/delbrigade "$@"
+        HOST="${SUBDOMAIN_API_SERVER}" TOKEN="${SUBDOMAIN_API_TOKEN}" "${basedir}"/delbrigade "$@"
         vpn_works_keysesks_sync
+        delegation_sync
 elif [ "replacebrigadier" = "${cmd}" ]; then
     "${basedir}"/replacebrigadier "$@"
 elif [ "getwasted" = "${cmd}" ]; then
