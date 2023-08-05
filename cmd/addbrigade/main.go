@@ -17,6 +17,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"github.com/google/uuid"
@@ -49,6 +50,11 @@ const (
 const (
 	BrigadeCgnatPrefix = 24
 	BrigadeUlaPrefix   = 64
+)
+
+const (
+	subdomainAPIAttempts = 5
+	subdomainAPISleep    = 2 * time.Second
 )
 
 const (
@@ -164,7 +170,8 @@ FROM %s
 WHERE
 	meta_brigades.brigade_id=$1
 `
-	sqlInsertStats = `INSERT INTO %s (brigade_id) VALUES ($1);`
+	sqlInsertStats      = `INSERT INTO %s (brigade_id) VALUES ($1);`
+	sqlUpdatePairDomain = `UPDATE %s SET domain_name = $1 WHERE endpoint_ipv4 = $2`
 )
 
 type brigadeOpts struct {
@@ -185,6 +192,12 @@ var (
 	ErrInvalidPersonDesc    = errors.New("invalid person desc")
 	ErrInvalidPersonURL     = errors.New("invalid person url")
 	ErrNoSSHKeyFile         = errors.New("no ssh key file")
+)
+
+// SubdomAPI config errors.
+var (
+	ErrEmptySubdomAPIServer = errors.New("empty subdomapi host")
+	ErrEmptySubdomAPIToken  = errors.New("empty subdomapi token")
 )
 
 var LogTag = setLogTag()
@@ -208,7 +221,7 @@ func main() {
 		log.Fatalf("%s: Can't parse args: %s\n", LogTag, err)
 	}
 
-	sshKeyFilename, dbURL, brigadesSchema, brigadesStatsSchema, err := readConfigs()
+	sshKeyFilename, dbURL, brigadesSchema, brigadesStatsSchema, subdomAPIHost, subdomAPIToken, err := readConfigs()
 	if err != nil {
 		log.Fatalf("%s: Can't read configs: %s\n", LogTag, err)
 	}
@@ -223,7 +236,7 @@ func main() {
 		log.Fatalf("%s: Can't create db pool: %s\n", LogTag, err)
 	}
 
-	num, err := createBrigade(db, brigadesSchema, brigadesStatsSchema, opts)
+	num, err := createBrigade(db, brigadesSchema, brigadesStatsSchema, opts, subdomAPIHost, subdomAPIToken)
 	if err != nil {
 		log.Fatalf("%s: Can't create brigade: %s\n", LogTag, err)
 	}
@@ -255,7 +268,7 @@ func main() {
 	}
 }
 
-func createBrigade(db *pgxpool.Pool, schema, schemaStats string, opts *brigadeOpts) (int32, error) {
+func createBrigade(db *pgxpool.Pool, schema, schemaStats string, opts *brigadeOpts, subdomAPIHost, subdomAPIToken string) (int32, error) {
 	ctx := context.Background()
 
 	tx, err := db.Begin(ctx)
@@ -325,6 +338,41 @@ func createBrigade(db *pgxpool.Pool, schema, schemaStats string, opts *brigadeOp
 
 	if err != nil {
 		return 0, fmt.Errorf("pair query: %w", err)
+	}
+
+	if !domain_name.Valid {
+		var (
+			subdomain string
+			err       error
+		)
+
+		for i := 0; i < subdomainAPIAttempts; i++ {
+			subdomain, err = kdlib.SubdomainPick(subdomAPIHost, subdomAPIToken)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "%s: Can't pick subdomain (%d): %s\n", LogTag, i+1, err)
+				if i == subdomainAPIAttempts-1 {
+					return 0, fmt.Errorf("pick subdomain: %w", err)
+				}
+
+				time.Sleep(subdomainAPISleep)
+
+				continue
+			}
+
+			break
+		}
+
+		if err := domain_name.Scan(subdomain); err != nil {
+			return 0, fmt.Errorf("scan subdomain: %w", err)
+		}
+
+		if _, err := tx.Exec(
+			ctx,
+			fmt.Sprintf(sqlUpdatePairDomain, pgx.Identifier{schema, "domains_endpoints_ipv4"}.Sanitize()),
+			domain_name, pair_endpoint_ipv4,
+		); err != nil {
+			return 0, fmt.Errorf("pair domain update: %w", err)
+		}
 	}
 
 	fmt.Fprintf(os.Stderr, "%s: ep: %s ctrl: %s\n", LogTag, pair_endpoint_ipv4, pair_control_ip)
@@ -688,7 +736,7 @@ func parseArgs() (bool, *brigadeOpts, error) {
 	return *chunked, opts, nil
 }
 
-func readConfigs() (string, string, string, string, error) {
+func readConfigs() (string, string, string, string, string, string, error) {
 	dbURL := os.Getenv("DB_URL")
 	if dbURL == "" {
 		dbURL = defaultDatabaseURL
@@ -706,8 +754,22 @@ func readConfigs() (string, string, string, string, error) {
 
 	sshKeyFilename, err := kdlib.LookupForSSHKeyfile(os.Getenv("SSH_KEY"), sshkeyDefaultPath)
 	if err != nil {
-		return "", "", "", "", fmt.Errorf("lookup for ssh key: %w", err)
+		return "", "", "", "", "", "", fmt.Errorf("lookup for ssh key: %w", err)
 	}
 
-	return sshKeyFilename, dbURL, brigadesSchema, brigadesStatsSchema, nil
+	subdomainAPIHost := os.Getenv("SUBDOMAPI_HOST")
+	if subdomainAPIHost == "" {
+		return "", "", "", "", "", "", errors.New("empty subdomapi host")
+	}
+
+	if _, err := netip.ParseAddrPort(subdomainAPIHost); err != nil {
+		return "", "", "", "", "", "", fmt.Errorf("parse subdomapi host: %w", err)
+	}
+
+	subdomainAPIToken := os.Getenv("SUBDOMAPI_TOKEN")
+	if subdomainAPIToken == "" {
+		return "", "", "", "", "", "", errors.New("empty subdomapi token")
+	}
+
+	return sshKeyFilename, dbURL, brigadesSchema, brigadesStatsSchema, subdomainAPIHost, subdomainAPIToken, nil
 }

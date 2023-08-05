@@ -14,9 +14,11 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/vpngen/realm-admin/internal/kdlib"
 
@@ -44,6 +46,11 @@ const (
 )
 
 const (
+	subdomainAPIAttempts = 5
+	subdomainAPISleep    = 2 * time.Second
+)
+
+const (
 	sqlGetControlIP = `
 	SELECT
 		control_ip
@@ -52,10 +59,11 @@ const (
 		brigade_id=$1
 	FOR UPDATE
 	`
-	sqlDelBrigades = `
+	sqlDelBrigade = `
 	DELETE 
 		FROM %s
 	WHERE brigade_id=$1
+	RETURNING domain_name
 	`
 )
 
@@ -82,7 +90,7 @@ func main() {
 		log.Fatalf("%s: Can't parse args: %s\n", LogTag, err)
 	}
 
-	sshKeyDir, dbname, schema, _, err := readConfigs()
+	sshKeyDir, dbname, schema, subdomAPIHost, subdomAPIToken, err := readConfigs()
 	if err != nil {
 		log.Fatalf("%s: Can't read configs: %s\n", LogTag, err)
 	}
@@ -103,7 +111,7 @@ func main() {
 	}
 
 	// attention! id - uuid-style string.
-	num, err := removeBrigade(db, schema, uuidString)
+	num, err := removeBrigade(db, schema, uuidString, subdomAPIHost, subdomAPIToken)
 	if err != nil {
 		log.Fatalf("%s: Can't remove brigade: %s\n", LogTag, err)
 	}
@@ -161,7 +169,7 @@ func getBrigadeControlIP(db *pgxpool.Pool, schema string, brigadeID string) (net
 	return control_ip, nil
 }
 
-func removeBrigade(db *pgxpool.Pool, schema string, brigadeID string) (int32, error) {
+func removeBrigade(db *pgxpool.Pool, schema string, brigadeID string, subdomAPIHost, subdomAPIToken string) (int32, error) {
 	ctx := context.Background()
 
 	tx, err := db.Begin(ctx)
@@ -171,8 +179,31 @@ func removeBrigade(db *pgxpool.Pool, schema string, brigadeID string) (int32, er
 
 	defer tx.Rollback(ctx)
 
-	if _, err := tx.Exec(ctx, fmt.Sprintf(sqlDelBrigades, (pgx.Identifier{schema, "brigades"}.Sanitize())), brigadeID); err != nil {
+	var domain_name pgtype.Text
+
+	if err := tx.QueryRow(
+		ctx,
+		fmt.Sprintf(sqlDelBrigade, pgx.Identifier{schema, "brigades"}.Sanitize()),
+		brigadeID,
+	).Scan(&domain_name); err != nil {
 		return 0, fmt.Errorf("brigade delete: %w", err)
+	}
+
+	if domain_name.Valid {
+		for i := 0; i < subdomainAPIAttempts; i++ {
+			if err := kdlib.SubdomainDelete(subdomAPIHost, subdomAPIToken, domain_name.String); err != nil {
+				fmt.Fprintf(os.Stderr, "%s: Can't delete subdomain %s: %s\n", LogTag, domain_name.String, err)
+				if i == subdomainAPIAttempts-1 {
+					return 0, fmt.Errorf("delete subdomain: %w", err)
+				}
+
+				time.Sleep(subdomainAPISleep)
+
+				continue
+			}
+
+			break
+		}
 	}
 
 	num := int32(0)
@@ -278,7 +309,7 @@ func parseArgs() (bool, string, string, error) {
 	}
 }
 
-func readConfigs() (string, string, string, string, error) {
+func readConfigs() (string, string, string, string, string, error) {
 	dbURL := os.Getenv("DB_URL")
 	if dbURL == "" {
 		dbURL = defaultDatabaseURL
@@ -289,15 +320,24 @@ func readConfigs() (string, string, string, string, error) {
 		brigadeSchema = defaultBrigadesSchema
 	}
 
-	brigadesStatsSchema := os.Getenv("BRIGADES_STATS_SCHEMA")
-	if brigadesStatsSchema == "" {
-		brigadesStatsSchema = defaultBrigadesStatsSchema
-	}
-
 	sshKeyFilename, err := kdlib.LookupForSSHKeyfile(os.Getenv("SSH_KEY"), sshKeyDefaultPath)
 	if err != nil {
-		return "", "", "", "", fmt.Errorf("ssh key: %w", err)
+		return "", "", "", "", "", fmt.Errorf("ssh key: %w", err)
 	}
 
-	return sshKeyFilename, dbURL, brigadeSchema, brigadesStatsSchema, nil
+	subdomainAPIHost := os.Getenv("SUBDOMAPI_HOST")
+	if subdomainAPIHost == "" {
+		return "", "", "", "", "", errors.New("empty subdomapi host")
+	}
+
+	if _, err := netip.ParseAddrPort(subdomainAPIHost); err != nil {
+		return "", "", "", "", "", fmt.Errorf("parse subdomapi host: %w", err)
+	}
+
+	subdomainAPIToken := os.Getenv("SUBDOMAPI_TOKEN")
+	if subdomainAPIToken == "" {
+		return "", "", "", "", "", errors.New("empty subdomapi token")
+	}
+
+	return sshKeyFilename, dbURL, brigadeSchema, subdomainAPIHost, subdomainAPIToken, nil
 }
