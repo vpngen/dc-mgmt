@@ -14,11 +14,9 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/vpngen/realm-admin/internal/kdlib"
 
@@ -26,13 +24,12 @@ import (
 )
 
 const (
-	defaultBrigadesSchema      = "brigades"
-	defaultBrigadesStatsSchema = "stats"
+	defaultBrigadesSchema = "brigades"
 )
 
 const (
 	sshkeyRemoteUsername = "_serega_"
-	sshKeyDefaultPath    = "/etc/vg-dc-vpnapi"
+	sshkeyDefaultPath    = "/etc/vg-dc-vpnapi"
 )
 
 const (
@@ -46,24 +43,14 @@ const (
 )
 
 const (
-	subdomainAPIAttempts = 5
-	subdomainAPISleep    = 2 * time.Second
-)
-
-const (
 	sqlGetControlIP = `
 	SELECT
-		control_ip
+		control_ip,
+		keydesk_ipv6
 	FROM %s
 	WHERE
 		brigade_id=$1
 	FOR UPDATE
-	`
-	sqlDelBrigade = `
-	DELETE 
-		FROM %s
-	WHERE brigade_id=$1
-	RETURNING domain_name
 	`
 )
 
@@ -71,7 +58,7 @@ var errInlalidArgs = errors.New("invalid args")
 
 var LogTag = setLogTag()
 
-const defaultLogTag = "delbrigade"
+const defaultLogTag = "replacebrigadier"
 
 func setLogTag() string {
 	executable, err := os.Executable()
@@ -85,17 +72,17 @@ func setLogTag() string {
 func main() {
 	var w io.WriteCloser
 
-	chunked, base32String, uuidString, err := parseArgs()
+	chunked, brigadeID, id, err := parseArgs()
 	if err != nil {
 		log.Fatalf("%s: Can't parse args: %s\n", LogTag, err)
 	}
 
-	sshKeyDir, dbname, schema, subdomAPIHost, subdomAPIToken, err := readConfigs()
+	sshKeyFilename, dbname, schema, err := readConfigs()
 	if err != nil {
 		log.Fatalf("%s: Can't read configs: %s\n", LogTag, err)
 	}
 
-	sshconf, err := kdlib.CreateSSHConfig(sshKeyDir, sshkeyRemoteUsername, kdlib.SSHDefaultTimeOut)
+	sshconf, err := kdlib.CreateSSHConfig(sshKeyFilename, sshkeyRemoteUsername, kdlib.SSHDefaultTimeOut)
 	if err != nil {
 		log.Fatalf("%s: Can't create ssh configs: %s\n", LogTag, err)
 	}
@@ -105,21 +92,16 @@ func main() {
 		log.Fatalf("%s: Can't create db pool: %s\n", LogTag, err)
 	}
 
-	control_ip, err := getBrigadeControlIP(db, schema, uuidString)
-	if err != nil {
-		log.Fatalf("%s: Can't get control ip: %s\n", LogTag, err)
-	}
-
 	// attention! id - uuid-style string.
-	num, err := removeBrigade(db, schema, uuidString, subdomAPIHost, subdomAPIToken)
+	control_ip, keydesk_ipv6, err := checkBrigade(db, schema, id)
 	if err != nil {
-		log.Fatalf("%s: Can't remove brigade: %s\n", LogTag, err)
+		log.Fatalf("%s: Can't check brigade: %s\n", LogTag, err)
 	}
 
 	// attention! brigadeID - base32-style.
-	output, err := revokeBrigade(db, schema, sshconf, base32String, control_ip)
+	wgconfx, err := replaceBrigadier(db, schema, sshconf, brigadeID, control_ip)
 	if err != nil {
-		log.Fatalf("%s: Can't revoke brigade: %s\n", LogTag, err)
+		log.Fatalf("%s: Can't replace brigadier: %s\n", LogTag, err)
 	}
 
 	switch chunked {
@@ -130,97 +112,60 @@ func main() {
 		w = os.Stdout
 	}
 
-	fmt.Fprintf(w, "%d\n", num)
-
-	if output == nil {
-		output = []byte{}
+	_, err = fmt.Fprintln(w, keydesk_ipv6.String())
+	if err != nil {
+		log.Fatalf("%s: Can't print keydesk ipv6: %s\n", LogTag, err)
 	}
 
-	_, err = w.Write(output)
+	if wgconfx == nil {
+		wgconfx = []byte{}
+	}
+
+	_, err = w.Write(wgconfx)
 	if err != nil {
-		log.Fatalf("%s: Can't print output: %s\n", LogTag, err)
+		log.Fatalf("%s: Can't print wgconfx: %s\n", LogTag, err)
 	}
 }
 
-func getBrigadeControlIP(db *pgxpool.Pool, schema string, brigadeID string) (netip.Addr, error) {
+func checkBrigade(db *pgxpool.Pool, schema string, brigadeID string) (netip.Addr, netip.Addr, error) {
 	ctx := context.Background()
 	emptyIP := netip.Addr{}
 
 	tx, err := db.Begin(ctx)
 	if err != nil {
-		return emptyIP, fmt.Errorf("begin: %w", err)
+		return emptyIP, emptyIP, fmt.Errorf("begin: %w", err)
 	}
 
-	defer tx.Rollback(ctx)
+	var (
+		control_ip   netip.Addr
+		keydesk_ipv6 netip.Addr
+	)
 
-	var control_ip netip.Addr
-
-	if err := tx.QueryRow(ctx,
+	err = tx.QueryRow(ctx,
 		fmt.Sprintf(sqlGetControlIP,
 			(pgx.Identifier{schema, "meta_brigades"}.Sanitize()),
 		),
 		brigadeID,
 	).Scan(
 		&control_ip,
-	); err != nil {
-		return emptyIP, fmt.Errorf("brigade query: %w", err)
-	}
-
-	return control_ip, nil
-}
-
-func removeBrigade(db *pgxpool.Pool, schema string, brigadeID string, subdomAPIHost, subdomAPIToken string) (int32, error) {
-	ctx := context.Background()
-
-	tx, err := db.Begin(ctx)
+		&keydesk_ipv6,
+	)
 	if err != nil {
-		return 0, fmt.Errorf("begin: %w", err)
+		tx.Rollback(ctx)
+
+		return emptyIP, emptyIP, fmt.Errorf("brigade query: %w", err)
 	}
 
-	defer tx.Rollback(ctx)
-
-	var domain_name pgtype.Text
-
-	if err := tx.QueryRow(
-		ctx,
-		fmt.Sprintf(sqlDelBrigade, pgx.Identifier{schema, "brigades"}.Sanitize()),
-		brigadeID,
-	).Scan(&domain_name); err != nil {
-		return 0, fmt.Errorf("brigade delete: %w", err)
+	err = tx.Commit(ctx)
+	if err != nil {
+		return emptyIP, emptyIP, fmt.Errorf("commit: %w", err)
 	}
 
-	if domain_name.Valid {
-		for i := 0; i < subdomainAPIAttempts; i++ {
-			if err := kdlib.SubdomainDelete(subdomAPIHost, subdomAPIToken, domain_name.String); err != nil {
-				fmt.Fprintf(os.Stderr, "%s: Can't delete subdomain %s: %s\n", LogTag, domain_name.String, err)
-				if i == subdomainAPIAttempts-1 {
-					return 0, fmt.Errorf("delete subdomain: %w", err)
-				}
-
-				time.Sleep(subdomainAPISleep)
-
-				continue
-			}
-
-			break
-		}
-	}
-
-	num := int32(0)
-
-	if err := tx.QueryRow(ctx, kdlib.GetFreeSlotsNumberStatement(schema, true)).Scan(&num); err != nil {
-		return 0, fmt.Errorf("free slots query: %w", err)
-	}
-
-	if err := tx.Commit(ctx); err != nil {
-		return 0, fmt.Errorf("commit: %w", err)
-	}
-
-	return num, nil
+	return control_ip, keydesk_ipv6, nil
 }
 
-func revokeBrigade(db *pgxpool.Pool, schema string, sshconf *ssh.ClientConfig, brigadeID string, control_ip netip.Addr) ([]byte, error) {
-	cmd := fmt.Sprintf("destroy %s chunked", brigadeID)
+func replaceBrigadier(db *pgxpool.Pool, schema string, sshconf *ssh.ClientConfig, brigadeID string, control_ip netip.Addr) ([]byte, error) {
+	cmd := fmt.Sprintf("replace %s chunked", brigadeID)
 
 	fmt.Fprintf(os.Stderr, "%s: %s#%s:22 -> %s\n", LogTag, sshkeyRemoteUsername, control_ip, cmd)
 
@@ -257,7 +202,12 @@ func revokeBrigade(db *pgxpool.Pool, schema string, sshconf *ssh.ClientConfig, b
 		return nil, fmt.Errorf("ssh run: %w", err)
 	}
 
-	return nil, nil
+	wgconfx, err := io.ReadAll(httputil.NewChunkedReader(&b))
+	if err != nil {
+		return nil, fmt.Errorf("chunk read: %w", err)
+	}
+
+	return wgconfx, nil
 }
 
 func createDBPool(dburl string) (*pgxpool.Pool, error) {
@@ -309,7 +259,7 @@ func parseArgs() (bool, string, string, error) {
 	}
 }
 
-func readConfigs() (string, string, string, string, string, error) {
+func readConfigs() (string, string, string, error) {
 	dbURL := os.Getenv("DB_URL")
 	if dbURL == "" {
 		dbURL = defaultDatabaseURL
@@ -320,24 +270,10 @@ func readConfigs() (string, string, string, string, string, error) {
 		brigadeSchema = defaultBrigadesSchema
 	}
 
-	sshKeyFilename, err := kdlib.LookupForSSHKeyfile(os.Getenv("SSH_KEY"), sshKeyDefaultPath)
+	sshKeyFilename, err := kdlib.LookupForSSHKeyfile(os.Getenv("SSH_KEY"), sshkeyDefaultPath)
 	if err != nil {
-		return "", "", "", "", "", fmt.Errorf("ssh key: %w", err)
+		return "", "", "", fmt.Errorf("lookup for ssh key: %w", err)
 	}
 
-	subdomainAPIHost := os.Getenv("SUBDOMAPI_HOST")
-	if subdomainAPIHost == "" {
-		return "", "", "", "", "", errors.New("empty subdomapi host")
-	}
-
-	if _, err := netip.ParseAddrPort(subdomainAPIHost); err != nil {
-		return "", "", "", "", "", fmt.Errorf("parse subdomapi host: %w", err)
-	}
-
-	subdomainAPIToken := os.Getenv("SUBDOMAPI_TOKEN")
-	if subdomainAPIToken == "" {
-		return "", "", "", "", "", errors.New("empty subdomapi token")
-	}
-
-	return sshKeyFilename, dbURL, brigadeSchema, subdomainAPIHost, subdomainAPIToken, nil
+	return sshKeyFilename, dbURL, brigadeSchema, nil
 }

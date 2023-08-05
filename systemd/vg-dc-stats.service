@@ -1,0 +1,16 @@
+[Unit]
+Description=Collect brigades statistics
+Wants=vg-dc-stats.timer
+
+[Service]
+Type=oneshot
+User=vgstats
+Group=vgstats
+EnvironmentFile=/etc/vg-dc-mgmt/dc-name.env
+EnvironmentFile=/etc/vg-dc-stats/stats-sync.env
+WorkingDirectory=/home/vgstats
+ExecStart=/opt/vg-dc-stats/collectstats
+ExecStart=/opt/vg-dc-stats/stats-sync.sh
+
+[Install]
+WantedBy=multi-user.target

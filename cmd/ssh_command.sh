@@ -13,12 +13,37 @@ if [ $# -eq 0 ]; then
 fi
 
 cmd=${1}; shift
-basedir=$(dirname $0)
+basedir=$(dirname "$0")
 
-if [ "xaddbrigade" = "x${cmd}" ]; then
-    ${basedir}/addbrigade $@
-elif [ "xdelbrigade" = "x${cmd}" ]; then
-    ${basedir}/delbrigade $@
+if [ -s "/etc/vg-dc-vpnapi/subdomain-api.env" ]; then
+        # shellcheck source=/dev/null
+        . "/etc/vg-dc-vpnapi/subdomain-api.env"
+fi
+
+vpn_works_keysesks_sync() {
+        /usr/bin/flock -x -E 0 -n /tmp/vpn-works-keydesk-sync.lock "${basedir}"/vpn-works-keydesks-sync.sh 2>&1 | /usr/bin/logger -p local0.notice -t KDSYNC
+}
+
+delegation_sync() {
+        /usr/bin/flock -x -E 0 -n /tmp/delegation-sync.lock "${basedir}"/delegation-sync.sh 2>&1 | /usr/bin/logger -p local0.notice -t DOMSYNC
+}
+
+if [ "addbrigade" = "${cmd}" ]; then
+        HOST="${SUBDOMAIN_API_SERVER}" TOKEN="${SUBDOMAIN_API_TOKEN}" "${basedir}"/addbrigade "$@"
+        vpn_works_keysesks_sync
+        delegation_sync
+elif [ "delbrigade" = "${cmd}" ]; then
+        HOST="${SUBDOMAIN_API_SERVER}" TOKEN="${SUBDOMAIN_API_TOKEN}" "${basedir}"/delbrigade "$@"
+        vpn_works_keysesks_sync
+        delegation_sync
+elif [ "replacebrigadier" = "${cmd}" ]; then
+    "${basedir}"/replacebrigadier "$@"
+elif [ "getwasted" = "${cmd}" ]; then
+    "${basedir}"/getwasted "$@"
+elif [ "checkbrigade" = "${cmd}" ]; then
+    "${basedir}"/checkbrigade "$@"
+elif [ "get_free_slots" = "${cmd}" ]; then
+    "${basedir}"/get_free_slots "$@"
 else
     echo "Unknown command: ${cmd}"
     printdef
