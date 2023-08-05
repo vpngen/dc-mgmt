@@ -4,8 +4,8 @@ set -e
 
 DBNAME=${DBNAME:-"vgrealm"}
 echo "dbname: $DBNAME"
-SCHEMA_PAIRS=${PSCHEMA:-"pairs"}
-echo "schema: $SCHEMA_PAIRS"
+BRIGADES_SCHEMA=${BRIGADES_SCHEMA:-"brigades"}
+echo "schema: $BRIGADES_SCHEMA"
 
 # shellcheck source=/dev/null
 . /etc/vg-dc-mgmt/dc-name.env
@@ -18,7 +18,7 @@ if [ -z "${ip}" ] || [ -z "${domain}" ]; then
 fi
 
 ON_ERROR_STOP=yes psql -d "${DBNAME}" \
-    --set schema_name="${SCHEMA_PAIRS}" \
+    --set schema_name="${BRIGADES_SCHEMA}" \
     --set ip="${ip}" \
     --set domain="${domain}" <<EOF
 BEGIN;
