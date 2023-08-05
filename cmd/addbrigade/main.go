@@ -171,7 +171,7 @@ WHERE
 	meta_brigades.brigade_id=$1
 `
 	sqlInsertStats      = `INSERT INTO %s (brigade_id) VALUES ($1);`
-	sqlUpdatePairDomain = `UPDATE %s SET domain_name = $1 WHERE endpoint_ipv4 = $2`
+	sqlInsertPairDomain = `INSERT INTO %s (domain_name, endpoint_ipv4) VALUES ($1,$2)`
 )
 
 type brigadeOpts struct {
@@ -368,7 +368,7 @@ func createBrigade(db *pgxpool.Pool, schema, schemaStats string, opts *brigadeOp
 
 		if _, err := tx.Exec(
 			ctx,
-			fmt.Sprintf(sqlUpdatePairDomain, pgx.Identifier{schema, "domains_endpoints_ipv4"}.Sanitize()),
+			fmt.Sprintf(sqlInsertPairDomain, pgx.Identifier{schema, "domains_endpoints_ipv4"}.Sanitize()),
 			domain_name, pair_endpoint_ipv4,
 		); err != nil {
 			return 0, fmt.Errorf("pair domain update: %w", err)
