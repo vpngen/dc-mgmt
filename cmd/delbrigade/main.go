@@ -190,6 +190,17 @@ func removeBrigade(db *pgxpool.Pool, schema string, brigadeID string, subdomAPIH
 	}
 
 	if domain_name.Valid {
+		sqlDelPairDomain := `DELETE FROM %s WHERE domain_name=$1`
+		if _, err := tx.Exec(ctx, fmt.Sprintf(
+			sqlDelPairDomain,
+			pgx.Identifier{schema, "domains_endpoints_ipv4"}.Sanitize()),
+			brigadeID,
+		); err != nil {
+			return 0, fmt.Errorf("pair domain delete: %w", err)
+		}
+	}
+
+	if domain_name.Valid {
 		for i := 0; i < subdomainAPIAttempts; i++ {
 			if err := kdlib.SubdomainDelete(subdomAPIHost, subdomAPIToken, domain_name.String); err != nil {
 				fmt.Fprintf(os.Stderr, "%s: Can't delete subdomain %s: %s\n", LogTag, domain_name.String, err)
