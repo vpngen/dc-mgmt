@@ -138,8 +138,7 @@ func main() {
 			fatal(w, jout, "%s: Can't write answer: %s\n", LogTag, err)
 		}
 	default:
-		_, err = fmt.Fprintln(w, keydeskIPv6.String())
-		if err != nil {
+		if _, err = fmt.Fprintln(w, keydeskIPv6.String()); err != nil {
 			log.Fatalf("%s: Can't print keydesk ipv6: %s\n", LogTag, err)
 		}
 
