@@ -314,7 +314,7 @@ func revokeSubdomain(ctx context.Context, db *pgxpool.Pool, schema string, subdo
 }
 
 func revokeBrigade(sshconf *ssh.ClientConfig, brigadeID string, control_ip netip.Addr) ([]byte, error) {
-	cmd := fmt.Sprintf("destroy %s chunked", brigadeID)
+	cmd := fmt.Sprintf("destroy -id %s -ch", brigadeID)
 
 	fmt.Fprintf(os.Stderr, "%s: %s#%s:22 -> %s\n", LogTag, sshkeyRemoteUsername, control_ip, cmd)
 

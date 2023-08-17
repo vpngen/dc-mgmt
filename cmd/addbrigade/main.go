@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net/http"
 	"net/http/httputil"
 	"net/netip"
 	"net/url"
@@ -29,6 +30,9 @@ import (
 
 	"golang.org/x/crypto/ssh"
 
+	"github.com/vpngen/keydesk/gen/models"
+	"github.com/vpngen/keydesk/keydesk"
+	realmadmin "github.com/vpngen/realm-admin"
 	"github.com/vpngen/realm-admin/internal/kdlib"
 	dcmgmt "github.com/vpngen/realm-admin/internal/kdlib/dc-mgmt"
 	"github.com/vpngen/wordsgens/namesgenerator"
@@ -268,45 +272,9 @@ func setLogTag() string {
 func main() {
 	var w io.WriteCloser
 
-	chunked, opts, err := parseArgs()
+	chunked, jout, opts, err := parseArgs()
 	if err != nil {
 		log.Fatalf("%s: Can't parse args: %s\n", LogTag, err)
-	}
-
-	sshKeyFilename, env, err := readConfigs()
-	if err != nil {
-		log.Fatalf("%s: Can't read configs: %s\n", LogTag, err)
-	}
-
-	sshconf, err := kdlib.CreateSSHConfig(sshKeyFilename, sshkeyRemoteUsername, kdlib.SSHDefaultTimeOut)
-	if err != nil {
-		log.Fatalf("%s: Can't create ssh configs: %s\n", LogTag, err)
-	}
-
-	delegationSyncSSHconf, err := kdlib.CreateSSHConfig(sshKeyFilename, env.delegationUser, kdlib.SSHDefaultTimeOut)
-	if err != nil {
-		log.Fatalf("Can't create delegation sync ssh config: %s\n", err)
-	}
-
-	kdAddrSyncSSHconf, err := kdlib.CreateSSHConfig(sshKeyFilename, env.kdAddrUser, kdlib.SSHDefaultTimeOut)
-	if err != nil {
-		log.Fatalf("Can't create keydesk address ssh config: %s\n", err)
-	}
-
-	db, err := createDBPool(env.dbURL)
-	if err != nil {
-		log.Fatalf("%s: Can't create db pool: %s\n", LogTag, err)
-	}
-
-	num, err := createBrigade(db, kdAddrSyncSSHconf, delegationSyncSSHconf, env, opts)
-	if err != nil {
-		log.Fatalf("%s: Can't create brigade: %s\n", LogTag, err)
-	}
-
-	// wgconfx = chunked (wgconf + keydesk IP)
-	wgconfx, keydesk, err := requestBrigade(db, sshconf, &env.dbEnv, &env.delegationCheckEnv, opts)
-	if err != nil {
-		log.Fatalf("%s: Can't request brigade: %s\n", LogTag, err)
 	}
 
 	switch chunked {
@@ -317,17 +285,97 @@ func main() {
 		w = os.Stdout
 	}
 
-	if _, err := fmt.Fprintf(w, "%d\n", num); err != nil {
-		log.Fatalf("%s: Can't print free slots num: %s\n", LogTag, err)
+	sshKeyFilename, env, err := readConfigs()
+	if err != nil {
+		fatal(w, jout, "%s: Can't read configs: %s\n", LogTag, err)
 	}
 
-	if _, err = fmt.Fprintln(w, keydesk); err != nil {
-		log.Fatalf("%s: Can't print keydesk ipv6: %s\n", LogTag, err)
+	sshconf, err := kdlib.CreateSSHConfig(sshKeyFilename, sshkeyRemoteUsername, kdlib.SSHDefaultTimeOut)
+	if err != nil {
+		fatal(w, jout, "%s: Can't create ssh configs: %s\n", LogTag, err)
 	}
 
-	if _, err = w.Write(wgconfx); err != nil {
-		log.Fatalf("%s: Can't print wgconfx: %s\n", LogTag, err)
+	delegationSyncSSHconf, err := kdlib.CreateSSHConfig(sshKeyFilename, env.delegationUser, kdlib.SSHDefaultTimeOut)
+	if err != nil {
+		fatal(w, jout, "Can't create delegation sync ssh config: %s\n", err)
 	}
+
+	kdAddrSyncSSHconf, err := kdlib.CreateSSHConfig(sshKeyFilename, env.kdAddrUser, kdlib.SSHDefaultTimeOut)
+	if err != nil {
+		fatal(w, jout, "Can't create keydesk address ssh config: %s\n", err)
+	}
+
+	db, err := createDBPool(env.dbURL)
+	if err != nil {
+		fatal(w, jout, "%s: Can't create db pool: %s\n", LogTag, err)
+	}
+
+	freeSlots, err := createBrigade(db, kdAddrSyncSSHconf, delegationSyncSSHconf, env, opts)
+	if err != nil {
+		fatal(w, jout, "%s: Can't create brigade: %s\n", LogTag, err)
+	}
+
+	// wgconfx = chunked (wgconf + keydesk IP)
+	wgconf, keydeskIPv6, err := requestBrigade(db, sshconf, &env.dbEnv, &env.delegationCheckEnv, opts)
+	if err != nil {
+		fatal(w, jout, "%s: Can't request brigade: %s\n", LogTag, err)
+	}
+
+	switch jout {
+	case true:
+		answ := realmadmin.Answer{
+			Answer: keydesk.Answer{
+				Code:    http.StatusCreated,
+				Desc:    http.StatusText(http.StatusCreated),
+				Status:  keydesk.AnswerStatusSuccess,
+				Configs: *wgconf,
+			},
+			KeydeskIPv6: keydeskIPv6,
+			FreeSlots:   int(freeSlots),
+		}
+
+		payload, err := json.Marshal(answ)
+		if err != nil {
+			fatal(w, jout, "%s: Can't marshal answer: %s\n", LogTag, err)
+		}
+
+		if _, err := w.Write(payload); err != nil {
+			fatal(w, jout, "%s: Can't write answer: %s\n", LogTag, err)
+		}
+	default:
+		_, err = fmt.Fprintln(w, keydeskIPv6.String())
+		if err != nil {
+			log.Fatalf("%s: Can't print keydesk ipv6: %s\n", LogTag, err)
+		}
+
+		if _, err := fmt.Fprintln(w, wgconf.WireguardConfig.FileName); err != nil {
+			log.Fatalf("%s: Can't print wgconf filename: %s\n", LogTag, err)
+		}
+
+		if _, err := fmt.Fprintln(w, wgconf.WireguardConfig.FileContent); err != nil {
+			log.Fatalf("%s: Can't print wgconf content: %s\n", LogTag, err)
+		}
+	}
+}
+
+const fatalString = `{
+	"code" : 500,
+	"desc" : "Internal Server Error",
+	"status" : "error",
+	"message" : "%s"
+}`
+
+func fatal(w io.Writer, jout bool, format string, args ...any) {
+	msg := fmt.Sprintf(format, args...)
+
+	switch jout {
+	case true:
+		fmt.Fprintf(w, fatalString, msg)
+	default:
+		fmt.Fprint(w, msg)
+	}
+
+	log.Fatal(msg)
 }
 
 func createBrigade(
@@ -628,12 +676,12 @@ func requestBrigade(
 	dbenv *dbEnv,
 	dlgenv *delegationCheckEnv,
 	opts *brigadeOpts,
-) ([]byte, string, error) {
+) (*models.Newuser, netip.Addr, error) {
 	ctx := context.Background()
 
 	tx, err := db.Begin(ctx)
 	if err != nil {
-		return nil, "", fmt.Errorf("begin: %w", err)
+		return nil, netip.Addr{}, fmt.Errorf("begin: %w", err)
 	}
 
 	var (
@@ -671,21 +719,21 @@ func requestBrigade(
 	if err != nil {
 		tx.Rollback(ctx)
 
-		return nil, "", fmt.Errorf("brigade query: %w", err)
+		return nil, netip.Addr{}, fmt.Errorf("brigade query: %w", err)
 	}
 
 	err = tx.Rollback(ctx)
 	if err != nil {
-		return nil, "", fmt.Errorf("commit: %w", err)
+		return nil, netip.Addr{}, fmt.Errorf("commit: %w", err)
 	}
 
 	person := &namesgenerator.Person{}
 	err = json.Unmarshal(pjson, &person)
 	if err != nil {
-		return nil, "", fmt.Errorf("person: %w", err)
+		return nil, netip.Addr{}, fmt.Errorf("person: %w", err)
 	}
 
-	cmd := fmt.Sprintf("create %s %s %s %s %s %s %s %s %s %s %s chunked %s",
+	cmd := fmt.Sprintf("create -id %s -ep4 %s -int4 %s -int6 %s -dns4 %s -dns6 %s -kd6 %s -name %s -person %s -desc %s -url %s -dn %s -ch -j",
 		base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(brigadeID),
 		endpointIPv4,
 		ipv4CGNAT,
@@ -704,13 +752,13 @@ func requestBrigade(
 
 	client, err := ssh.Dial("tcp", fmt.Sprintf("%s:22", control_ip), sshconf)
 	if err != nil {
-		return nil, "", fmt.Errorf("ssh dial: %w", err)
+		return nil, netip.Addr{}, fmt.Errorf("ssh dial: %w", err)
 	}
 	defer client.Close()
 
 	session, err := client.NewSession()
 	if err != nil {
-		return nil, "", fmt.Errorf("ssh session: %w", err)
+		return nil, netip.Addr{}, fmt.Errorf("ssh session: %w", err)
 	}
 	defer session.Close()
 
@@ -732,12 +780,12 @@ func requestBrigade(
 	}()
 
 	if err := session.Run(cmd); err != nil {
-		return nil, "", fmt.Errorf("ssh run: %w", err)
+		return nil, netip.Addr{}, fmt.Errorf("ssh run: %w", err)
 	}
 
-	wgconfx, err := io.ReadAll(httputil.NewChunkedReader(&b))
+	payload, err := io.ReadAll(httputil.NewChunkedReader(&b))
 	if err != nil {
-		return nil, "", fmt.Errorf("chunk read: %w", err)
+		return nil, netip.Addr{}, fmt.Errorf("chunk read: %w", err)
 	}
 
 	if !waitForAllDelegations(
@@ -748,10 +796,15 @@ func requestBrigade(
 		endpointIPv4,
 		dlgenv.domainNS,
 	) {
-		return nil, "", fmt.Errorf("delegation: %w", ErrNotDelegated)
+		return nil, netip.Addr{}, fmt.Errorf("delegation: %w", ErrNotDelegated)
 	}
 
-	return wgconfx, keydeskIPv6.String(), nil
+	wgconf := &keydesk.Answer{}
+	if err := json.Unmarshal(payload, &wgconf); err != nil {
+		return nil, netip.Addr{}, fmt.Errorf("json unmarshal: %w", err)
+	}
+
+	return &wgconf.Configs, keydeskIPv6, nil
 }
 
 func waitForAllDelegations(
@@ -832,7 +885,7 @@ func createDBPool(dburl string) (*pgxpool.Pool, error) {
 	return pool, nil
 }
 
-func parseArgs() (bool, *brigadeOpts, error) {
+func parseArgs() (bool, bool, *brigadeOpts, error) {
 	brigadeID := flag.String("id", "", "brigadier_id")
 	brigadierName := flag.String("name", "", "brigadierName :: base64")
 	personName := flag.String("person", "", "personName :: base64")
@@ -840,6 +893,7 @@ func parseArgs() (bool, *brigadeOpts, error) {
 	personURL := flag.String("url", "", "personURL :: base64")
 	chunked := flag.Bool("ch", false, "chunked output")
 	nodeIP := flag.String("ip", "", "control IP for debug")
+	jout := flag.Bool("j", false, "json output")
 
 	flag.Parse()
 
@@ -848,83 +902,83 @@ func parseArgs() (bool, *brigadeOpts, error) {
 	// brigadeID must be base32 decodable.
 	buf, err := base32.StdEncoding.WithPadding(base32.NoPadding).DecodeString(*brigadeID)
 	if err != nil {
-		return false, nil, fmt.Errorf("id base32: %s: %w", *brigadeID, err)
+		return false, false, nil, fmt.Errorf("id base32: %s: %w", *brigadeID, err)
 	}
 
 	id, err := uuid.FromBytes(buf)
 	if err != nil {
-		return false, nil, fmt.Errorf("id uuid: %s: %w", *brigadeID, err)
+		return false, false, nil, fmt.Errorf("id uuid: %s: %w", *brigadeID, err)
 	}
 
 	opts.id = id.String()
 
 	// brigadierName must be not empty and must be a valid UTF8 string
 	if *brigadierName == "" {
-		return false, nil, ErrEmptyBrigadierName
+		return false, false, nil, ErrEmptyBrigadierName
 	}
 
 	buf, err = base64.StdEncoding.DecodeString(*brigadierName)
 	if err != nil {
-		return false, nil, fmt.Errorf("brigadier name: %w", err)
+		return false, false, nil, fmt.Errorf("brigadier name: %w", err)
 	}
 
 	if !utf8.Valid(buf) {
-		return false, nil, ErrInvalidBrigadierName
+		return false, false, nil, ErrInvalidBrigadierName
 	}
 
 	opts.name = string(buf)
 
 	// personName must be not empty and must be a valid UTF8 string
 	if *personName == "" {
-		return false, nil, ErrEmptyPersonName
+		return false, false, nil, ErrEmptyPersonName
 	}
 
 	buf, err = base64.StdEncoding.DecodeString(*personName)
 	if err != nil {
-		return false, nil, fmt.Errorf("person name: %w", err)
+		return false, false, nil, fmt.Errorf("person name: %w", err)
 	}
 
 	if !utf8.Valid(buf) {
-		return false, nil, ErrInvalidPersonName
+		return false, false, nil, ErrInvalidPersonName
 	}
 
 	opts.person.Name = string(buf)
 
 	// personDesc must be not empty and must be a valid UTF8 string
 	if *personDesc == "" {
-		return false, nil, ErrEmptyPersonDesc
+		return false, false, nil, ErrEmptyPersonDesc
 	}
 
 	buf, err = base64.StdEncoding.DecodeString(*personDesc)
 	if err != nil {
-		return false, nil, fmt.Errorf("person desc: %w", err)
+		return false, false, nil, fmt.Errorf("person desc: %w", err)
 	}
 
 	if !utf8.Valid(buf) {
-		return false, nil, ErrInvalidPersonDesc
+		return false, false, nil, ErrInvalidPersonDesc
 	}
 
 	opts.person.Desc = string(buf)
 
 	// personURL must be not empty and must be a valid UTF8 string
 	if *personURL == "" {
-		return false, nil, ErrEmptyPersonURL
+		return false, false, nil, ErrEmptyPersonURL
 	}
 
 	buf, err = base64.StdEncoding.DecodeString(*personURL)
 	if err != nil {
-		return false, nil, fmt.Errorf("person url: %w", err)
+		return false, false, nil, fmt.Errorf("person url: %w", err)
 	}
 
 	if !utf8.Valid(buf) {
-		return false, nil, ErrInvalidPersonURL
+		return false, false, nil, ErrInvalidPersonURL
 	}
 
 	u := string(buf)
 
 	_, err = url.Parse(u)
 	if err != nil {
-		return false, nil, fmt.Errorf("parse person url: %w", err)
+		return false, false, nil, fmt.Errorf("parse person url: %w", err)
 	}
 
 	opts.person.URL = u
@@ -933,7 +987,7 @@ func parseArgs() (bool, *brigadeOpts, error) {
 		opts.forceIP, _ = netip.ParseAddr(*nodeIP)
 	}
 
-	return *chunked, opts, nil
+	return *chunked, *jout, opts, nil
 }
 
 func readConfigs() (string, *envOpts, error) {

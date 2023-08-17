@@ -5,7 +5,7 @@ go 1.20
 require (
 	github.com/google/uuid v1.3.0
 	github.com/jackc/pgx/v5 v5.4.1
-	//github.com/vpngen/keydesk v0.0.0-20221212220752-ecd7e452cb58
+	github.com/vpngen/keydesk v1.2.6
 	github.com/vpngen/wordsgens v0.0.0-20221214131824-ff06c1f70d47
 	golang.org/x/crypto v0.10.0
 )
@@ -17,7 +17,6 @@ require (
 	github.com/gorilla/mux v1.8.0
 	github.com/miekg/dns v1.1.55
 	github.com/vpngen/domain-commander v0.0.21
-	github.com/vpngen/keydesk v1.1.26
 	github.com/vpngen/vpngine v0.0.0-20230227215251-3cd9be2d55eb
 )
 
