@@ -270,6 +270,10 @@ func removeBrigade(
 }
 
 func revokeSubdomain(ctx context.Context, db *pgxpool.Pool, schema string, subdomAPIHost, subdomAPIToken string, domain_name string) error {
+	if subdomAPIToken == dcmgmt.NoUseSubdomainAPIToken {
+		return nil
+	}
+
 	tx, err := db.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("begin: %w", err)
@@ -291,6 +295,10 @@ func revokeSubdomain(ctx context.Context, db *pgxpool.Pool, schema string, subdo
 		return fmt.Errorf("pair domain delete: no rows affected")
 	}
 
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("commit: %w", err)
+	}
+
 	for i := 0; i < subdomainAPIAttempts; i++ {
 		if err := kdlib.SubdomainDelete(subdomAPIHost, subdomAPIToken, domain_name); err != nil {
 			fmt.Fprintf(os.Stderr, "%s: Can't delete subdomain %s: %s\n", LogTag, domain_name, err)
@@ -304,10 +312,6 @@ func revokeSubdomain(ctx context.Context, db *pgxpool.Pool, schema string, subdo
 		}
 
 		break
-	}
-
-	if err := tx.Commit(ctx); err != nil {
-		return fmt.Errorf("commit: %w", err)
 	}
 
 	return nil
