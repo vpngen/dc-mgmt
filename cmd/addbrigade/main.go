@@ -626,6 +626,10 @@ func createBrigade(
 }
 
 func applySubdomain(ctx context.Context, db *pgxpool.Pool, schema, subdomAPIHost, subdomAPIToken string, pair_endpoint_ipv4 netip.Addr) error {
+	if subdomAPIToken == dcmgmt.NoUseSubdomainAPIToken {
+		return nil
+	}
+
 	tx, err := db.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("begin: %w", err)
