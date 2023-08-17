@@ -35,7 +35,7 @@ contents:
     owner: root
     group: root
 
-- src: dc-mgmt/debpkg/src/dc-name.env
+- src: /etc/vg-dc-mgmt/dc-name.env
   type: ghost
 
 - dst: /etc/vg-dc-vpnapi
@@ -52,7 +52,17 @@ contents:
     owner: root
     group: root
 
-- src: dc-mgmt/debpkg/src/vpn-works-keydesks-sync.env
+- src: dc-mgmt/debpkg/src/modbrigade.env-sample
+  dst: /etc/vg-dc-vpnapi/modbrigade.env-sample
+  file_info:
+    mode: 0444
+    owner: root
+    group: root
+
+- dst: /etc/vg-dc-vpnapi/modbrigade.env
+  type: ghost
+
+- dst: /etc/vg-dc-vpnapi/vpn-works-keydesks-sync.env
   type: ghost
 
 - src: dc-mgmt/debpkg/src/gfsn.env-sample
@@ -62,7 +72,7 @@ contents:
     owner: root
     group: root
 
-- src: dc-mgmt/debpkg/src/gfsn.env
+- dst: /etc/vg-dc-vpnapi/gfsn.env
   type: ghost
 
 - dst: /etc/vg-dc-stats
@@ -79,7 +89,7 @@ contents:
     owner: root
     group: root
 
-- src: dc-mgmt/debpkg/src/stats-sync.env
+- dst: /etc/vg-dc-stats/stats-sync.env
   type: ghost
 
 - dst: /opt/vg-dc-admin

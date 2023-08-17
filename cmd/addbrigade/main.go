@@ -17,6 +17,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 	"unicode/utf8"
 
@@ -29,6 +30,7 @@ import (
 	"golang.org/x/crypto/ssh"
 
 	"github.com/vpngen/realm-admin/internal/kdlib"
+	dcmgmt "github.com/vpngen/realm-admin/internal/kdlib/dc-mgmt"
 	"github.com/vpngen/wordsgens/namesgenerator"
 )
 
@@ -55,6 +57,11 @@ const (
 const (
 	subdomainAPIAttempts = 5
 	subdomainAPISleep    = 2 * time.Second
+)
+
+const (
+	DomainCheckPause         = 5 * time.Second
+	DomainDelegationWaitTime = 120 * time.Second
 )
 
 const (
@@ -181,6 +188,46 @@ type brigadeOpts struct {
 	person  namesgenerator.Person
 }
 
+type dbEnv struct {
+	dbURL               string
+	brigadesSchema      string
+	brigadesStatsSchema string
+}
+
+type dcEnv struct {
+	ident string
+}
+
+type subdomainAccessEnv struct {
+	subdomainAPIHost  string
+	subdomainAPIToken string
+}
+
+type kdAddrSyncEnv struct {
+	kdAddrUser   string
+	kdAddrServer string
+}
+
+type delegationSyncEnv struct {
+	delegationUser   string
+	delegationServer string
+}
+
+type delegationCheckEnv struct {
+	kdDomain string
+	kdNS     []string
+	domainNS []string
+}
+
+type envOpts struct {
+	dbEnv
+	dcEnv
+	subdomainAccessEnv
+	kdAddrSyncEnv
+	delegationSyncEnv
+	delegationCheckEnv
+}
+
 // Args errors.
 var (
 	ErrEmptyBrigadierName   = errors.New("empty brigadier name")
@@ -198,6 +245,11 @@ var (
 var (
 	ErrEmptySubdomAPIServer = errors.New("empty subdomapi host")
 	ErrEmptySubdomAPIToken  = errors.New("empty subdomapi token")
+)
+
+var (
+	ErrNotDelegated         = errors.New("not delegated")
+	ErrCheckAttemptExceeded = errors.New("check attempt exceeded")
 )
 
 var LogTag = setLogTag()
@@ -221,7 +273,7 @@ func main() {
 		log.Fatalf("%s: Can't parse args: %s\n", LogTag, err)
 	}
 
-	sshKeyFilename, dbURL, brigadesSchema, brigadesStatsSchema, subdomAPIHost, subdomAPIToken, err := readConfigs()
+	sshKeyFilename, env, err := readConfigs()
 	if err != nil {
 		log.Fatalf("%s: Can't read configs: %s\n", LogTag, err)
 	}
@@ -231,18 +283,28 @@ func main() {
 		log.Fatalf("%s: Can't create ssh configs: %s\n", LogTag, err)
 	}
 
-	db, err := createDBPool(dbURL)
+	delegationSyncSSHconf, err := kdlib.CreateSSHConfig(sshKeyFilename, env.delegationUser, kdlib.SSHDefaultTimeOut)
+	if err != nil {
+		log.Fatalf("Can't create delegation sync ssh config: %s\n", err)
+	}
+
+	kdAddrSyncSSHconf, err := kdlib.CreateSSHConfig(sshKeyFilename, env.kdAddrUser, kdlib.SSHDefaultTimeOut)
+	if err != nil {
+		log.Fatalf("Can't create keydesk address ssh config: %s\n", err)
+	}
+
+	db, err := createDBPool(env.dbURL)
 	if err != nil {
 		log.Fatalf("%s: Can't create db pool: %s\n", LogTag, err)
 	}
 
-	num, err := createBrigade(db, brigadesSchema, brigadesStatsSchema, opts, subdomAPIHost, subdomAPIToken)
+	num, err := createBrigade(db, kdAddrSyncSSHconf, delegationSyncSSHconf, env, opts)
 	if err != nil {
 		log.Fatalf("%s: Can't create brigade: %s\n", LogTag, err)
 	}
 
 	// wgconfx = chunked (wgconf + keydesk IP)
-	wgconfx, keydesk, err := requestBrigade(db, brigadesSchema, sshconf, opts)
+	wgconfx, keydesk, err := requestBrigade(db, sshconf, &env.dbEnv, &env.delegationCheckEnv, opts)
 	if err != nil {
 		log.Fatalf("%s: Can't request brigade: %s\n", LogTag, err)
 	}
@@ -268,7 +330,13 @@ func main() {
 	}
 }
 
-func createBrigade(db *pgxpool.Pool, schema, schemaStats string, opts *brigadeOpts, subdomAPIHost, subdomAPIToken string) (int32, error) {
+func createBrigade(
+	db *pgxpool.Pool,
+	kdAddrSyncSSHconf *ssh.ClientConfig,
+	delegationSyncSSHconf *ssh.ClientConfig,
+	env *envOpts,
+	opts *brigadeOpts,
+) (int32, error) {
 	ctx := context.Background()
 
 	tx, err := db.Begin(ctx)
@@ -278,7 +346,7 @@ func createBrigade(db *pgxpool.Pool, schema, schemaStats string, opts *brigadeOp
 
 	defer tx.Rollback(ctx)
 
-	rows, err := tx.Query(ctx, fmt.Sprintf(sqlGetBrigades, (pgx.Identifier{schema, "brigades"}.Sanitize())))
+	rows, err := tx.Query(ctx, fmt.Sprintf(sqlGetBrigades, (pgx.Identifier{env.brigadesSchema, "brigades"}.Sanitize())))
 	if err != nil {
 		return 0, fmt.Errorf("brigades query: %w", err)
 	}
@@ -290,17 +358,17 @@ func createBrigade(db *pgxpool.Pool, schema, schemaStats string, opts *brigadeOp
 	ula := make(map[string]struct{})
 
 	var (
-		keydesk_ipv6 netip.Addr
-		ipv4_cgnat   netip.Prefix
-		ipv6_ula     netip.Prefix
+		keydeskIPv6 netip.Addr
+		ipv4CGNAT   netip.Prefix
+		ipv6ULA     netip.Prefix
 	)
 
-	if _, err := pgx.ForEachRow(rows, []any{&keydesk_ipv6, &ipv4_cgnat, &ipv6_ula}, func() error {
+	if _, err := pgx.ForEachRow(rows, []any{&keydeskIPv6, &ipv4CGNAT, &ipv6ULA}, func() error {
 		// fmt.Fprintf(os.Stderr, "Brigade:\n  keydesk_ipv6: %v\n  ipv4_cgnat: %v\n  ipv6_ula: %v\n", keydesk_ipv6, ipv4_cgnat, ipv6_ula)
 
-		kd6[keydesk_ipv6.String()] = struct{}{}
-		cgnat[ipv4_cgnat.Masked().Addr().String()] = struct{}{}
-		ula[ipv6_ula.Masked().Addr().String()] = struct{}{}
+		kd6[keydeskIPv6.String()] = struct{}{}
+		cgnat[ipv4CGNAT.Masked().Addr().String()] = struct{}{}
+		ula[ipv6ULA.Masked().Addr().String()] = struct{}{}
 
 		return nil
 	}); err != nil {
@@ -310,10 +378,10 @@ func createBrigade(db *pgxpool.Pool, schema, schemaStats string, opts *brigadeOp
 	// pick up a less used pair
 
 	var (
-		pair_id            string
-		pair_endpoint_ipv4 netip.Addr
-		pair_control_ip    netip.Addr
-		domain_name        pgtype.Text
+		pairID           string
+		pairEndpointIPv4 netip.Addr
+		pairControlIP    netip.Addr
+		domainName       pgtype.Text
 	)
 
 	switch opts.forceIP {
@@ -322,137 +390,103 @@ func createBrigade(db *pgxpool.Pool, schema, schemaStats string, opts *brigadeOp
 			ctx,
 			fmt.Sprintf(
 				sqlPickPair,
-				pgx.Identifier{schema, "slots"}.Sanitize(),
-				pgx.Identifier{schema, "active_pairs"}.Sanitize(),
+				pgx.Identifier{env.brigadesSchema, "slots"}.Sanitize(),
+				pgx.Identifier{env.brigadesSchema, "active_pairs"}.Sanitize(),
 			),
-		).Scan(&pair_id, &pair_control_ip, &pair_endpoint_ipv4, &domain_name)
+		).Scan(&pairID, &pairControlIP, &pairEndpointIPv4, &domainName)
 	default:
 		err = tx.QueryRow(
 			ctx,
 			fmt.Sprintf(
 				sqlPickPairForcedIP,
-				pgx.Identifier{schema, "slots"}.Sanitize()),
+				pgx.Identifier{env.brigadesSchema, "slots"}.Sanitize()),
 			opts.forceIP.String(),
-		).Scan(&pair_id, &pair_control_ip, &pair_endpoint_ipv4, &domain_name)
+		).Scan(&pairID, &pairControlIP, &pairEndpointIPv4, &domainName)
 	}
 
 	if err != nil {
 		return 0, fmt.Errorf("pair query: %w", err)
 	}
 
-	if !domain_name.Valid {
-		var (
-			subdomain string
-			err       error
-		)
+	fmt.Fprintf(os.Stderr, "%s: ep: %s ctrl: %s\n", LogTag, pairEndpointIPv4, pairControlIP)
 
-		for i := 0; i < subdomainAPIAttempts; i++ {
-			subdomain, err = kdlib.SubdomainPick(subdomAPIHost, subdomAPIToken)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "%s: Can't pick subdomain (%d): %s\n", LogTag, i+1, err)
-				if i == subdomainAPIAttempts-1 {
-					return 0, fmt.Errorf("pick subdomain: %w", err)
-				}
-
-				time.Sleep(subdomainAPISleep)
-
-				continue
-			}
-
-			break
-		}
-
-		if err := domain_name.Scan(subdomain); err != nil {
-			return 0, fmt.Errorf("scan subdomain: %w", err)
-		}
-
-		if _, err := tx.Exec(
-			ctx,
-			fmt.Sprintf(sqlInsertPairDomain, pgx.Identifier{schema, "domains_endpoints_ipv4"}.Sanitize()),
-			domain_name, pair_endpoint_ipv4,
-		); err != nil {
-			return 0, fmt.Errorf("pair domain update: %w", err)
-		}
-	}
-
-	fmt.Fprintf(os.Stderr, "%s: ep: %s ctrl: %s\n", LogTag, pair_endpoint_ipv4, pair_control_ip)
-	if domain_name.Valid {
-		fmt.Fprintf(os.Stderr, "%s: domain: %s\n", LogTag, domain_name.String)
+	if domainName.Valid {
+		fmt.Fprintf(os.Stderr, "%s: domain: %s\n", LogTag, domainName.String)
 	}
 
 	// pick up cgnat
 
 	var (
-		cgnat_gnet netip.Prefix
-		cgnat_net  netip.Prefix
+		cgnatNetWindow netip.Prefix
+		cgnatNet       netip.Prefix
 	)
 
 	if err := tx.QueryRow(
 		ctx,
-		fmt.Sprintf(sqlPickCGNATNet, pgx.Identifier{schema, "ipv4_cgnat_nets_weight"}.Sanitize()),
-	).Scan(&cgnat_gnet); err != nil {
+		fmt.Sprintf(sqlPickCGNATNet, pgx.Identifier{env.brigadesSchema, "ipv4_cgnat_nets_weight"}.Sanitize()),
+	).Scan(&cgnatNetWindow); err != nil {
 		return 0, fmt.Errorf("cgnat weight query: %w", err)
 	}
 
 	for {
-		addr := kdlib.RandomAddrIPv4(cgnat_gnet)
+		addr := kdlib.RandomAddrIPv4(cgnatNetWindow)
 		if kdlib.IsZeroEnding(addr) {
 			continue
 		}
 
-		cgnat_net = netip.PrefixFrom(addr, BrigadeCgnatPrefix)
-		if cgnat_net.Masked().Addr() == addr || kdlib.LastPrefixIPv4(cgnat_net.Masked()) == addr {
+		cgnatNet = netip.PrefixFrom(addr, BrigadeCgnatPrefix)
+		if cgnatNet.Masked().Addr() == addr || kdlib.LastPrefixIPv4(cgnatNet.Masked()) == addr {
 			continue
 		}
-		if _, ok := cgnat[cgnat_net.Masked().Addr().String()]; !ok {
+		if _, ok := cgnat[cgnatNet.Masked().Addr().String()]; !ok {
 			break
 		}
 	}
 
-	fmt.Fprintf(os.Stderr, "%s: cgnat_gnet: %s cgnat_net: %s\n", LogTag, cgnat_gnet, cgnat_net)
+	fmt.Fprintf(os.Stderr, "%s: cgnat_gnet: %s cgnat_net: %s\n", LogTag, cgnatNetWindow, cgnatNet)
 
 	// pick up ula
 
 	var (
-		ula_gnet netip.Prefix
-		ula_net  netip.Prefix
+		ulaNetWindow netip.Prefix
+		ulaNet       netip.Prefix
 	)
 
-	if err := tx.QueryRow(ctx, fmt.Sprintf(sqlPickULANet, (pgx.Identifier{schema, "ipv6_ula_nets_iweight"}.Sanitize()))).Scan(&ula_gnet); err != nil {
+	if err := tx.QueryRow(ctx, fmt.Sprintf(sqlPickULANet, (pgx.Identifier{env.brigadesSchema, "ipv6_ula_nets_iweight"}.Sanitize()))).Scan(&ulaNetWindow); err != nil {
 		return 0, fmt.Errorf("ula weight query: %w", err)
 	}
 
 	for {
-		addr := kdlib.RandomAddrIPv6(ula_gnet)
+		addr := kdlib.RandomAddrIPv6(ulaNetWindow)
 		if kdlib.IsZeroEnding(addr) {
 			continue
 		}
 
-		ula_net = netip.PrefixFrom(addr, BrigadeUlaPrefix)
-		if ula_net.Masked().Addr() == addr || kdlib.LastPrefixIPv6(ula_net.Masked()) == addr {
+		ulaNet = netip.PrefixFrom(addr, BrigadeUlaPrefix)
+		if ulaNet.Masked().Addr() == addr || kdlib.LastPrefixIPv6(ulaNet.Masked()) == addr {
 			continue
 		}
 
-		if _, ok := ula[ula_net.Masked().Addr().String()]; !ok {
+		if _, ok := ula[ulaNet.Masked().Addr().String()]; !ok {
 			break
 		}
 	}
 
-	fmt.Fprintf(os.Stderr, "%s: ula_gnet: %s ula_net: %s\n", LogTag, ula_gnet, ula_net)
+	fmt.Fprintf(os.Stderr, "%s: ula_gnet: %s ula_net: %s\n", LogTag, ulaNetWindow, ulaNet)
 
 	// pick up keydesk
 
 	var (
-		keydesk_gnet netip.Prefix
-		keydesk      netip.Addr
+		keydeskNetWindow netip.Prefix
+		keydesk          netip.Addr
 	)
 
-	if err := tx.QueryRow(ctx, fmt.Sprintf(sqlPickKeydeskNet, (pgx.Identifier{schema, "ipv6_keydesk_nets_iweight"}.Sanitize()))).Scan(&keydesk_gnet); err != nil {
+	if err := tx.QueryRow(ctx, fmt.Sprintf(sqlPickKeydeskNet, (pgx.Identifier{env.brigadesSchema, "ipv6_keydesk_nets_iweight"}.Sanitize()))).Scan(&keydeskNetWindow); err != nil {
 		return 0, fmt.Errorf("keydesk iweight query: %w", err)
 	}
 
 	for {
-		keydesk = kdlib.RandomAddrIPv6(keydesk_gnet)
+		keydesk = kdlib.RandomAddrIPv6(keydeskNetWindow)
 		if kdlib.IsZeroEnding(keydesk) {
 			continue
 		}
@@ -462,27 +496,25 @@ func createBrigade(db *pgxpool.Pool, schema, schemaStats string, opts *brigadeOp
 		}
 	}
 
-	fmt.Fprintf(os.Stderr, "%s: keydesk_gnet: %s keydesk: %s\n", LogTag, keydesk_gnet, keydesk)
-
 	num := int32(0)
-	if err := tx.QueryRow(ctx, kdlib.GetFreeSlotsNumberStatement(schema, true)).Scan(&num); err != nil {
+	if err := tx.QueryRow(ctx, kdlib.GetFreeSlotsNumberStatement(env.brigadesSchema, true)).Scan(&num); err != nil {
 		return 0, fmt.Errorf("slots query: %w", err)
 	}
 
 	// create brigade
 
 	_, err = tx.Exec(ctx,
-		fmt.Sprintf(sqlCreateBrigade, pgx.Identifier{schema, "brigades"}.Sanitize()),
+		fmt.Sprintf(sqlCreateBrigade, pgx.Identifier{env.brigadesSchema, "brigades"}.Sanitize()),
 		opts.id,
-		pair_id,
+		pairID,
 		opts.name,
-		pair_endpoint_ipv4.String(),
-		zeronull.Text(domain_name.String),
-		cgnat_net.Addr().String(),
-		ula_net.Addr().String(),
+		pairEndpointIPv4.String(),
+		zeronull.Text(domainName.String),
+		cgnatNet.Addr().String(),
+		ulaNet.Addr().String(),
 		keydesk.String(),
-		cgnat_net.String(),
-		ula_net.String(),
+		cgnatNet.String(),
+		ulaNet.String(),
 		opts.person,
 	)
 	if err != nil {
@@ -490,7 +522,7 @@ func createBrigade(db *pgxpool.Pool, schema, schemaStats string, opts *brigadeOp
 	}
 
 	if _, err = tx.Exec(ctx,
-		fmt.Sprintf(sqlInsertStats, (pgx.Identifier{schemaStats, "brigades_stats"}.Sanitize())),
+		fmt.Sprintf(sqlInsertStats, (pgx.Identifier{env.brigadesStatsSchema, "brigades_stats"}.Sanitize())),
 		opts.id,
 	); err != nil {
 		return 0, fmt.Errorf("create stats: %w", err)
@@ -500,10 +532,103 @@ func createBrigade(db *pgxpool.Pool, schema, schemaStats string, opts *brigadeOp
 		return 0, fmt.Errorf("commit: %w", err)
 	}
 
+	// Pick up subdomain.
+
+	if !domainName.Valid {
+		if err := applySubdomain(ctx, db, env.brigadesSchema, env.subdomainAPIHost, env.subdomainAPIToken, pairEndpointIPv4); err != nil {
+			return 0, fmt.Errorf("apply subdomain: %w", err)
+		}
+	}
+
+	// Sync delegation list.
+
+	delegationList, err := dcmgmt.NewDelegationList(ctx, db, env.brigadesSchema)
+	if err != nil {
+		return 0, fmt.Errorf("delegation list: %w", err)
+	}
+
+	fmt.Fprintf(os.Stderr, "%s: %s@%s\n", LogTag, delegationSyncSSHconf.User, env.delegationServer)
+	cleanup, err := dcmgmt.SyncDelegationList(delegationSyncSSHconf, env.delegationServer, env.ident, delegationList)
+	cleanup(LogTag)
+
+	if err != nil {
+		return 0, fmt.Errorf("delegation sync: %w", err)
+	}
+
+	// Sync keydesk address list
+
+	fmt.Fprintf(os.Stderr, "%s: keydesk_gnet: %s keydesk: %s\n", LogTag, keydeskNetWindow, keydesk)
+	kdAddrList, err := dcmgmt.NewKdAddrList(ctx, db, env.brigadesSchema)
+	if err != nil {
+		return 0, fmt.Errorf("keydesk addr list: %w", err)
+	}
+
+	fmt.Fprintf(os.Stderr, "%s: %s@%s\n", LogTag, kdAddrSyncSSHconf.User, env.kdAddrServer)
+	cleanup, err = dcmgmt.SyncKdAddrList(kdAddrSyncSSHconf, env.kdAddrServer, env.ident, kdAddrList)
+	cleanup(LogTag)
+
+	if err != nil {
+		return 0, fmt.Errorf("keydesk address sync: %w", err)
+	}
+
 	return num - 1, nil
 }
 
-func requestBrigade(db *pgxpool.Pool, schema string, sshconf *ssh.ClientConfig, opts *brigadeOpts) ([]byte, string, error) {
+func applySubdomain(ctx context.Context, db *pgxpool.Pool, schema, subdomAPIHost, subdomAPIToken string, pair_endpoint_ipv4 netip.Addr) error {
+	tx, err := db.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("begin: %w", err)
+	}
+
+	defer tx.Rollback(ctx)
+
+	var (
+		domainName pgtype.Text
+		subdomain  string
+	)
+
+	for i := 0; i < subdomainAPIAttempts; i++ {
+		subdomain, err = kdlib.SubdomainPick(subdomAPIHost, subdomAPIToken)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%s: Can't pick subdomain (%d): %s\n", LogTag, i+1, err)
+			if i == subdomainAPIAttempts-1 {
+				return fmt.Errorf("pick subdomain: %w", err)
+			}
+
+			time.Sleep(subdomainAPISleep)
+
+			continue
+		}
+
+		break
+	}
+
+	if err := domainName.Scan(subdomain); err != nil {
+		return fmt.Errorf("scan subdomain: %w", err)
+	}
+
+	if _, err := tx.Exec(
+		ctx,
+		fmt.Sprintf(sqlInsertPairDomain, pgx.Identifier{schema, "domains_endpoints_ipv4"}.Sanitize()),
+		domainName, pair_endpoint_ipv4,
+	); err != nil {
+		return fmt.Errorf("pair domain update: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("commit: %w", err)
+	}
+
+	return nil
+}
+
+func requestBrigade(
+	db *pgxpool.Pool,
+	sshconf *ssh.ClientConfig,
+	dbenv *dbEnv,
+	dlgenv *delegationCheckEnv,
+	opts *brigadeOpts,
+) ([]byte, string, error) {
 	ctx := context.Background()
 
 	tx, err := db.Begin(ctx)
@@ -512,34 +637,34 @@ func requestBrigade(db *pgxpool.Pool, schema string, sshconf *ssh.ClientConfig, 
 	}
 
 	var (
-		brigade_id    []byte
-		fullname      string
-		endpoint_ipv4 netip.Addr
-		domain_name   pgtype.Text
-		dns_ipv4      netip.Addr
-		dns_ipv6      netip.Addr
-		keydesk_ipv6  netip.Addr
-		ipv4_cgnat    netip.Prefix
-		ipv6_ula      netip.Prefix
-		pjson         []byte
-		control_ip    netip.Addr
+		brigadeID    []byte
+		fullname     string
+		endpointIPv4 netip.Addr
+		domainName   pgtype.Text
+		dnsIPv4      netip.Addr
+		dnsIPv6      netip.Addr
+		keydeskIPv6  netip.Addr
+		ipv4CGNAT    netip.Prefix
+		ipv6ULA      netip.Prefix
+		pjson        []byte
+		control_ip   netip.Addr
 	)
 
 	err = tx.QueryRow(ctx,
 		fmt.Sprintf(sqlFetchBrigade,
-			(pgx.Identifier{schema, "meta_brigades"}.Sanitize()),
+			(pgx.Identifier{dbenv.brigadesSchema, "meta_brigades"}.Sanitize()),
 		),
 		opts.id,
 	).Scan(
-		&brigade_id,
+		&brigadeID,
 		&fullname,
-		&endpoint_ipv4,
-		&domain_name,
-		&dns_ipv4,
-		&dns_ipv6,
-		&keydesk_ipv6,
-		&ipv4_cgnat,
-		&ipv6_ula,
+		&endpointIPv4,
+		&domainName,
+		&dnsIPv4,
+		&dnsIPv6,
+		&keydeskIPv6,
+		&ipv4CGNAT,
+		&ipv6ULA,
 		&pjson,
 		&control_ip,
 	)
@@ -549,7 +674,7 @@ func requestBrigade(db *pgxpool.Pool, schema string, sshconf *ssh.ClientConfig, 
 		return nil, "", fmt.Errorf("brigade query: %w", err)
 	}
 
-	err = tx.Commit(ctx)
+	err = tx.Rollback(ctx)
 	if err != nil {
 		return nil, "", fmt.Errorf("commit: %w", err)
 	}
@@ -561,18 +686,18 @@ func requestBrigade(db *pgxpool.Pool, schema string, sshconf *ssh.ClientConfig, 
 	}
 
 	cmd := fmt.Sprintf("create %s %s %s %s %s %s %s %s %s %s %s chunked %s",
-		base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(brigade_id),
-		endpoint_ipv4,
-		ipv4_cgnat,
-		ipv6_ula,
-		dns_ipv4,
-		dns_ipv6,
-		keydesk_ipv6,
+		base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(brigadeID),
+		endpointIPv4,
+		ipv4CGNAT,
+		ipv6ULA,
+		dnsIPv4,
+		dnsIPv6,
+		keydeskIPv6,
 		base64.StdEncoding.WithPadding(base64.StdPadding).EncodeToString([]byte(fullname)),
 		base64.StdEncoding.WithPadding(base64.StdPadding).EncodeToString([]byte(person.Name)),
 		base64.StdEncoding.WithPadding(base64.StdPadding).EncodeToString([]byte(person.Desc)),
 		base64.StdEncoding.WithPadding(base64.StdPadding).EncodeToString([]byte(person.URL)),
-		domain_name.String,
+		domainName.String,
 	)
 
 	fmt.Fprintf(os.Stderr, "%s: %s#%s:22 -> %s\n", LogTag, sshkeyRemoteUsername, control_ip, cmd)
@@ -615,7 +740,82 @@ func requestBrigade(db *pgxpool.Pool, schema string, sshconf *ssh.ClientConfig, 
 		return nil, "", fmt.Errorf("chunk read: %w", err)
 	}
 
-	return wgconfx, keydesk_ipv6.String(), nil
+	if !waitForAllDelegations(
+		dlgenv.kdDomain,
+		keydeskIPv6,
+		dlgenv.kdNS,
+		domainName.String,
+		endpointIPv4,
+		dlgenv.domainNS,
+	) {
+		return nil, "", fmt.Errorf("delegation: %w", ErrNotDelegated)
+	}
+
+	return wgconfx, keydeskIPv6.String(), nil
+}
+
+func waitForAllDelegations(
+	keydeskZone string, keydeskAddr netip.Addr, keydeskNS []string,
+	domain string, endpointIPv4 netip.Addr, domainNS []string,
+) bool {
+	var kdOk, domainOk bool
+
+	wg := &sync.WaitGroup{}
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+
+		ipstr := keydeskAddr.String()
+		domain := strings.ReplaceAll(strings.Replace(ipstr, (ipstr)[:2], "w", 1), ":", "s") + "." + keydeskZone
+		ok, err := waitForDelegation(domain, keydeskAddr, keydeskNS...)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%s: Keydesk delegation: %s: %s\n", LogTag, keydeskAddr, err)
+		}
+
+		kdOk = ok
+	}()
+
+	if domain != "" {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+
+			ok, err := waitForDelegation(domain, endpointIPv4, domainNS...)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "%s: Domain delegation: %s: %s: %s\n", LogTag, domain, endpointIPv4, err)
+			}
+
+			domainOk = ok
+		}()
+	}
+
+	wg.Wait()
+
+	return kdOk && domainOk
+}
+
+func waitForDelegation(fqdn string, ip netip.Addr, ns ...string) (bool, error) {
+	timer := time.NewTimer(time.Second)
+	defer timer.Stop()
+
+	finish := time.Now().Add(DomainDelegationWaitTime)
+
+	fmt.Fprintf(os.Stderr, "%s: waiting for delegation: %s -> %s\n", LogTag, fqdn, ip)
+
+	for ts := range timer.C {
+		if ok, err := dcmgmt.CheckForPresence(fqdn, ip, ns...); ok && err == nil {
+			return ok, nil
+		}
+
+		if ts.After(finish) {
+			return false, ErrCheckAttemptExceeded
+		}
+
+		timer.Reset(DomainCheckPause)
+	}
+
+	return false, nil
 }
 
 func createDBPool(dburl string) (*pgxpool.Pool, error) {
@@ -736,40 +936,76 @@ func parseArgs() (bool, *brigadeOpts, error) {
 	return *chunked, opts, nil
 }
 
-func readConfigs() (string, string, string, string, string, string, error) {
-	dbURL := os.Getenv("DB_URL")
-	if dbURL == "" {
-		dbURL = defaultDatabaseURL
+func readConfigs() (string, *envOpts, error) {
+	env := &envOpts{}
+
+	env.dbURL = os.Getenv("DB_URL")
+	if env.dbURL == "" {
+		env.dbURL = defaultDatabaseURL
 	}
 
-	brigadesSchema := os.Getenv("BRIGADES_SCHEMA")
-	if brigadesSchema == "" {
-		brigadesSchema = defaultBrigadesSchema
+	env.brigadesSchema = os.Getenv("BRIGADES_SCHEMA")
+	if env.brigadesSchema == "" {
+		env.brigadesSchema = defaultBrigadesSchema
 	}
 
-	brigadesStatsSchema := os.Getenv("BRIGADES_STATS_SCHEMA")
-	if brigadesStatsSchema == "" {
-		brigadesStatsSchema = defaultBrigadesStatsSchema
+	env.brigadesStatsSchema = os.Getenv("BRIGADES_STATS_SCHEMA")
+	if env.brigadesStatsSchema == "" {
+		env.brigadesStatsSchema = defaultBrigadesStatsSchema
 	}
 
 	sshKeyFilename, err := kdlib.LookupForSSHKeyfile(os.Getenv("SSH_KEY"), sshkeyDefaultPath)
 	if err != nil {
-		return "", "", "", "", "", "", fmt.Errorf("lookup for ssh key: %w", err)
+		return "", nil, fmt.Errorf("lookup for ssh key: %w", err)
 	}
 
-	subdomainAPIHost := os.Getenv("SUBDOMAIN_API_SERVER")
-	if subdomainAPIHost == "" {
-		return "", "", "", "", "", "", errors.New("empty subdomapi host")
+	env.subdomainAPIHost = os.Getenv("SUBDOMAIN_API_SERVER")
+	if env.subdomainAPIHost == "" {
+		return "", nil, errors.New("empty subdomapi host")
 	}
 
-	if _, err := netip.ParseAddrPort(subdomainAPIHost); err != nil {
-		return "", "", "", "", "", "", fmt.Errorf("parse subdomapi host: %w", err)
+	if _, err := netip.ParseAddrPort(env.subdomainAPIHost); err != nil {
+		return "", nil, fmt.Errorf("parse subdomapi host: %w", err)
 	}
 
-	subdomainAPIToken := os.Getenv("SUBDOMAIN_API_TOKEN")
-	if subdomainAPIToken == "" {
-		return "", "", "", "", "", "", errors.New("empty subdomapi token")
+	env.subdomainAPIToken = os.Getenv("SUBDOMAIN_API_TOKEN")
+	if env.subdomainAPIToken == "" {
+		return "", nil, errors.New("empty subdomapi token")
 	}
 
-	return sshKeyFilename, dbURL, brigadesSchema, brigadesStatsSchema, subdomainAPIHost, subdomainAPIToken, nil
+	_, env.ident, err = dcmgmt.ParseDCNameEnv()
+	if err != nil {
+		return "", nil, fmt.Errorf("dc name: %w", err)
+	}
+
+	env.delegationUser, env.delegationServer, err = dcmgmt.ParseConnEnv("DELEGATION_SYNC_CONNECT")
+	if err != nil {
+		return "", nil, fmt.Errorf("delegation sync connect: %w", err)
+	}
+
+	env.kdAddrUser, env.kdAddrServer, err = dcmgmt.ParseConnEnv("KEYDESK_ADDRESS_SYNC_CONNECT")
+	if err != nil {
+		return "", nil, fmt.Errorf("keydesk address sync connect: %w", err)
+	}
+
+	env.kdDomain = os.Getenv("KEYDESK_DOMAIN")
+	if env.kdDomain == "" {
+		return "", nil, errors.New("empty keydesk domain")
+	}
+
+	kdNameServers := os.Getenv("KEYDESK_NAMESERVERS")
+	if kdNameServers == "" {
+		return "", nil, errors.New("empty keydesk nameservers")
+	}
+
+	env.kdNS = strings.Split(kdNameServers, ",")
+
+	domainNameServers := os.Getenv("DOMAIN_NAMESERVERS")
+	if domainNameServers == "" {
+		return "", nil, errors.New("empty domain nameservers")
+	}
+
+	env.domainNS = strings.Split(domainNameServers, ",")
+
+	return sshKeyFilename, env, nil
 }
