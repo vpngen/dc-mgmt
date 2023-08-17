@@ -21,6 +21,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/vpngen/realm-admin/internal/kdlib"
+	dcmgmt "github.com/vpngen/realm-admin/internal/kdlib/dc-mgmt"
 
 	"golang.org/x/crypto/ssh"
 )
@@ -90,14 +91,30 @@ func main() {
 		log.Fatalf("%s: Can't parse args: %s\n", LogTag, err)
 	}
 
-	sshKeyDir, dbname, schema, subdomAPIHost, subdomAPIToken, err := readConfigs()
+	sshKeyFilename,
+		dbname, schema,
+		subdomAPIHost, subdomAPIToken,
+		ident,
+		delegationUser, delegationServer,
+		kdAddrUser, kdAddrServer,
+		err := readConfigs()
 	if err != nil {
 		log.Fatalf("%s: Can't read configs: %s\n", LogTag, err)
 	}
 
-	sshconf, err := kdlib.CreateSSHConfig(sshKeyDir, sshkeyRemoteUsername, kdlib.SSHDefaultTimeOut)
+	sshconf, err := kdlib.CreateSSHConfig(sshKeyFilename, sshkeyRemoteUsername, kdlib.SSHDefaultTimeOut)
 	if err != nil {
 		log.Fatalf("%s: Can't create ssh configs: %s\n", LogTag, err)
+	}
+
+	delegationSyncSSHconf, err := kdlib.CreateSSHConfig(sshKeyFilename, delegationUser, kdlib.SSHDefaultTimeOut)
+	if err != nil {
+		log.Fatalf("Can't create delegation sync ssh config: %s\n", err)
+	}
+
+	kdAddrSyncSSHconf, err := kdlib.CreateSSHConfig(sshKeyFilename, kdAddrUser, kdlib.SSHDefaultTimeOut)
+	if err != nil {
+		log.Fatalf("Can't create keydesk address ssh config: %s\n", err)
 	}
 
 	db, err := createDBPool(dbname)
@@ -110,16 +127,23 @@ func main() {
 		log.Fatalf("%s: Can't get control ip: %s\n", LogTag, err)
 	}
 
-	// attention! id - uuid-style string.
-	num, err := removeBrigade(db, schema, uuidString, subdomAPIHost, subdomAPIToken)
-	if err != nil {
-		log.Fatalf("%s: Can't remove brigade: %s\n", LogTag, err)
-	}
-
 	// attention! brigadeID - base32-style.
-	output, err := revokeBrigade(db, schema, sshconf, base32String, control_ip)
+	output, err := revokeBrigade(sshconf, base32String, control_ip)
 	if err != nil {
 		log.Fatalf("%s: Can't revoke brigade: %s\n", LogTag, err)
+	}
+
+	// attention! id - uuid-style string.
+	num, err := removeBrigade(
+		db, schema,
+		uuidString,
+		subdomAPIHost, subdomAPIToken,
+		ident,
+		delegationServer, delegationSyncSSHconf,
+		kdAddrServer, kdAddrSyncSSHconf,
+	)
+	if err != nil {
+		log.Fatalf("%s: Can't remove brigade: %s\n", LogTag, err)
 	}
 
 	switch chunked {
@@ -169,7 +193,14 @@ func getBrigadeControlIP(db *pgxpool.Pool, schema string, brigadeID string) (net
 	return control_ip, nil
 }
 
-func removeBrigade(db *pgxpool.Pool, schema string, brigadeID string, subdomAPIHost, subdomAPIToken string) (int32, error) {
+func removeBrigade(
+	db *pgxpool.Pool, schema string,
+	brigadeID string,
+	subdomAPIHost, subdomAPIToken string,
+	ident string,
+	delegationSyncServer string, delegationSyncSSHconf *ssh.ClientConfig,
+	kdAddrSyncServer string, kdAddrSyncSSHconf *ssh.ClientConfig,
+) (int32, error) {
 	ctx := context.Background()
 
 	tx, err := db.Begin(ctx)
@@ -189,34 +220,6 @@ func removeBrigade(db *pgxpool.Pool, schema string, brigadeID string, subdomAPIH
 		return 0, fmt.Errorf("brigade delete: %w", err)
 	}
 
-	if domain_name.Valid {
-		sqlDelPairDomain := `DELETE FROM %s WHERE domain_name=$1`
-		if _, err := tx.Exec(ctx, fmt.Sprintf(
-			sqlDelPairDomain,
-			pgx.Identifier{schema, "domains_endpoints_ipv4"}.Sanitize()),
-			brigadeID,
-		); err != nil {
-			return 0, fmt.Errorf("pair domain delete: %w", err)
-		}
-	}
-
-	if domain_name.Valid {
-		for i := 0; i < subdomainAPIAttempts; i++ {
-			if err := kdlib.SubdomainDelete(subdomAPIHost, subdomAPIToken, domain_name.String); err != nil {
-				fmt.Fprintf(os.Stderr, "%s: Can't delete subdomain %s: %s\n", LogTag, domain_name.String, err)
-				if i == subdomainAPIAttempts-1 {
-					return 0, fmt.Errorf("delete subdomain: %w", err)
-				}
-
-				time.Sleep(subdomainAPISleep)
-
-				continue
-			}
-
-			break
-		}
-	}
-
 	num := int32(0)
 
 	if err := tx.QueryRow(ctx, kdlib.GetFreeSlotsNumberStatement(schema, true)).Scan(&num); err != nil {
@@ -227,11 +230,91 @@ func removeBrigade(db *pgxpool.Pool, schema string, brigadeID string, subdomAPIH
 		return 0, fmt.Errorf("commit: %w", err)
 	}
 
+	if domain_name.Valid {
+		if err := revokeSubdomain(ctx, db, ident, subdomAPIHost, subdomAPIToken, domain_name.String); err != nil {
+			return 0, fmt.Errorf("revoke subdomain: %w", err)
+		}
+	}
+
+	// Sync delegation list.
+
+	delegationList, err := dcmgmt.NewDelegationList(ctx, db, schema)
+	if err != nil {
+		return 0, fmt.Errorf("delegation list: %w", err)
+	}
+
+	fmt.Fprintf(os.Stderr, "%s: %s@%s\n", LogTag, delegationSyncSSHconf.User, delegationSyncServer)
+	cleanup, err := dcmgmt.SyncDelegationList(delegationSyncSSHconf, delegationSyncServer, ident, delegationList)
+	cleanup(LogTag)
+
+	if err != nil {
+		return 0, fmt.Errorf("delegation sync: %w", err)
+	}
+
+	// Sync keydesk address list.
+
+	kdAddrList, err := dcmgmt.NewKdAddrList(ctx, db, schema)
+	if err != nil {
+		return 0, fmt.Errorf("keydesk addr list: %w", err)
+	}
+
+	fmt.Fprintf(os.Stderr, "%s: %s@%s\n", LogTag, kdAddrSyncSSHconf.User, kdAddrSyncServer)
+	cleanup, err = dcmgmt.SyncKdAddrList(kdAddrSyncSSHconf, kdAddrSyncServer, ident, kdAddrList)
+	cleanup(LogTag)
+
+	if err != nil {
+		return 0, fmt.Errorf("keydesk address sync: %w", err)
+	}
+
 	return num, nil
 }
 
-func revokeBrigade(db *pgxpool.Pool, schema string, sshconf *ssh.ClientConfig, brigadeID string, control_ip netip.Addr) ([]byte, error) {
-	cmd := fmt.Sprintf("destroy %s chunked", brigadeID)
+func revokeSubdomain(ctx context.Context, db *pgxpool.Pool, schema string, subdomAPIHost, subdomAPIToken string, domain_name string) error {
+	tx, err := db.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("begin: %w", err)
+	}
+
+	defer tx.Rollback(ctx)
+
+	sqlDelPairDomain := `DELETE FROM %s WHERE domain_name=$1`
+	commTag, err := tx.Exec(ctx, fmt.Sprintf(
+		sqlDelPairDomain,
+		pgx.Identifier{schema, "domains_endpoints_ipv4"}.Sanitize()),
+		domain_name,
+	)
+	if err != nil {
+		return fmt.Errorf("pair domain delete: %w", err)
+	}
+
+	if commTag.RowsAffected() == 0 {
+		return fmt.Errorf("pair domain delete: no rows affected")
+	}
+
+	for i := 0; i < subdomainAPIAttempts; i++ {
+		if err := kdlib.SubdomainDelete(subdomAPIHost, subdomAPIToken, domain_name); err != nil {
+			fmt.Fprintf(os.Stderr, "%s: Can't delete subdomain %s: %s\n", LogTag, domain_name, err)
+			if i == subdomainAPIAttempts-1 {
+				return fmt.Errorf("delete subdomain: %w", err)
+			}
+
+			time.Sleep(subdomainAPISleep)
+
+			continue
+		}
+
+		break
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("commit: %w", err)
+	}
+
+	return nil
+}
+
+func revokeBrigade(sshconf *ssh.ClientConfig, brigadeID string, control_ip netip.Addr) ([]byte, error) {
+	cmd := fmt.Sprintf("destroy -id %s -ch", brigadeID)
 
 	fmt.Fprintf(os.Stderr, "%s: %s#%s:22 -> %s\n", LogTag, sshkeyRemoteUsername, control_ip, cmd)
 
@@ -320,7 +403,7 @@ func parseArgs() (bool, string, string, error) {
 	}
 }
 
-func readConfigs() (string, string, string, string, string, error) {
+func readConfigs() (string, string, string, string, string, string, string, string, string, string, error) {
 	dbURL := os.Getenv("DB_URL")
 	if dbURL == "" {
 		dbURL = defaultDatabaseURL
@@ -333,22 +416,43 @@ func readConfigs() (string, string, string, string, string, error) {
 
 	sshKeyFilename, err := kdlib.LookupForSSHKeyfile(os.Getenv("SSH_KEY"), sshKeyDefaultPath)
 	if err != nil {
-		return "", "", "", "", "", fmt.Errorf("ssh key: %w", err)
+		return "", "", "", "", "", "", "", "", "", "", fmt.Errorf("ssh key: %w", err)
 	}
 
 	subdomainAPIHost := os.Getenv("SUBDOMAIN_API_SERVER")
 	if subdomainAPIHost == "" {
-		return "", "", "", "", "", errors.New("empty subdomapi host")
+		return "", "", "", "", "", "", "", "", "", "", errors.New("empty subdomapi host")
 	}
 
 	if _, err := netip.ParseAddrPort(subdomainAPIHost); err != nil {
-		return "", "", "", "", "", fmt.Errorf("parse subdomapi host: %w", err)
+		return "", "", "", "", "", "", "", "", "", "", fmt.Errorf("parse subdomapi host: %w", err)
 	}
 
 	subdomainAPIToken := os.Getenv("SUBDOMAIN_API_TOKEN")
 	if subdomainAPIToken == "" {
-		return "", "", "", "", "", errors.New("empty subdomapi token")
+		return "", "", "", "", "", "", "", "", "", "", errors.New("empty subdomapi token")
 	}
 
-	return sshKeyFilename, dbURL, brigadeSchema, subdomainAPIHost, subdomainAPIToken, nil
+	_, ident, err := dcmgmt.ParseDCNameEnv()
+	if err != nil {
+		return "", "", "", "", "", "", "", "", "", "", fmt.Errorf("dc name: %w", err)
+	}
+
+	delegationUser, delegationServer, err := dcmgmt.ParseConnEnv("DELEGATION_SYNC_CONNECT")
+	if err != nil {
+		return "", "", "", "", "", "", "", "", "", "", fmt.Errorf("delegation sync connect: %w", err)
+	}
+
+	kdAddrUser, kdAddrServer, err := dcmgmt.ParseConnEnv("KEYDESK_ADDRESS_SYNC_CONNECT")
+	if err != nil {
+		return "", "", "", "", "", "", "", "", "", "", fmt.Errorf("keydesk address sync connect: %w", err)
+	}
+
+	return sshKeyFilename,
+		dbURL, brigadeSchema,
+		subdomainAPIHost, subdomainAPIToken,
+		ident,
+		delegationUser, delegationServer,
+		kdAddrUser, kdAddrServer,
+		nil
 }

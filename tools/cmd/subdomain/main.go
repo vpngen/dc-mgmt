@@ -15,11 +15,11 @@ func main() {
 		log.Fatalf("Can't get executable name: %s\n", err)
 	}
 
-	token := os.Getenv("SUBDOMAPI_TOKEN")
-	host := os.Getenv("SUBDOMAPI_HOST")
+	token := os.Getenv("SUBDOMAIN_API_TOKEN")
+	host := os.Getenv("SUBDOMAIN_API_SERVER")
 
 	if token == "" || host == "" {
-		log.Fatalf("SUBDOMAPI_TOKEN or SUBDOMAPI_HOST is not set")
+		log.Fatalf("SUBDOMAIN_API_TOKEN or SUBDOMAIN_API_SERVER is not set")
 	}
 
 	flag.Parse()
