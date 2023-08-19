@@ -68,6 +68,8 @@ const (
 	DomainDelegationWaitTime = 120 * time.Second
 )
 
+const DefaultRandomAttemts = 10
+
 const (
 	sqlGetBrigades = `
 SELECT
@@ -244,6 +246,8 @@ var (
 	ErrInvalidPersonURL     = errors.New("invalid person url")
 	ErrNoSSHKeyFile         = errors.New("no ssh key file")
 )
+
+var ErrRandomAttemptsExceeded = errors.New("random attempts exceeded")
 
 // SubdomAPI config errors.
 var (
@@ -472,14 +476,18 @@ func createBrigade(
 		cgnatNet       netip.Prefix
 	)
 
-	if err := tx.QueryRow(
-		ctx,
-		fmt.Sprintf(sqlPickCGNATNet, pgx.Identifier{env.brigadesSchema, "ipv4_cgnat_nets_weight"}.Sanitize()),
-	).Scan(&cgnatNetWindow); err != nil {
-		return 0, fmt.Errorf("cgnat weight query: %w", err)
-	}
+	for attempts := 0; ; attempts++ {
+		if attempts > DefaultRandomAttemts {
+			return 0, fmt.Errorf("cgnat: %w", ErrRandomAttemptsExceeded)
+		}
 
-	for {
+		if err := tx.QueryRow(
+			ctx,
+			fmt.Sprintf(sqlPickCGNATNet, pgx.Identifier{env.brigadesSchema, "ipv4_cgnat_nets_weight"}.Sanitize()),
+		).Scan(&cgnatNetWindow); err != nil {
+			return 0, fmt.Errorf("cgnat weight query: %w", err)
+		}
+
 		addr := kdlib.RandomAddrIPv4(cgnatNetWindow)
 		if kdlib.IsZeroEnding(addr) {
 			continue
@@ -503,11 +511,15 @@ func createBrigade(
 		ulaNet       netip.Prefix
 	)
 
-	if err := tx.QueryRow(ctx, fmt.Sprintf(sqlPickULANet, (pgx.Identifier{env.brigadesSchema, "ipv6_ula_nets_iweight"}.Sanitize()))).Scan(&ulaNetWindow); err != nil {
-		return 0, fmt.Errorf("ula weight query: %w", err)
-	}
+	for attempts := 0; ; attempts++ {
+		if attempts > DefaultRandomAttemts {
+			return 0, fmt.Errorf("ula: %w", ErrRandomAttemptsExceeded)
+		}
 
-	for {
+		if err := tx.QueryRow(ctx, fmt.Sprintf(sqlPickULANet, (pgx.Identifier{env.brigadesSchema, "ipv6_ula_nets_iweight"}.Sanitize()))).Scan(&ulaNetWindow); err != nil {
+			return 0, fmt.Errorf("ula weight query: %w", err)
+		}
+
 		addr := kdlib.RandomAddrIPv6(ulaNetWindow)
 		if kdlib.IsZeroEnding(addr) {
 			continue
@@ -532,11 +544,15 @@ func createBrigade(
 		keydesk          netip.Addr
 	)
 
-	if err := tx.QueryRow(ctx, fmt.Sprintf(sqlPickKeydeskNet, (pgx.Identifier{env.brigadesSchema, "ipv6_keydesk_nets_iweight"}.Sanitize()))).Scan(&keydeskNetWindow); err != nil {
-		return 0, fmt.Errorf("keydesk iweight query: %w", err)
-	}
+	for attempts := 0; ; attempts++ {
+		if attempts > DefaultRandomAttemts {
+			return 0, fmt.Errorf("keydesk: %w", ErrRandomAttemptsExceeded)
+		}
 
-	for {
+		if err := tx.QueryRow(ctx, fmt.Sprintf(sqlPickKeydeskNet, (pgx.Identifier{env.brigadesSchema, "ipv6_keydesk_nets_iweight"}.Sanitize()))).Scan(&keydeskNetWindow); err != nil {
+			return 0, fmt.Errorf("keydesk iweight query: %w", err)
+		}
+
 		keydesk = kdlib.RandomAddrIPv6(keydeskNetWindow)
 		if kdlib.IsZeroEnding(keydesk) {
 			continue
@@ -795,6 +811,7 @@ func requestBrigade(
 		return nil, netip.Addr{}, fmt.Errorf("chunk read: %w", err)
 	}
 
+	fmt.Fprintf(os.Stderr, "%s: Waiting for delegation: %s, %s -> %s\n", LogTag, keydeskIPv6.String(), domainName.String, endpointIPv4)
 	if !waitForAllDelegations(
 		dlgenv.kdDomain,
 		keydeskIPv6,
