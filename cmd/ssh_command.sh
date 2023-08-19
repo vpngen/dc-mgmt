@@ -34,6 +34,7 @@ delegation_sync() {
 }
 
 if [ "addbrigade" = "${cmd}" ]; then
+        DC_ID="${DC_ID}" \
         DC_NAME="${DC_NAME}" \
         SUBDOMAIN_API_SERVER="${SUBDOMAIN_API_SERVER}" \
         SUBDOMAIN_API_TOKEN="${SUBDOMAIN_API_TOKEN}" \
@@ -46,6 +47,7 @@ if [ "addbrigade" = "${cmd}" ]; then
         #vpn_works_keysesks_sync
         #delegation_sync
 elif [ "delbrigade" = "${cmd}" ]; then
+        DC_ID="${DC_ID}" \
         DC_NAME="${DC_NAME}" \
         SUBDOMAIN_API_SERVER="${SUBDOMAIN_API_SERVER}" \
         SUBDOMAIN_API_TOKEN="${SUBDOMAIN_API_TOKEN}" \
