@@ -878,7 +878,7 @@ func waitForDelegation(fqdn string, ip netip.Addr, ns ...string) (bool, error) {
 
 	finish := time.Now().Add(DomainDelegationWaitTime)
 
-	fmt.Fprintf(os.Stderr, "%s: waiting for delegation: %s -> %s\n", LogTag, fqdn, ip)
+	fmt.Fprintf(os.Stderr, "%s: waiting for delegation: %s -> %s %v\n", LogTag, fqdn, ip, ns)
 
 	for ts := range timer.C {
 		if ok, err := dcmgmt.CheckForPresence(fqdn, ip, ns...); ok && err == nil {

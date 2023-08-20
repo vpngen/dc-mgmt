@@ -13,6 +13,8 @@ go build -C dc-mgmt/cmd/reset -o ../../../bin/reset
 go build -C dc-mgmt/cmd/getwasted -o ../../../bin/getwasted
 go build -C dc-mgmt/cmd/collectstats -o ../../../bin/collectstats
 go build -C dc-mgmt/cmd/get_free_slots -o ../../../bin/get_free_slots
+go build -C dc-mgmt/tools/cmd/dns-srv -o ../../../../bin/dns-srv
+go build -C dc-mgmt/tools/cmd/dns-chk -o ../../../../bin/dns-chk
 
 go install github.com/goreleaser/nfpm/v2/cmd/nfpm@latest
 
