@@ -355,11 +355,11 @@ func main() {
 			log.Fatalf("%s: Can't print keydesk ipv6: %s\n", LogTag, err)
 		}
 
-		if _, err := fmt.Fprintln(w, wgconf.WireguardConfig.FileName); err != nil {
+		if _, err := fmt.Fprintln(w, *wgconf.WireguardConfig.FileName); err != nil {
 			log.Fatalf("%s: Can't print wgconf filename: %s\n", LogTag, err)
 		}
 
-		if _, err := fmt.Fprintln(w, wgconf.WireguardConfig.FileContent); err != nil {
+		if _, err := fmt.Fprintln(w, *wgconf.WireguardConfig.FileContent); err != nil {
 			log.Fatalf("%s: Can't print wgconf content: %s\n", LogTag, err)
 		}
 	}
