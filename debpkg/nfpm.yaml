@@ -215,7 +215,19 @@ contents:
     mode: 0005
     owner: root
     group: root
-    
+- src : bin/dns-chk
+  dst : /opt/vg-dc-vpnapi/dns-chk
+  file_info:
+    mode: 0005
+    owner: root
+    group: root
+- src : bin/dns-srv
+  dst : /opt/vg-dc-vpnapi/dns-srv
+  file_info:
+    mode: 0005
+    owner: root
+    group: root
+  
 - dst: /opt/vg-dc-stats
   type: dir
   file_info:
