@@ -1119,7 +1119,7 @@ func readConfigs() (string, *envOpts, error) {
 		env.vpnCfgs.wg = defaultWireguardConfigs
 	}
 
-	env.vpnCfgs.ovc = os.Getenv("OPENVPN_CONFIGS")
+	env.vpnCfgs.ovc = os.Getenv("OVC_CONFIGS")
 	env.vpnCfgs.ipsec = os.Getenv("IPSEC_CONFIGS")
 	env.vpnCfgs.outline = os.Getenv("OUTLINE_CONFIGS")
 
