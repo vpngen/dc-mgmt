@@ -25,6 +25,11 @@ if [ -s "/etc/vg-dc-vpnapi/modbrigade.env" ]; then
         . "/etc/vg-dc-vpnapi/modbrigade.env"
 fi
 
+if [ -s "/etc/vg-dc-vpnapi/creation.env" ]; then
+        # shellcheck source=/dev/null
+        . "/etc/vg-dc-vpnapi/creation.env"
+fi
+
 vpn_works_keysesks_sync() {
         /usr/bin/flock -x -E 0 -n /tmp/modbrigade.lock "${basedir}"/vpn-works-keydesks-sync.sh 2>&1 | /usr/bin/logger -p local0.notice -t KDSYNC
 }
@@ -43,6 +48,10 @@ if [ "addbrigade" = "${cmd}" ]; then
         KEYDESK_DOMAIN="${KEYDESK_DOMAIN}" \
         KEYDESK_NAMESERVERS="${KEYDESK_NAMESERVERS}" \
         DOMAIN_NAMESERVERS="${DOMAIN_NAMESERVERS}" \
+        WIREGUARD_CONFIGS="${WIREGUARD_CONFIGS}" \
+        OVC_CONFIGS="${OVC_CONFIGS}" \
+        OUTLINE_CONFIGS="${OUTLINE_CONFIGS}" \
+        IPSEC_CONFIGS="${IPSEC_CONFIGS}" \
         flock -x -E 1 -w 60 -n /tmp/modbrigade.lock "${basedir}"/addbrigade "$@"
         #vpn_works_keysesks_sync
         #delegation_sync
@@ -56,6 +65,10 @@ elif [ "delbrigade" = "${cmd}" ]; then
         KEYDESK_DOMAIN="${KEYDESK_DOMAIN}" \
         KEYDESK_NAMESERVERS="${KEYDESK_NAMESERVERS}" \
         DOMAIN_NAMESERVERS="${DOMAIN_NAMESERVERS}" \
+        WIREGUARD_CONFIGS="${WIREGUARD_CONFIGS}" \
+        OVC_CONFIGS="${OVC_CONFIGS}" \
+        OUTLINE_CONFIGS="${OUTLINE_CONFIGS}" \
+        IPSEC_CONFIGS="${IPSEC_CONFIGS}" \
         flock -x -E 1 -w 60 -n /tmp/modbrigade.lock "${basedir}"/delbrigade "$@"
         #vpn_works_keysesks_sync
         #delegation_sync

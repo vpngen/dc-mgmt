@@ -59,7 +59,17 @@ contents:
     owner: root
     group: root
 
+- src: dc-mgmt/debpkg/src/creation.env-sample
+  dst: /etc/vg-dc-vpnapi/creation.env-sample
+  file_info:
+    mode: 0444
+    owner: root
+    group: root
+
 - dst: /etc/vg-dc-vpnapi/modbrigade.env
+  type: ghost
+
+- dst: /etc/vg-dc-vpnapi/creation.env
   type: ghost
 
 - dst: /etc/vg-dc-vpnapi/vpn-works-keydesks-sync.env
