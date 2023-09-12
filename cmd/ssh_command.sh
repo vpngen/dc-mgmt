@@ -15,9 +15,19 @@ fi
 cmd=${1}; shift
 basedir=$(dirname "$0")
 
-if [ -s "/etc/vg-dc-vpnapi/subdomain-api.env" ]; then
+if [ -s  "/etc/vg-dc-mgmt/dc-name.env" ]; then
         # shellcheck source=/dev/null
-        . "/etc/vg-dc-vpnapi/subdomain-api.env"
+        . "/etc/vg-dc-mgmt/dc-name.env"
+fi
+
+if [ -s "/etc/vg-dc-vpnapi/modbrigade.env" ]; then
+        # shellcheck source=/dev/null
+        . "/etc/vg-dc-vpnapi/modbrigade.env"
+fi
+
+if [ -s "/etc/vg-dc-vpnapi/creation.env" ]; then
+        # shellcheck source=/dev/null
+        . "/etc/vg-dc-vpnapi/creation.env"
 fi
 
 vpn_works_keysesks_sync() {
@@ -29,17 +39,39 @@ delegation_sync() {
 }
 
 if [ "addbrigade" = "${cmd}" ]; then
+        DC_ID="${DC_ID}" \
+        DC_NAME="${DC_NAME}" \
         SUBDOMAIN_API_SERVER="${SUBDOMAIN_API_SERVER}" \
         SUBDOMAIN_API_TOKEN="${SUBDOMAIN_API_TOKEN}" \
+        DELEGATION_SYNC_CONNECT="${DELEGATION_SYNC_CONNECT}" \
+        KEYDESK_ADDRESS_SYNC_CONNECT="${KEYDESK_ADDRESS_SYNC_CONNECT}" \
+        KEYDESK_DOMAIN="${KEYDESK_DOMAIN}" \
+        KEYDESK_NAMESERVERS="${KEYDESK_NAMESERVERS}" \
+        DOMAIN_NAMESERVERS="${DOMAIN_NAMESERVERS}" \
+        WIREGUARD_CONFIGS="${WIREGUARD_CONFIGS}" \
+        OVC_CONFIGS="${OVC_CONFIGS}" \
+        OUTLINE_CONFIGS="${OUTLINE_CONFIGS}" \
+        IPSEC_CONFIGS="${IPSEC_CONFIGS}" \
         flock -x -E 1 -w 60 -n /tmp/modbrigade.lock "${basedir}"/addbrigade "$@"
-        vpn_works_keysesks_sync
-        delegation_sync
+        #vpn_works_keysesks_sync
+        #delegation_sync
 elif [ "delbrigade" = "${cmd}" ]; then
+        DC_ID="${DC_ID}" \
+        DC_NAME="${DC_NAME}" \
         SUBDOMAIN_API_SERVER="${SUBDOMAIN_API_SERVER}" \
         SUBDOMAIN_API_TOKEN="${SUBDOMAIN_API_TOKEN}" \
+        DELEGATION_SYNC_CONNECT="${DELEGATION_SYNC_CONNECT}" \
+        KEYDESK_ADDRESS_SYNC_CONNECT="${KEYDESK_ADDRESS_SYNC_CONNECT}" \
+        KEYDESK_DOMAIN="${KEYDESK_DOMAIN}" \
+        KEYDESK_NAMESERVERS="${KEYDESK_NAMESERVERS}" \
+        DOMAIN_NAMESERVERS="${DOMAIN_NAMESERVERS}" \
+        WIREGUARD_CONFIGS="${WIREGUARD_CONFIGS}" \
+        OVC_CONFIGS="${OVC_CONFIGS}" \
+        OUTLINE_CONFIGS="${OUTLINE_CONFIGS}" \
+        IPSEC_CONFIGS="${IPSEC_CONFIGS}" \
         flock -x -E 1 -w 60 -n /tmp/modbrigade.lock "${basedir}"/delbrigade "$@"
-        vpn_works_keysesks_sync
-        delegation_sync
+        #vpn_works_keysesks_sync
+        #delegation_sync
 elif [ "replacebrigadier" = "${cmd}" ]; then
     "${basedir}"/replacebrigadier "$@"
 elif [ "getwasted" = "${cmd}" ]; then
