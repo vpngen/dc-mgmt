@@ -1,11 +1,14 @@
 package kdlib
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/user"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"golang.org/x/crypto/ssh"
@@ -69,4 +72,77 @@ func LookupForSSHKeyfile(keyFilename, path string) (string, error) {
 	}
 
 	return "", ErrNoSSHKeyFile
+}
+
+func SSHSessionStart(client *ssh.Client, b, e *bytes.Buffer, cmd string, data io.Reader) error {
+	session, err := client.NewSession()
+	if err != nil {
+		return fmt.Errorf("session: %w", err)
+	}
+
+	defer session.Close()
+
+	session.Stdout = b
+	session.Stderr = e
+
+	stdin, err := session.StdinPipe()
+	if err != nil {
+		return fmt.Errorf("stdin pipe: %w", err)
+	}
+
+	if err := session.Start(cmd); err != nil {
+		return fmt.Errorf("start: %w", err)
+	}
+
+	if _, err := io.Copy(stdin, data); err != nil {
+		return fmt.Errorf("copy: %w", err)
+	}
+
+	stdin.Close()
+
+	if err := session.Wait(); err != nil {
+		return fmt.Errorf("wait: %w", err)
+	}
+
+	return nil
+}
+
+func SSHSessionRun(client *ssh.Client, b, e *bytes.Buffer, cmd string) error {
+	session, err := client.NewSession()
+	if err != nil {
+		return fmt.Errorf("session: %w", err)
+	}
+	defer session.Close()
+
+	session.Stdout = b
+	session.Stderr = e
+
+	if err := session.Run(cmd); err != nil {
+		return fmt.Errorf("run: %w", err)
+	}
+
+	return nil
+}
+
+func NewSSHCient(sshconf *ssh.ClientConfig, server string) (*ssh.Client, *bytes.Buffer, *bytes.Buffer, func(string), error) {
+	client, err := ssh.Dial("tcp", server, sshconf)
+	if err != nil {
+		return nil, nil, nil, func(s string) {}, fmt.Errorf("ssh dial: %w", err)
+	}
+
+	var b, e bytes.Buffer
+
+	f := func(logtag string) {
+		switch errstr := e.String(); errstr {
+		case "":
+			fmt.Fprintf(os.Stderr, "%s: SSH Session StdErr: empty\n", logtag)
+		default:
+			fmt.Fprintf(os.Stderr, "%s: SSH Session StdErr:\n", logtag)
+			for _, line := range strings.Split(errstr, "\n") {
+				fmt.Fprintf(os.Stderr, "%s: | %s\n", logtag, line)
+			}
+		}
+	}
+
+	return client, &b, &e, f, nil
 }

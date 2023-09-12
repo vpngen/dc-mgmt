@@ -5,7 +5,7 @@ go 1.20
 require (
 	github.com/google/uuid v1.3.0
 	github.com/jackc/pgx/v5 v5.4.1
-	//github.com/vpngen/keydesk v0.0.0-20221212220752-ecd7e452cb58
+	github.com/vpngen/keydesk v1.3.4
 	github.com/vpngen/wordsgens v0.0.0-20221214131824-ff06c1f70d47
 	golang.org/x/crypto v0.10.0
 )
@@ -15,14 +15,15 @@ require (
 	github.com/go-openapi/runtime v0.26.0
 	github.com/go-openapi/strfmt v0.21.7
 	github.com/gorilla/mux v1.8.0
+	github.com/miekg/dns v1.1.55
 	github.com/vpngen/domain-commander v0.0.21
-	github.com/vpngen/keydesk v1.1.26
 	github.com/vpngen/vpngine v0.0.0-20230227215251-3cd9be2d55eb
 )
 
 require (
 	github.com/alexsergivan/transliterator v1.0.0 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 // indirect
+	github.com/btcsuite/btcd/btcutil v1.1.3 // indirect
 	github.com/go-logr/logr v1.2.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-openapi/analysis v0.21.4 // indirect
@@ -46,9 +47,12 @@ require (
 	go.mongodb.org/mongo-driver v1.11.3 // indirect
 	go.opentelemetry.io/otel v1.14.0 // indirect
 	go.opentelemetry.io/otel/trace v1.14.0 // indirect
+	golang.org/x/mod v0.9.0 // indirect
+	golang.org/x/net v0.11.0 // indirect
 	golang.org/x/sync v0.1.0 // indirect
 	golang.org/x/sys v0.9.0 // indirect
 	golang.org/x/text v0.10.0 // indirect
+	golang.org/x/tools v0.6.0 // indirect
 	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20230215201556-9c5414ab4bde // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect

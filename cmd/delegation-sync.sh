@@ -38,7 +38,7 @@ if [ -n "${STATS_SYNC_SERVER_JUMPS}" ]; then
 fi
 
 psql -qtAF ';' -d "${DBNAME}" \
-        --set brigades_schema_name="${PAIRS_SCHEMA}" <<EOF | sed 's/;$//g' > "${TEMP_DELEGATION_FILE}"
+        --set brigades_schema_name="${SCHEMA}" <<EOF | sed 's/;$//g' > "${TEMP_DELEGATION_FILE}"
 BEGIN;
 
 SELECT domain_name,endpoint_ipv4 FROM :"brigades_schema_name".domains_endpoints_ipv4;
