@@ -70,7 +70,7 @@ const (
 
 const defaultWireguardConfigs = "native"
 
-const DefaultRandomAttemts = 10
+const DefaultRandomAttemts = 10000
 
 const (
 	sqlGetBrigades = `
