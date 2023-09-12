@@ -68,6 +68,8 @@ const (
 	DomainDelegationWaitTime = 120 * time.Second
 )
 
+const defaultWireguardConfigs = "native"
+
 const DefaultRandomAttemts = 10
 
 const (
@@ -225,6 +227,13 @@ type delegationCheckEnv struct {
 	domainNS []string
 }
 
+type vpnCfgs struct {
+	wg      string
+	ovc     string
+	ipsec   string
+	outline string
+}
+
 type envOpts struct {
 	dbEnv
 	dcEnv
@@ -232,6 +241,7 @@ type envOpts struct {
 	kdAddrSyncEnv
 	delegationSyncEnv
 	delegationCheckEnv
+	vpnCfgs
 }
 
 // Args errors.
@@ -320,7 +330,7 @@ func main() {
 	}
 
 	// wgconfx = chunked (wgconf + keydesk IP)
-	wgconf, keydeskIPv6, err := requestBrigade(db, sshconf, &env.dbEnv, &env.delegationCheckEnv, opts)
+	wgconf, keydeskIPv6, err := requestBrigade(db, sshconf, &env.dbEnv, &env.delegationCheckEnv, opts, &env.vpnCfgs)
 	if err != nil {
 		fatal(w, jout, "%s: Can't request brigade: %s\n", LogTag, err)
 	}
@@ -699,6 +709,7 @@ func requestBrigade(
 	dbenv *dbEnv,
 	dlgenv *delegationCheckEnv,
 	opts *brigadeOpts,
+	vpnCfgs *vpnCfgs,
 ) (*models.Newuser, netip.Addr, error) {
 	ctx := context.Background()
 
@@ -756,7 +767,7 @@ func requestBrigade(
 		return nil, netip.Addr{}, fmt.Errorf("person: %w", err)
 	}
 
-	cmd := fmt.Sprintf("create -id %s -ep4 %s -int4 %s -int6 %s -dns4 %s -dns6 %s -kd6 %s -name %s -person %s -desc %s -url %s -dn %s -ch -j -wg native -ovc amnezia",
+	cmd := fmt.Sprintf("create -id %s -ep4 %s -int4 %s -int6 %s -dns4 %s -dns6 %s -kd6 %s -name %s -person %s -desc %s -url %s -dn %s -ch -j",
 		base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(brigadeID),
 		endpointIPv4,
 		ipv4CGNAT,
@@ -770,6 +781,24 @@ func requestBrigade(
 		base64.StdEncoding.WithPadding(base64.StdPadding).EncodeToString([]byte(person.URL)),
 		domainName.String,
 	)
+
+	if vpnCfgs != nil {
+		if vpnCfgs.wg != "" {
+			cmd += fmt.Sprintf(" -wg %s", vpnCfgs.wg)
+		}
+
+		if vpnCfgs.ovc != "" {
+			cmd += fmt.Sprintf(" -ovc %s", vpnCfgs.ovc)
+		}
+
+		if vpnCfgs.ipsec != "" {
+			cmd += fmt.Sprintf(" -ipsec %s", vpnCfgs.ipsec)
+		}
+
+		if vpnCfgs.outline != "" {
+			cmd += fmt.Sprintf(" -outline %s", vpnCfgs.outline)
+		}
+	}
 
 	fmt.Fprintf(os.Stderr, "%s: %s#%s:22 -> %s\n", LogTag, sshkeyRemoteUsername, control_ip, cmd)
 
@@ -1084,6 +1113,15 @@ func readConfigs() (string, *envOpts, error) {
 	}
 
 	env.domainNS = strings.Split(domainNameServers, ",")
+
+	env.vpnCfgs.wg = os.Getenv("WIREGUARD_CONFIGS")
+	if env.vpnCfgs.wg == "" {
+		env.vpnCfgs.wg = defaultWireguardConfigs
+	}
+
+	env.vpnCfgs.ovc = os.Getenv("OPENVPN_CONFIGS")
+	env.vpnCfgs.ipsec = os.Getenv("IPSEC_CONFIGS")
+	env.vpnCfgs.outline = os.Getenv("OUTLINE_CONFIGS")
 
 	return sshKeyFilename, env, nil
 }
