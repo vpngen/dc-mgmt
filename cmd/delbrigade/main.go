@@ -231,7 +231,7 @@ func removeBrigade(
 	}
 
 	if domain_name.Valid {
-		if err := revokeSubdomain(ctx, db, ident, subdomAPIHost, subdomAPIToken, domain_name.String); err != nil {
+		if err := revokeSubdomain(ctx, db, schema, subdomAPIHost, subdomAPIToken, domain_name.String); err != nil {
 			return 0, fmt.Errorf("revoke subdomain: %w", err)
 		}
 	}
