@@ -353,14 +353,14 @@ func readConfigs() (string, string, string, vpnCfgs, error) {
 		return "", "", "", opts, fmt.Errorf("lookup for ssh key: %w", err)
 	}
 
-	opts.wg = os.Getenv("WIREGUARD_CONFIGS")
+	opts.wg = os.Getenv("REPLACE_WIREGUARD_CONFIGS")
 	if opts.wg == "" {
 		opts.wg = defaultWireguardConfigs
 	}
 
-	opts.ovc = os.Getenv("OVC_CONFIGS")
-	opts.ipsec = os.Getenv("IPSEC_CONFIGS")
-	opts.outline = os.Getenv("OUTLINE_CONFIGS")
+	opts.ovc = os.Getenv("REPLACE_OVC_CONFIGS")
+	opts.ipsec = os.Getenv("REPLACE_IPSEC_CONFIGS")
+	opts.outline = os.Getenv("REPLACE_OUTLINE_CONFIGS")
 
 	return sshKeyFilename, dbURL, brigadeSchema, opts, nil
 }
