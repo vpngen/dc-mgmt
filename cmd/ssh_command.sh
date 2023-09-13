@@ -75,10 +75,10 @@ elif [ "delbrigade" = "${cmd}" ]; then
 elif [ "replacebrigadier" = "${cmd}" ]; then
         DC_ID="${DC_ID}" \
         DC_NAME="${DC_NAME}" \
-        WIREGUARD_CONFIGS="${WIREGUARD_CONFIGS}" \
-        OVC_CONFIGS="${OVC_CONFIGS}" \
-        OUTLINE_CONFIGS="${OUTLINE_CONFIGS}" \
-        IPSEC_CONFIGS="${IPSEC_CONFIGS}" \
+        REPLACE_WIREGUARD_CONFIGS="${REPLACE_WIREGUARD_CONFIGS}" \
+        REPLACE_OVC_CONFIGS="${REPLACE_OVC_CONFIGS}" \
+        REPLACE_OUTLINE_CONFIGS="${REPLACE_OUTLINE_CONFIGS}" \
+        REPLACE_IPSEC_CONFIGS="${REPLACE_IPSEC_CONFIGS}" \
         "${basedir}"/replacebrigadier "$@"
 elif [ "getwasted" = "${cmd}" ]; then
         "${basedir}"/getwasted "$@"
