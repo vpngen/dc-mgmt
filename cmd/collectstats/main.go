@@ -357,10 +357,9 @@ func getDataCenterStats(db *pgxpool.Pool, pairsSchema, brigadesSchema string) Da
 	}
 
 	var TotalFreeSlotsCount int
-	sqlGetTotalFreeSlotsCount := `SELECT count(*) FROM %s`
 	if err := tx.QueryRow(
 		ctx,
-		fmt.Sprintf(sqlGetTotalFreeSlotsCount, pgx.Identifier{brigadesSchema, "slots"}.Sanitize()),
+		kdlib.GetFreeSlotsNumberStatement(brigadesSchema, false),
 	).Scan(&TotalFreeSlotsCount); err != nil && err != pgx.ErrNoRows {
 		fmt.Fprintf(os.Stderr, "get total free slots count: %s\n", err)
 
@@ -368,10 +367,9 @@ func getDataCenterStats(db *pgxpool.Pool, pairsSchema, brigadesSchema string) Da
 	}
 
 	var ActiveFreeSlotsCount int
-	sqlGetActiveFreeSlotsCount := `SELECT sum(free_slots_count) FROM %s`
 	if err := tx.QueryRow(
 		ctx,
-		fmt.Sprintf(sqlGetActiveFreeSlotsCount, pgx.Identifier{brigadesSchema, "active_pairs"}.Sanitize()),
+		kdlib.GetFreeSlotsNumberStatement(brigadesSchema, true),
 	).Scan(&ActiveFreeSlotsCount); err != nil && err != pgx.ErrNoRows {
 		fmt.Fprintf(os.Stderr, "get active free slots count: %s\n", err)
 
