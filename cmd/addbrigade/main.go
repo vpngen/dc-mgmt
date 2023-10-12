@@ -70,7 +70,7 @@ const (
 
 const defaultWireguardConfigs = "native"
 
-const DefaultRandomAttemts = 10
+const DefaultRandomAttemts = 10000
 
 const (
 	sqlGetBrigades = `
@@ -187,6 +187,8 @@ WHERE
 `
 	sqlInsertStats      = `INSERT INTO %s (brigade_id) VALUES ($1);`
 	sqlInsertPairDomain = `INSERT INTO %s (domain_name, endpoint_ipv4) VALUES ($1,$2)`
+
+	sqlUpdateBrigadeDomain = `UPDATE %s SET domain_name=$1 WHERE brigade_id=$2`
 )
 
 type brigadeOpts struct {
@@ -612,7 +614,7 @@ func createBrigade(
 	// Pick up subdomain.
 
 	if !domainName.Valid {
-		if err := applySubdomain(ctx, db, env.brigadesSchema, env.subdomainAPIHost, env.subdomainAPIToken, pairEndpointIPv4); err != nil {
+		if err := applySubdomain(ctx, db, env.brigadesSchema, env.subdomainAPIHost, env.subdomainAPIToken, opts.id, pairEndpointIPv4); err != nil {
 			return 0, fmt.Errorf("apply subdomain: %w", err)
 		}
 	}
@@ -651,8 +653,10 @@ func createBrigade(
 	return num - 1, nil
 }
 
-func applySubdomain(ctx context.Context, db *pgxpool.Pool, schema, subdomAPIHost, subdomAPIToken string, pair_endpoint_ipv4 netip.Addr) error {
+func applySubdomain(ctx context.Context, db *pgxpool.Pool, schema, subdomAPIHost, subdomAPIToken string, brigadeID string, pairEndpointIPv4 netip.Addr) error {
 	if subdomAPIToken == dcmgmt.NoUseSubdomainAPIToken {
+		fmt.Fprintf(os.Stderr, "%s: subdomain api token is set to dry-run\n", LogTag)
+
 		return nil
 	}
 
@@ -691,9 +695,17 @@ func applySubdomain(ctx context.Context, db *pgxpool.Pool, schema, subdomAPIHost
 	if _, err := tx.Exec(
 		ctx,
 		fmt.Sprintf(sqlInsertPairDomain, pgx.Identifier{schema, "domains_endpoints_ipv4"}.Sanitize()),
-		domainName, pair_endpoint_ipv4,
+		domainName, pairEndpointIPv4,
 	); err != nil {
 		return fmt.Errorf("pair domain update: %w", err)
+	}
+
+	if _, err := tx.Exec(
+		ctx,
+		fmt.Sprintf(sqlUpdateBrigadeDomain, pgx.Identifier{schema, "brigades"}.Sanitize()),
+		domainName, brigadeID,
+	); err != nil {
+		return fmt.Errorf("brigade domain update: %w", err)
 	}
 
 	if err := tx.Commit(ctx); err != nil {

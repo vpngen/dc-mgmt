@@ -73,11 +73,17 @@ elif [ "delbrigade" = "${cmd}" ]; then
         #vpn_works_keysesks_sync
         #delegation_sync
 elif [ "replacebrigadier" = "${cmd}" ]; then
-    "${basedir}"/replacebrigadier "$@"
+        DC_ID="${DC_ID}" \
+        DC_NAME="${DC_NAME}" \
+        REPLACE_WIREGUARD_CONFIGS="${REPLACE_WIREGUARD_CONFIGS}" \
+        REPLACE_OVC_CONFIGS="${REPLACE_OVC_CONFIGS}" \
+        REPLACE_OUTLINE_CONFIGS="${REPLACE_OUTLINE_CONFIGS}" \
+        REPLACE_IPSEC_CONFIGS="${REPLACE_IPSEC_CONFIGS}" \
+        "${basedir}"/replacebrigadier "$@"
 elif [ "getwasted" = "${cmd}" ]; then
-    "${basedir}"/getwasted "$@"
+        "${basedir}"/getwasted "$@"
 elif [ "checkbrigade" = "${cmd}" ]; then
-    "${basedir}"/checkbrigade "$@"
+        "${basedir}"/checkbrigade "$@"
 elif [ "get_free_slots" = "${cmd}" ]; then
     "${basedir}"/get_free_slots "$@"
 else

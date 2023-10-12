@@ -59,6 +59,8 @@ const (
 	`
 )
 
+const defaultWireguardConfigs = "native"
+
 var errInlalidArgs = errors.New("invalid args")
 
 var LogTag = setLogTag()
@@ -90,7 +92,7 @@ func main() {
 		w = os.Stdout
 	}
 
-	sshKeyFilename, dbname, schema, err := readConfigs()
+	sshKeyFilename, dbname, schema, opts, err := readConfigs()
 	if err != nil {
 		fatal(w, jout, "%s: Can't read configs: %s\n", LogTag, err)
 	}
@@ -112,7 +114,7 @@ func main() {
 	}
 
 	// attention! brigadeID - base32-style.
-	wgconf, err := replaceBrigadier(db, schema, sshconf, brigadeID, controlIP)
+	wgconf, err := replaceBrigadier(db, schema, sshconf, brigadeID, controlIP, opts)
 	if err != nil {
 		fatal(w, jout, "%s: Can't replace brigadier: %s\n", LogTag, err)
 	}
@@ -142,11 +144,11 @@ func main() {
 			log.Fatalf("%s: Can't print keydesk ipv6: %s\n", LogTag, err)
 		}
 
-		if _, err := fmt.Fprintln(w, wgconf.WireguardConfig.FileName); err != nil {
+		if _, err := fmt.Fprintln(w, *wgconf.WireguardConfig.FileName); err != nil {
 			log.Fatalf("%s: Can't print wgconf filename: %s\n", LogTag, err)
 		}
 
-		if _, err := fmt.Fprintln(w, wgconf.WireguardConfig.FileContent); err != nil {
+		if _, err := fmt.Fprintln(w, *wgconf.WireguardConfig.FileContent); err != nil {
 			log.Fatalf("%s: Can't print wgconf content: %s\n", LogTag, err)
 		}
 	}
@@ -209,8 +211,24 @@ func checkBrigade(db *pgxpool.Pool, schema string, brigadeID string) (netip.Addr
 	return controlIP, keydeskIPv6, nil
 }
 
-func replaceBrigadier(db *pgxpool.Pool, schema string, sshconf *ssh.ClientConfig, brigadeID string, control_ip netip.Addr) (*models.Newuser, error) {
+func replaceBrigadier(db *pgxpool.Pool, schema string, sshconf *ssh.ClientConfig, brigadeID string, control_ip netip.Addr, opts vpnCfgs) (*models.Newuser, error) {
 	cmd := fmt.Sprintf("replace -id %s -ch -j", brigadeID)
+
+	if opts.wg != "" {
+		cmd += fmt.Sprintf(" -wg %s", opts.wg)
+	}
+
+	if opts.ovc != "" {
+		cmd += fmt.Sprintf(" -ovc %s", opts.ovc)
+	}
+
+	if opts.ipsec != "" {
+		cmd += fmt.Sprintf(" -ipsec %s", opts.ipsec)
+	}
+
+	if opts.outline != "" {
+		cmd += fmt.Sprintf(" -outline %s", opts.outline)
+	}
 
 	fmt.Fprintf(os.Stderr, "%s: %s#%s:22 -> %s\n", LogTag, sshkeyRemoteUsername, control_ip, cmd)
 
@@ -310,7 +328,16 @@ func parseArgs() (bool, bool, string, string, error) {
 	}
 }
 
-func readConfigs() (string, string, string, error) {
+type vpnCfgs struct {
+	wg      string
+	ovc     string
+	ipsec   string
+	outline string
+}
+
+func readConfigs() (string, string, string, vpnCfgs, error) {
+	opts := vpnCfgs{}
+
 	dbURL := os.Getenv("DB_URL")
 	if dbURL == "" {
 		dbURL = defaultDatabaseURL
@@ -323,8 +350,17 @@ func readConfigs() (string, string, string, error) {
 
 	sshKeyFilename, err := kdlib.LookupForSSHKeyfile(os.Getenv("SSH_KEY"), sshkeyDefaultPath)
 	if err != nil {
-		return "", "", "", fmt.Errorf("lookup for ssh key: %w", err)
+		return "", "", "", opts, fmt.Errorf("lookup for ssh key: %w", err)
 	}
 
-	return sshKeyFilename, dbURL, brigadeSchema, nil
+	opts.wg = os.Getenv("REPLACE_WIREGUARD_CONFIGS")
+	if opts.wg == "" {
+		opts.wg = defaultWireguardConfigs
+	}
+
+	opts.ovc = os.Getenv("REPLACE_OVC_CONFIGS")
+	opts.ipsec = os.Getenv("REPLACE_IPSEC_CONFIGS")
+	opts.outline = os.Getenv("REPLACE_OUTLINE_CONFIGS")
+
+	return sshKeyFilename, dbURL, brigadeSchema, opts, nil
 }
