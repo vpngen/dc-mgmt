@@ -6,7 +6,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/vpngen/realm-admin/internal/kdlib"
+	"github.com/vpngen/dc-mgmt/internal/kdlib"
 )
 
 func main() {
