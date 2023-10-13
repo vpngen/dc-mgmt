@@ -30,11 +30,11 @@ import (
 
 	"golang.org/x/crypto/ssh"
 
+	dcmgmt "github.com/vpngen/dc-mgmt"
+	"github.com/vpngen/dc-mgmt/internal/kdlib"
+	dcmgmtlib "github.com/vpngen/dc-mgmt/internal/kdlib/dc-mgmt"
 	"github.com/vpngen/keydesk/gen/models"
 	"github.com/vpngen/keydesk/keydesk"
-	realmadmin "github.com/vpngen/realm-admin"
-	"github.com/vpngen/realm-admin/internal/kdlib"
-	dcmgmt "github.com/vpngen/realm-admin/internal/kdlib/dc-mgmt"
 	"github.com/vpngen/wordsgens/namesgenerator"
 )
 
@@ -339,7 +339,7 @@ func main() {
 
 	switch jout {
 	case true:
-		answ := realmadmin.Answer{
+		answ := dcmgmt.Answer{
 			Answer: keydesk.Answer{
 				Code:    http.StatusCreated,
 				Desc:    http.StatusText(http.StatusCreated),
@@ -621,13 +621,13 @@ func createBrigade(
 
 	// Sync delegation list.
 
-	delegationList, err := dcmgmt.NewDelegationList(ctx, db, env.brigadesSchema)
+	delegationList, err := dcmgmtlib.NewDelegationList(ctx, db, env.brigadesSchema)
 	if err != nil {
 		return 0, fmt.Errorf("delegation list: %w", err)
 	}
 
 	fmt.Fprintf(os.Stderr, "%s: %s@%s\n", LogTag, delegationSyncSSHconf.User, env.delegationServer)
-	cleanup, err := dcmgmt.SyncDelegationList(delegationSyncSSHconf, env.delegationServer, env.ident, delegationList)
+	cleanup, err := dcmgmtlib.SyncDelegationList(delegationSyncSSHconf, env.delegationServer, env.ident, delegationList)
 	cleanup(LogTag)
 
 	if err != nil {
@@ -637,13 +637,13 @@ func createBrigade(
 	// Sync keydesk address list
 
 	fmt.Fprintf(os.Stderr, "%s: keydesk_gnet: %s keydesk: %s\n", LogTag, keydeskNetWindow, keydesk)
-	kdAddrList, err := dcmgmt.NewKdAddrList(ctx, db, env.brigadesSchema)
+	kdAddrList, err := dcmgmtlib.NewKdAddrList(ctx, db, env.brigadesSchema)
 	if err != nil {
 		return 0, fmt.Errorf("keydesk addr list: %w", err)
 	}
 
 	fmt.Fprintf(os.Stderr, "%s: %s@%s\n", LogTag, kdAddrSyncSSHconf.User, env.kdAddrServer)
-	cleanup, err = dcmgmt.SyncKdAddrList(kdAddrSyncSSHconf, env.kdAddrServer, env.ident, kdAddrList)
+	cleanup, err = dcmgmtlib.SyncKdAddrList(kdAddrSyncSSHconf, env.kdAddrServer, env.ident, kdAddrList)
 	cleanup(LogTag)
 
 	if err != nil {
@@ -654,7 +654,7 @@ func createBrigade(
 }
 
 func applySubdomain(ctx context.Context, db *pgxpool.Pool, schema, subdomAPIHost, subdomAPIToken string, brigadeID string, pairEndpointIPv4 netip.Addr) error {
-	if subdomAPIToken == dcmgmt.NoUseSubdomainAPIToken {
+	if subdomAPIToken == dcmgmtlib.NoUseSubdomainAPIToken {
 		fmt.Fprintf(os.Stderr, "%s: subdomain api token is set to dry-run\n", LogTag)
 
 		return nil
@@ -922,7 +922,7 @@ func waitForDelegation(fqdn string, ip netip.Addr, ns ...string) (bool, error) {
 	fmt.Fprintf(os.Stderr, "%s: waiting for delegation: %s -> %s %v\n", LogTag, fqdn, ip, ns)
 
 	for ts := range timer.C {
-		if ok, err := dcmgmt.CheckForPresence(fqdn, ip, ns...); ok && err == nil {
+		if ok, err := dcmgmtlib.CheckForPresence(fqdn, ip, ns...); ok && err == nil {
 			return ok, nil
 		}
 
@@ -1092,17 +1092,17 @@ func readConfigs() (string, *envOpts, error) {
 		return "", nil, errors.New("empty subdomapi token")
 	}
 
-	_, env.ident, err = dcmgmt.ParseDCNameEnv()
+	_, env.ident, err = dcmgmtlib.ParseDCNameEnv()
 	if err != nil {
 		return "", nil, fmt.Errorf("dc name: %w", err)
 	}
 
-	env.delegationUser, env.delegationServer, err = dcmgmt.ParseConnEnv("DELEGATION_SYNC_CONNECT")
+	env.delegationUser, env.delegationServer, err = dcmgmtlib.ParseConnEnv("DELEGATION_SYNC_CONNECT")
 	if err != nil {
 		return "", nil, fmt.Errorf("delegation sync connect: %w", err)
 	}
 
-	env.kdAddrUser, env.kdAddrServer, err = dcmgmt.ParseConnEnv("KEYDESK_ADDRESS_SYNC_CONNECT")
+	env.kdAddrUser, env.kdAddrServer, err = dcmgmtlib.ParseConnEnv("KEYDESK_ADDRESS_SYNC_CONNECT")
 	if err != nil {
 		return "", nil, fmt.Errorf("keydesk address sync connect: %w", err)
 	}

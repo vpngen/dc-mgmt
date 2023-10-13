@@ -7,8 +7,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/vpngen/realm-admin/internal/kdlib"
-	dcmgmt "github.com/vpngen/realm-admin/internal/kdlib/dc-mgmt"
+	"github.com/vpngen/dc-mgmt/internal/kdlib"
+	dcmgmt "github.com/vpngen/dc-mgmt/internal/kdlib/dc-mgmt"
 )
 
 const (

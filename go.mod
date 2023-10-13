@@ -1,4 +1,4 @@
-module github.com/vpngen/realm-admin
+module github.com/vpngen/dc-mgmt
 
 go 1.21
 
