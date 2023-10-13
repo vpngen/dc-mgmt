@@ -7,7 +7,7 @@ import (
 	"net/netip"
 	"strings"
 
-	dcmgmt "github.com/vpngen/realm-admin/internal/kdlib/dc-mgmt"
+	dcmgmt "github.com/vpngen/dc-mgmt/internal/kdlib/dc-mgmt"
 )
 
 func main() {

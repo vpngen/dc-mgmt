@@ -20,8 +20,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/vpngen/realm-admin/internal/kdlib"
-	dcmgmt "github.com/vpngen/realm-admin/internal/kdlib/dc-mgmt"
+	"github.com/vpngen/dc-mgmt/internal/kdlib"
+	dcmgmt "github.com/vpngen/dc-mgmt/internal/kdlib/dc-mgmt"
 
 	"golang.org/x/crypto/ssh"
 )

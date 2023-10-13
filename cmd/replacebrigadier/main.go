@@ -20,10 +20,10 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	dcmgmt "github.com/vpngen/dc-mgmt"
+	"github.com/vpngen/dc-mgmt/internal/kdlib"
 	"github.com/vpngen/keydesk/gen/models"
 	"github.com/vpngen/keydesk/keydesk"
-	realmadmin "github.com/vpngen/realm-admin"
-	"github.com/vpngen/realm-admin/internal/kdlib"
 
 	"golang.org/x/crypto/ssh"
 )
@@ -121,7 +121,7 @@ func main() {
 
 	switch jout {
 	case true:
-		answ := realmadmin.Answer{
+		answ := dcmgmt.Answer{
 			Answer: keydesk.Answer{
 				Code:    http.StatusCreated,
 				Desc:    http.StatusText(http.StatusCreated),

@@ -21,8 +21,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype/zeronull"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/vpngen/dc-mgmt/internal/kdlib"
 	"github.com/vpngen/keydesk/keydesk/storage"
-	"github.com/vpngen/realm-admin/internal/kdlib"
 	"golang.org/x/crypto/ssh"
 )
 

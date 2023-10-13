@@ -8,7 +8,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/vpngen/realm-admin/internal/kdlib"
+	"github.com/vpngen/dc-mgmt/internal/kdlib"
 	"golang.org/x/crypto/ssh"
 )
 

@@ -17,7 +17,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/vpngen/realm-admin/internal/kdlib"
+	"github.com/vpngen/dc-mgmt/internal/kdlib"
 
 	"github.com/coreos/go-systemd/activation"
 	"github.com/gorilla/mux"
