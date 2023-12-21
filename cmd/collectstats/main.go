@@ -18,6 +18,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype/zeronull"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -85,11 +86,12 @@ const DataCenterStatsVersion = 1
 
 // DataCenterStats - structure for data center stats.
 type DataCenterStats struct {
-	Version              int `json:"version"`
-	TotalFreeSlotsCount  int `json:"total_free_slots_count"`
-	ActiveFreeSlotsCount int `json:"active_free_slots_count"`
-	TotalPairsCount      int `json:"total_pairs_count"`
-	ActivePairsCount     int `json:"active_pairs_count"`
+	Version              int    `json:"version"`
+	DatacenterID         string `json:"datacenter_id,omitempty"`
+	TotalFreeSlotsCount  int    `json:"total_free_slots_count"`
+	ActiveFreeSlotsCount int    `json:"active_free_slots_count"`
+	TotalPairsCount      int    `json:"total_pairs_count"`
+	ActivePairsCount     int    `json:"active_pairs_count"`
 }
 
 // AggrStatsVersion - current version of aggregated stats.
@@ -117,7 +119,7 @@ func setLogTag() string {
 }
 
 func main() {
-	sshKeyFilename, dbname, pairsSchema, brigadesSchema, statsSchema, dcName, err := readConfigs()
+	sshKeyFilename, dbname, pairsSchema, brigadesSchema, statsSchema, dcName, dcID, err := readConfigs()
 	if err != nil {
 		log.Fatalf("%s: Can't read configs: %s\n", LogTag, err)
 	}
@@ -146,7 +148,7 @@ func main() {
 	dateSuffix := time.Now().UTC().Format("20060102-150405")
 	statsFileName := fmt.Sprintf("stats-%s-%s.json", dcName, dateSuffix)
 
-	if err := pairsWalk(db, sshconf, pairsSchema, brigadesSchema, statsSchema, filepath.Join(storePath, statsFileName)); err != nil {
+	if err := pairsWalk(db, sshconf, pairsSchema, brigadesSchema, statsSchema, dcID, filepath.Join(storePath, statsFileName)); err != nil {
 		log.Fatalf("%s: Can't collect stats: %s\n", LogTag, err)
 	}
 }
@@ -321,8 +323,16 @@ func handleStatsStream(db *pgxpool.Pool, statsSchema string, filename string, st
 	}
 }
 
-func getDataCenterStats(db *pgxpool.Pool, pairsSchema, brigadesSchema string) DataCenterStats {
+func getDataCenterStats(db *pgxpool.Pool, pairsSchema, brigadesSchema string, dcID string) DataCenterStats {
 	ctx := context.Background()
+
+	if dcID != "" {
+		if _, err := uuid.Parse(dcID); err != nil {
+			fmt.Fprintf(os.Stderr, "bad dc id: %s: %s\n", dcID, err)
+
+			dcID = ""
+		}
+	}
 
 	tx, err := db.Begin(ctx)
 	if err != nil {
@@ -381,6 +391,7 @@ func getDataCenterStats(db *pgxpool.Pool, pairsSchema, brigadesSchema string) Da
 
 	return DataCenterStats{
 		Version:              DataCenterStatsVersion,
+		DatacenterID:         dcID,
 		TotalPairsCount:      TotalPairsCount,
 		ActivePairsCount:     ActivePairsCount,
 		TotalFreeSlotsCount:  TotalFreeSlotsCount,
@@ -389,8 +400,8 @@ func getDataCenterStats(db *pgxpool.Pool, pairsSchema, brigadesSchema string) Da
 }
 
 // pairsWalk - walk through pairs and collect stats.
-func pairsWalk(db *pgxpool.Pool, sshconf *ssh.ClientConfig, pairsSchema, brigadesSchema, statsSchema, statsfile string) error {
-	dataCenterStats := getDataCenterStats(db, pairsSchema, brigadesSchema)
+func pairsWalk(db *pgxpool.Pool, sshconf *ssh.ClientConfig, pairsSchema, brigadesSchema, statsSchema, dcID string, statsfile string) error {
+	dataCenterStats := getDataCenterStats(db, pairsSchema, brigadesSchema, dcID)
 
 	groups, err := getBrigadesGroups(db, pairsSchema, brigadesSchema)
 	if err != nil {
@@ -545,7 +556,7 @@ func parseArgs() (string, error) {
 }
 
 // readConfigs - reads configs from environment variables.
-func readConfigs() (string, string, string, string, string, string, error) {
+func readConfigs() (string, string, string, string, string, string, string, error) {
 	dbURL := os.Getenv("DB_URL")
 	if dbURL == "" {
 		dbURL = defaultDatabaseURL
@@ -571,10 +582,12 @@ func readConfigs() (string, string, string, string, string, string, error) {
 		dcName = defaultDCName
 	}
 
+	dcID := os.Getenv("DC_ID")
+
 	sshKeyFilename, err := kdlib.LookupForSSHKeyfile(os.Getenv("SSH_KEY"), sshKeyDefaultPath)
 	if err != nil {
-		return "", "", "", "", "", "", fmt.Errorf("ssh key: %w", err)
+		return "", "", "", "", "", "", "", fmt.Errorf("ssh key: %w", err)
 	}
 
-	return sshKeyFilename, dbURL, pairsSchema, brigadesSchema, brigadesStatsSchema, dcName, nil
+	return sshKeyFilename, dbURL, pairsSchema, brigadesSchema, brigadesStatsSchema, dcName, dcID, nil
 }
