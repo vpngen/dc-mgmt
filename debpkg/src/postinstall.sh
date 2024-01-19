@@ -8,6 +8,8 @@ SCHEMA_BRIGADES=${SCHEMA_BRIGADES:-"brigades"}
 BRIGADES_DBUSER=${BRIGADES_DBUSER:-"vgvpnapi"}
 SCHEMA_STATS=${SCHEMA_STATS:-"stats"}
 STATS_DBUSER=${STATS_DBUSER:-"vgstats"}
+SNAPS_DBUSER=${SNAPS_DBUSER:-"vgsnaps"}
+MIGR_DBUSER=${MIGR_DBUSER:-"vgmigr"}
 
 SQL_DIR="/usr/share/vg-dc-mgmt"
 
@@ -18,7 +20,9 @@ load_sql_file () {
                 --set schema_brigades_name="${SCHEMA_BRIGADES}" \
                 --set brigades_dbuser="${BRIGADES_DBUSER}" \
                 --set schema_stats_name="${SCHEMA_STATS}" \
-                --set stats_dbuser="${STATS_DBUSER}" 
+                --set stats_dbuser="${STATS_DBUSER}" \
+                --set snaps_dbuser="${SNAPS_DBUSER}" \
+                --set migr_dbuser="${MIGR_DBUSER}" 
         rc=$?
         if [ ${rc} -ne 0 ] && [ ${rc} -ne 3 ]; then
                 exit 1
