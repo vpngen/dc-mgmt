@@ -8,20 +8,20 @@ CREATE ROLE :"snaps_dbuser" WITH LOGIN;
 
 GRANT USAGE ON SCHEMA :"schema_pairs_name" TO :"snaps_dbuser";
 GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA :"schema_pairs_name" TO :"snaps_dbuser";
-ALTER DEFAULT PRIVILEGES IN SCHEMA :"schema_pairs_name" GRANT SELECT,INSERT,UPDATE,DELETE ON TABLES TO "snaps_dbuser";
+ALTER DEFAULT PRIVILEGES IN SCHEMA :"schema_pairs_name" GRANT SELECT,INSERT,UPDATE,DELETE ON TABLES TO :"snaps_dbuser";
 
 GRANT USAGE ON SCHEMA :"schema_brigades_name" TO :"snaps_dbuser";
 GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA :"schema_brigades_name" TO :"snaps_dbuser";
-ALTER DEFAULT PRIVILEGES IN SCHEMA :"schema_brigades_name" GRANT SELECT,INSERT,UPDATE,DELETE ON TABLES TO "snaps_dbuser";
+ALTER DEFAULT PRIVILEGES IN SCHEMA :"schema_brigades_name" GRANT SELECT,INSERT,UPDATE,DELETE ON TABLES TO :"snaps_dbuser";
 
 CREATE ROLE :"migr_dbuser" WITH LOGIN;
 
-GRANT USAGE ON SCHEMA :"schema_pairs_name" TO :"snaps_dbuser";
+GRANT USAGE ON SCHEMA :"schema_pairs_name" TO :"migr_dbuser";
 GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA :"schema_pairs_name" TO :"migr_dbuser";
-ALTER DEFAULT PRIVILEGES IN SCHEMA :"schema_pairs_name" GRANT SELECT,INSERT,UPDATE,DELETE ON TABLES TO "migr_dbuser";
+ALTER DEFAULT PRIVILEGES IN SCHEMA :"schema_pairs_name" GRANT SELECT,INSERT,UPDATE,DELETE ON TABLES TO :"migr_dbuser";
 
-GRANT USAGE ON SCHEMA :"schema_brigades_name" TO :"snaps_dbuser";
+GRANT USAGE ON SCHEMA :"schema_brigades_name" TO :"migr_dbuser";
 GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA :"schema_brigades_name" TO :"migr_dbuser";
-ALTER DEFAULT PRIVILEGES IN SCHEMA :"schema_brigades_name" GRANT SELECT,INSERT,UPDATE,DELETE ON TABLES TO "migr_dbuser";
+ALTER DEFAULT PRIVILEGES IN SCHEMA :"schema_brigades_name" GRANT SELECT,INSERT,UPDATE,DELETE ON TABLES TO :"migr_dbuser";
 
 COMMIT;
