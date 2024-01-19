@@ -46,6 +46,22 @@ contents:
 - src: /etc/vg-dc-mgmt/realmfp.env
   type: ghost
 
+- dst: /etc/vg-dc-snaps
+  type: dir
+  file_info:
+    mode: 0110
+    owner: root
+    group: vgsnaps
+
+- src: dc-mgmt/debpkg/src/collectsnaps.env-sample
+  dst: /etc/vg-dc-snaps/collectsnaps.env-sample
+  file_info:
+    mode: 0444
+    owner: root
+    group: root
+- src: /etc/vg-dc-snaps/collectsnaps.env
+  type: ghost
+
 - dst: /etc/vg-dc-vpnapi
   type: dir
   file_info:
