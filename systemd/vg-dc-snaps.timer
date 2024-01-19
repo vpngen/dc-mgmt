@@ -1,0 +1,10 @@
+[Unit]
+Description=Collect brigades snapshots
+Requires=vg-dc-snaps.service
+
+[Timer]
+Unit=vg-dc-snaps.service
+OnCalendar=hourly
+
+[Install]
+WantedBy=timers.target

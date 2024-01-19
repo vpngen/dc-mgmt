@@ -71,6 +71,8 @@ cleanInstall() {
 	systemctl start vg-dc-stats.timer ||:
         systemctl enable vg-dc-gfsn.service ||:
         systemctl start vg-dc-gfsn.service ||:
+        systemctl enable vg-dc-snaps.timer ||:
+	systemctl start vg-dc-snaps.timer ||:
 }
 
 upgrade() {
@@ -80,9 +82,16 @@ upgrade() {
 
     	printf "Reload the service unit from disk\n"
     	systemctl daemon-reload ||:
+        systemctl enable vg-dc-stats.timer ||:
+        systemctl enable vg-dc-stats.service ||:
 	systemctl restart vg-dc-stats.timer ||:
         systemctl restart vg-dc-stats.service ||:
+        systemctl enable vg-dc-gfsn.service ||:
         systemctl restart vg-dc-gfsn.service ||:
+        systemctl enable vg-dc-snaps.timer ||:
+	systemctl restart vg-dc-snaps.timer ||:
+	systemctl restart vg-dc-snaps.service ||:
+        systemctl restart vg-dc-snaps.service ||:
 }
 
 # Step 2, check if this is a clean install or an upgrade
