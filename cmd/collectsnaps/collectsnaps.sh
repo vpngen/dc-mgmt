@@ -21,6 +21,11 @@ if [ -s "/etc/vg-dc-mgmt/realmfp.env" ]; then
         . "/etc/vg-dc-mgmt/realmfp.env"
 fi
 
+if [ -s "/etc/vg-dc-snaps/collectsnaps.env" ]; then
+        # shellcheck source=/dev/null
+        . "/etc/vg-dc-snaps/collectsnaps.env"
+fi
+
 DB_URL="${DB_URL}" \
 DC_ID="${DC_ID}" \
 DC_NAME="${DC_NAME}" \
