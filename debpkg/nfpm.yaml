@@ -281,6 +281,46 @@ contents:
 - src: dc-mgmt/sql
   dst: /usr/share/vg-dc-mgmt
 
+- dst: /vg-snapshots
+  type: dir
+  file_info:
+    mode: 0710
+    owner: vgsnaps
+    group: vgsnaps
+
+- dst: /opt/vg-dc-snaps
+  type: dir
+  file_info:
+    mode: 0111
+    owner: root
+    group: root
+
+- src: bin/collectsnaps
+  dst: /opt/vg-dc-snaps/collectsnaps
+  file_info:
+    mode: 0005
+    owner: root
+    group: root
+- src: dc-mgmt/cmd/collectsnaps/collectsnaps.sh
+  dst: /opt/vg-dc-snaps/collectsnaps.sh
+  file_info:
+    mode: 0005
+    owner: root
+    group: root
+
+- src: dc-mgmt/systemd/vg-dc-snaps.timer
+  dst: /etc/systemd/system/vg-dc-snaps.timer
+  file_info:
+    mode: 0644
+    owner: root
+    group: root
+- src: dc-mgmt/systemd/vg-dc-snaps.service
+  dst: /etc/systemd/system/vg-dc-snaps.service
+  file_info:
+    mode: 0644
+    owner: root
+    group: root
+
 overrides:
   deb:
     scripts:
