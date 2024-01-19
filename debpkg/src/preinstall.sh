@@ -58,6 +58,12 @@ upgrade() {
         create_users
 
         systemctl stop vg-dc-stats.timer ||:
+        systemctl stop vg-dc-stats.service ||:
+
+        systemctl stop vg-dc-gfsn.service ||:
+
+        systemctl stop vg-dc-snaps.timer ||:
+        systemctl stop vg-dc-snaps.service ||:
 }
 
 # Step 2, check if this is a clean install or an upgrade
