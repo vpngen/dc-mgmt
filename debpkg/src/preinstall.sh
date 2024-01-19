@@ -3,6 +3,10 @@
 ADMIN_USER="vgadmin"
 VPNAPI_USER="vgvpnapi"
 STATS_USER="vgstats"
+SNAPSHOTS_USER="vgsnaps"
+MIGRATIONS_USER="vgmigr"
+
+SNAPSHOT_SHARE_GROUP="vgsnaps"
 
 create_users () {
         if id "${ADMIN_USER}" >/dev/null 2>&1; then
@@ -21,6 +25,18 @@ create_users () {
                 echo "user ${STATS_USER} already exists"
         else
                 useradd -p "*" -m "${STATS_USER}" -s /bin/bash
+        fi
+
+        if id "${SNAPSHOTS_USER}" >/dev/null 2>&1; then
+                echo "user ${SNAPSHOTS_USER} already exists"
+        else
+                useradd -p "*" -m "${SNAPSHOTS_USER}" -s /bin/bash
+        fi
+
+        if id "${MIGRATIONS_USER}" >/dev/null 2>&1; then
+                echo "user ${MIGRATIONS_USER} already exists"
+        else
+                useradd -p "*" -m "${MIGRATIONS_USER}" -s /bin/bash -G "${SNAPSHOT_SHARE_GROUP}"
         fi
 }
 
