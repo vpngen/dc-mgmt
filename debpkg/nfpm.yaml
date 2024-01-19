@@ -34,8 +34,16 @@ contents:
     mode: 0444
     owner: root
     group: root
-
 - src: /etc/vg-dc-mgmt/dc-name.env
+  type: ghost
+
+- src: dc-mgmt/debpkg/src/realmfp.env-sample
+  dst: /etc/vg-dc-mgmt/realmfp.env-sample
+  file_info:
+    mode: 0444
+    owner: root
+    group: root
+- src: /etc/vg-dc-mgmt/realmfp.env
   type: ghost
 
 - dst: /etc/vg-dc-vpnapi
