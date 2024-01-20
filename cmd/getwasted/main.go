@@ -45,6 +45,8 @@ const (
 	FROM 
 		%s
 	WHERE
+		update_time > now() - ($1 * INTERVAL '1 hours')
+	AND
 		created_at < now() - ($1 * INTERVAL '1 days') 
 	AND
 		total_users_count=1
@@ -60,6 +62,8 @@ const (
 	FROM 
 		%s
 	WHERE
+		update_time > now() - ($1 * INTERVAL '1 days')
+	AND
 		created_at < $1
 	AND 
 		active_users_count < $2::int
