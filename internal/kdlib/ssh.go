@@ -85,20 +85,24 @@ func SSHSessionStart(client *ssh.Client, b, e *bytes.Buffer, cmd string, data io
 	session.Stdout = b
 	session.Stderr = e
 
-	stdin, err := session.StdinPipe()
-	if err != nil {
-		return fmt.Errorf("stdin pipe: %w", err)
-	}
+	go func() {
+		stdin, err := session.StdinPipe()
+		if err != nil {
+			// return fmt.Errorf("stdin pipe: %w", err)
+			return
+		}
+
+		defer stdin.Close()
+
+		if _, err := io.Copy(stdin, data); err != nil {
+			// return fmt.Errorf("copy: %w", err)
+			return
+		}
+	}()
 
 	if err := session.Start(cmd); err != nil {
 		return fmt.Errorf("start: %w", err)
 	}
-
-	if _, err := io.Copy(stdin, data); err != nil {
-		return fmt.Errorf("copy: %w", err)
-	}
-
-	stdin.Close()
 
 	if err := session.Wait(); err != nil {
 		return fmt.Errorf("wait: %w", err)
