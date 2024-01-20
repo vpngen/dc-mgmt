@@ -34,8 +34,32 @@ contents:
     mode: 0444
     owner: root
     group: root
-
 - src: /etc/vg-dc-mgmt/dc-name.env
+  type: ghost
+
+- src: dc-mgmt/debpkg/src/realmfp.env-sample
+  dst: /etc/vg-dc-mgmt/realmfp.env-sample
+  file_info:
+    mode: 0444
+    owner: root
+    group: root
+- src: /etc/vg-dc-mgmt/realmfp.env
+  type: ghost
+
+- dst: /etc/vg-dc-snaps
+  type: dir
+  file_info:
+    mode: 0110
+    owner: root
+    group: vgsnaps
+
+- src: dc-mgmt/debpkg/src/collectsnaps.env-sample
+  dst: /etc/vg-dc-snaps/collectsnaps.env-sample
+  file_info:
+    mode: 0444
+    owner: root
+    group: root
+- src: /etc/vg-dc-snaps/collectsnaps.env
   type: ghost
 
 - dst: /etc/vg-dc-vpnapi
@@ -280,6 +304,46 @@ contents:
 
 - src: dc-mgmt/sql
   dst: /usr/share/vg-dc-mgmt
+
+- dst: /vg-snapshots
+  type: dir
+  file_info:
+    mode: 0710
+    owner: vgsnaps
+    group: vgsnaps
+
+- dst: /opt/vg-dc-snaps
+  type: dir
+  file_info:
+    mode: 0111
+    owner: root
+    group: root
+
+- src: bin/collectsnaps
+  dst: /opt/vg-dc-snaps/collectsnaps
+  file_info:
+    mode: 0005
+    owner: root
+    group: root
+- src: dc-mgmt/cmd/collectsnaps/collectsnaps.sh
+  dst: /opt/vg-dc-snaps/collectsnaps.sh
+  file_info:
+    mode: 0005
+    owner: root
+    group: root
+
+- src: dc-mgmt/systemd/vg-dc-snaps.timer
+  dst: /etc/systemd/system/vg-dc-snaps.timer
+  file_info:
+    mode: 0644
+    owner: root
+    group: root
+- src: dc-mgmt/systemd/vg-dc-snaps.service
+  dst: /etc/systemd/system/vg-dc-snaps.service
+  file_info:
+    mode: 0644
+    owner: root
+    group: root
 
 overrides:
   deb:

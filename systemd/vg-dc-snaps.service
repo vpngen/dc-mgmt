@@ -1,0 +1,16 @@
+[Unit]
+Description=Collect brigades snapshots
+Wants=vg-dc-snaps.timer
+
+[Service]
+Type=oneshot
+User=vgsnaps
+Group=vgsnaps
+#EnvironmentFile=/etc/vg-dc-mgmt/dc-name.env
+#EnvironmentFile=/etc/vg-dc-mgmt/realmfp.env
+#EnvironmentFile=/etc/vg-dc-snaps/collectsnaps.env
+WorkingDirectory=/home/vgsnaps
+ExecStart=/opt/vg-dc-snaps/collectsnaps.sh -tag periodic-hourly -ad -r
+
+[Install]
+WantedBy=multi-user.target

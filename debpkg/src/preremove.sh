@@ -7,6 +7,8 @@ remove() {
         systemctl stop --force vg-dc-stats.timer ||:
         systemctl stop --force vg-dc-stats.service ||:
         systemctl stop --force vg-dc-gfsn.service ||:
+        systemctl stop --force vg-dc-snaps.timer ||:
+        systemctl stop --force vg-dc-snaps.service ||:
 
 }
 
