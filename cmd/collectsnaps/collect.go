@@ -41,19 +41,20 @@ func collectSnaps(wg *sync.WaitGroup, stream chan<- *IncomingSnaps, sem <-chan s
 	}
 
 	cleanup, groupStats, err := fetchSnapsBySSH(opts, ids)
+
+	defer cleanup(LogTag)
+
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%s: fetch stats: %s\n", LogTag, err)
+		fmt.Fprintf(os.Stderr, "%s: fetch snaps: %s\n", LogTag, err)
 
 		return
 	}
-
-	defer cleanup(LogTag)
 
 	// fmt.Fprintf(os.Stderr, "fetch stats: %s\n", groupStats)
 
 	var parsedStats IncomingSnaps
 	if err := json.Unmarshal(groupStats, &parsedStats); err != nil {
-		fmt.Fprintf(os.Stderr, "%s: unmarshal stats: %s\n", LogTag, err)
+		fmt.Fprintf(os.Stderr, "%s: unmarshal snaps: %s\n", LogTag, err)
 
 		return
 	}
