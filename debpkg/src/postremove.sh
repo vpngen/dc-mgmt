@@ -3,6 +3,8 @@
 ADMIN_USER="vgadmin"
 VPNAPI_USER="vgvpnapi"
 STATS_USER="vgstats"
+SNAPSHOTS_USER="vgsnaps"
+MIGRATIONS_USER="vgmigr"
 
 remove_users () {
         if id "${ADMIN_USER}" >/dev/null 2>&1; then
@@ -21,6 +23,18 @@ remove_users () {
                 userdel -r "${STATS_USER}"
         else
                 echo "user ${STATS_USER} does not exists"
+        fi
+
+        if id "${SNAPSHOTS_USER}" >/dev/null 2>&1; then
+                userdel -r "${SNAPSHOTS_USER}"
+        else
+                echo "user ${SNAPSHOTS_USER} does not exists"
+        fi
+
+        if id "${MIGRATIONS_USER}" >/dev/null 2>&1; then
+                userdel -r "${MIGRATIONS_USER}"
+        else
+                echo "user ${MIGRATIONS_USER} does not exists"
         fi
 }
 
