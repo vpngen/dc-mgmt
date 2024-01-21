@@ -331,6 +331,12 @@ contents:
     mode: 0005
     owner: root
     group: root
+- src: dc-mgmt/cmd/collectsnaps/dc-loop.sh
+  dst: /opt/vg-dc-snaps/dc-loop.sh
+  file_info:
+    mode: 0005
+    owner: root
+    group: root
 
 - src: dc-mgmt/systemd/vg-dc-snaps.timer
   dst: /etc/systemd/system/vg-dc-snaps.timer

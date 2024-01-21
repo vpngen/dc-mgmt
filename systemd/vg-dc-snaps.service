@@ -10,7 +10,8 @@ Group=vgsnaps
 #EnvironmentFile=/etc/vg-dc-mgmt/realmfp.env
 #EnvironmentFile=/etc/vg-dc-snaps/collectsnaps.env
 WorkingDirectory=/home/vgsnaps
-ExecStart=/opt/vg-dc-snaps/collectsnaps.sh -tag periodic-hourly -ad -r
+#ExecStart=/opt/vg-dc-snaps/collectsnaps.sh -tag periodic-hourly -ad -r
+ExecStart=/opt/vg-dc-snaps/dc-loop.sh
 
 [Install]
 WantedBy=multi-user.target
