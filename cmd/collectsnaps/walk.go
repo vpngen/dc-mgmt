@@ -92,6 +92,8 @@ func handleSnapsStream(data *dcmgmt.AggrSnaps, filename string, stream <-chan *I
 
 	for snap := range stream {
 		data.Snaps = append(data.Snaps, snap.Snaps...)
+		data.TotalCount += snap.TotalCount
+		data.ErrorsCount += snap.ErrorsCount
 	}
 
 	f, err := os.Create(filename + fileTempSuffix)
