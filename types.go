@@ -50,4 +50,10 @@ type AggrSnaps struct {
 	EncryptedPreSharedSecret string `json:"encrypted_psk"`
 
 	Snaps []*snapCore.EncryptedBrigade `json:"snaps"`
+
+	// TotalCount is a total count of the snapshots.
+	TotalCount int `json:"total_count"`
+
+	// ErrorsCount is a count of the errors during the snapshot collection.
+	ErrorsCount int `json:"errors_count"`
 }
