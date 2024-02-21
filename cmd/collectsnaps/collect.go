@@ -59,6 +59,22 @@ func collectSnaps(wg *sync.WaitGroup, stream chan<- *IncomingSnaps, sem <-chan s
 		return
 	}
 
+	if len(opts.brigades) != parsedStats.TotalCount {
+		fmt.Fprintf(os.Stderr,
+			"%s: brigades count mismatch: %d != %d\n", LogTag,
+			len(opts.brigades), parsedStats.TotalCount)
+
+		parsedStats.TotalCount = len(opts.brigades)
+	}
+
+	if parsedStats.TotalCount-parsedStats.ErrorsCount != len(parsedStats.Snaps) {
+		fmt.Fprintf(os.Stderr,
+			"%s: brigades count mismatch: %d != %d\n", LogTag,
+			parsedStats.TotalCount-parsedStats.ErrorsCount, len(parsedStats.Snaps))
+
+		parsedStats.ErrorsCount = parsedStats.TotalCount - len(parsedStats.Snaps)
+	}
+
 	stream <- &parsedStats
 }
 
