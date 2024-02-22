@@ -337,6 +337,12 @@ contents:
     mode: 0005
     owner: root
     group: root
+- src: bin/snap_prepare
+  dst: /opt/vg-dc-snaps/snap_prepare
+  file_info:
+    mode: 0005
+    owner: root
+    group: root
 
 - src: dc-mgmt/systemd/vg-dc-snaps.timer
   dst: /etc/systemd/system/vg-dc-snaps.timer

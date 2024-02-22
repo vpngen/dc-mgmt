@@ -10,6 +10,7 @@ import (
 	"sync"
 
 	"github.com/vpngen/dc-mgmt/internal/kdlib"
+	"github.com/vpngen/dc-mgmt/internal/snap"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -28,7 +29,7 @@ type collectConfig struct {
 }
 
 // collectSnaps - collect stats from the pair.
-func collectSnaps(wg *sync.WaitGroup, stream chan<- *IncomingSnaps, sem <-chan struct{}, opts *collectConfig) {
+func collectSnaps(wg *sync.WaitGroup, stream chan<- *snap.IncomingSnaps, sem <-chan struct{}, opts *collectConfig) {
 	defer func() {
 		<-sem // Release the semaphore
 	}()
@@ -52,7 +53,7 @@ func collectSnaps(wg *sync.WaitGroup, stream chan<- *IncomingSnaps, sem <-chan s
 
 	// fmt.Fprintf(os.Stderr, "fetch stats: %s\n", groupStats)
 
-	var parsedStats IncomingSnaps
+	var parsedStats snap.IncomingSnaps
 	if err := json.Unmarshal(groupStats, &parsedStats); err != nil {
 		fmt.Fprintf(os.Stderr, "%s: unmarshal snaps: %s\n", LogTag, err)
 
