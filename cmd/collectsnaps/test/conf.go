@@ -2,6 +2,7 @@ package main
 
 import (
 	"crypto/rsa"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
@@ -9,12 +10,8 @@ import (
 
 	"github.com/vpngen/dc-mgmt/internal/kdlib"
 	snapsCrypto "github.com/vpngen/keydesk-snap/core/crypto"
-)
 
-const (
-	defaultPairsSchema         = "pairs"
-	defaultBrigadesSchema      = "brigades"
-	defaultBrigadesStatsSchema = "stats"
+	keydeskStorage "github.com/vpngen/keydesk/keydesk/storage"
 )
 
 const (
@@ -22,37 +19,24 @@ const (
 )
 
 const (
-	sshkeyRemoteUsername = "_onotole_"
-	defautStoreDir       = "vg-snapshots"
-)
-
-const (
-	defaultDatabaseURL = "postgresql:///vgrealm"
+	defautStoreDir = "vg-snapshots"
 )
 
 type config struct {
 	dcName string
 	dcID   string
 
-	dbURL          string
-	pairsSchema    string
-	brigadesSchema string
-
 	storageDir string
-	tag        string
-	addDate    bool
-	replace    bool
 
-	sshKeyFilename       string
-	sshKeyRemoteUsername string
+	sshKeyFilename string
 
 	realmFP        string
 	realmsKeysPath string
 	realmRSA       *rsa.PublicKey
 
-	maintenanceMode int64
+	tag string
 
-	cidrFilter string
+	BrigadeID string
 }
 
 var (
@@ -62,11 +46,7 @@ var (
 )
 
 func parseArgs(opts *config) error {
-	tag := flag.String("tag", "", "snapshot tag")
-	addDate := flag.Bool("ad", false, "add date to snapshot tag")
-	replace := flag.Bool("r", false, "replace prev snapshot")
-	maintenance := flag.Int64("mnt", 0, "maintenance mode")
-	filter := flag.String("net", "", "filter by prefix")
+	tag := flag.String("tag", "test", "snapshot tag")
 
 	flag.Parse()
 
@@ -75,33 +55,12 @@ func parseArgs(opts *config) error {
 	}
 
 	opts.tag = *tag
-	opts.addDate = *addDate
-	opts.replace = *replace
-
-	opts.maintenanceMode = *maintenance
-
-	opts.cidrFilter = *filter
 
 	return nil
 }
 
 // readConfigs - reads configs from environment variables.
 func readConfigs() (*config, error) {
-	dbURL := os.Getenv("DB_URL")
-	if dbURL == "" {
-		dbURL = defaultDatabaseURL
-	}
-
-	pairsSchema := os.Getenv("PAIRS_SCHEMA")
-	if pairsSchema == "" {
-		pairsSchema = defaultPairsSchema
-	}
-
-	brigadesSchema := os.Getenv("BRIGADES_SCHEMA")
-	if brigadesSchema == "" {
-		brigadesSchema = defaultBrigadesSchema
-	}
-
 	storage := os.Getenv("SNAPSHOTS_BASE_DIR")
 	if storage == "" {
 		storage = defautStoreDir
@@ -133,21 +92,34 @@ func readConfigs() (*config, error) {
 		return nil, fmt.Errorf("realm key: %w", err)
 	}
 
+	f, err := os.Open(filepath.Join(storage, "brigade.json"))
+	if err != nil {
+		return nil, fmt.Errorf("open: %w", err)
+	}
+
+	defer f.Close()
+
+	data := keydeskStorage.Brigade{}
+	if err := json.NewDecoder(f).Decode(&data); err != nil {
+		return nil, fmt.Errorf("decode: %w", err)
+	}
+
+	if data.BrigadeID == "" {
+		return nil, fmt.Errorf("empty brigade id")
+	}
+
 	return &config{
 		dcName: dcName,
 		dcID:   dcID,
 
-		dbURL:          dbURL,
-		pairsSchema:    pairsSchema,
-		brigadesSchema: brigadesSchema,
-
 		storageDir: storage,
 
-		sshKeyFilename:       sshKeyFilename,
-		sshKeyRemoteUsername: sshkeyRemoteUsername,
+		sshKeyFilename: sshKeyFilename,
 
 		realmFP:        realmFP,
 		realmsKeysPath: realmsKeysPath,
 		realmRSA:       realmRSA,
+
+		BrigadeID: data.BrigadeID,
 	}, nil
 }
