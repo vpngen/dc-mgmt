@@ -1,8 +1,6 @@
 package main
 
 import (
-	"crypto/rsa"
-	"encoding/base64"
 	"fmt"
 	"log"
 	"net/netip"
@@ -11,9 +9,7 @@ import (
 	"time"
 
 	"github.com/vpngen/dc-mgmt/internal/kdlib"
-
-	snapCore "github.com/vpngen/keydesk-snap/core"
-	"github.com/vpngen/keydesk-snap/core/crypto"
+	"github.com/vpngen/dc-mgmt/internal/snap"
 )
 
 // BrigadeGroup - brigades in the same pair.
@@ -24,14 +20,6 @@ type BrigadeGroup struct {
 
 // GroupsList - list of brigades groups.
 type GroupsList []BrigadeGroup
-
-// IncomingSnaps - structure for aggregated snapshots.
-type IncomingSnaps struct {
-	Snaps []*snapCore.EncryptedBrigade `json:"snaps"`
-
-	TotalCount  int `json:"total_count"`
-	ErrorsCount int `json:"errors_count"`
-}
 
 var LogTag = setLogTag()
 
@@ -72,7 +60,7 @@ func main() {
 		log.Fatalf("%s: Can't compose filename: %s\n", LogTag, err)
 	}
 
-	psk, epsk, err := genPSK(opts.realmRSA)
+	psk, epsk, err := snap.GenPSK(opts.realmRSA)
 	if err != nil {
 		log.Fatalf("%s: Can't generate psk: %s\n", LogTag, err)
 	}
@@ -145,21 +133,4 @@ func rotateSnapshots(basePath, baseTag, tag string) error {
 	}
 
 	return nil
-}
-
-// genPSK - generate psk and encrypt it.
-func genPSK(key *rsa.PublicKey) (string, string, error) {
-	psk, err := crypto.GenSecret(PSKLen)
-	if err != nil {
-		return "", "", fmt.Errorf("generate secret: %w", err)
-	}
-
-	epsk, err := crypto.EncryptSecret(key, psk)
-	if err != nil {
-		return "", "", fmt.Errorf("encrypt psk: %w", err)
-	}
-
-	return base64.StdEncoding.EncodeToString(psk),
-		base64.StdEncoding.EncodeToString(epsk),
-		nil
 }
