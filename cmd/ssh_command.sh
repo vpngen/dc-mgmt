@@ -52,7 +52,7 @@ if [ "addbrigade" = "${cmd}" ]; then
         OVC_CONFIGS="${OVC_CONFIGS}" \
         OUTLINE_CONFIGS="${OUTLINE_CONFIGS}" \
         IPSEC_CONFIGS="${IPSEC_CONFIGS}" \
-        flock -x -E 1 -w 60 -n /tmp/modbrigade.lock "${basedir}"/addbrigade "$@"
+        flock -x -E 1 -w 60 /tmp/modbrigade.lock "${basedir}"/addbrigade "$@"
         #vpn_works_keysesks_sync
         #delegation_sync
 elif [ "delbrigade" = "${cmd}" ]; then
@@ -69,7 +69,7 @@ elif [ "delbrigade" = "${cmd}" ]; then
         OVC_CONFIGS="${OVC_CONFIGS}" \
         OUTLINE_CONFIGS="${OUTLINE_CONFIGS}" \
         IPSEC_CONFIGS="${IPSEC_CONFIGS}" \
-        flock -x -E 1 -w 60 -n /tmp/modbrigade.lock "${basedir}"/delbrigade "$@"
+        flock -x -E 1 -w 60 /tmp/modbrigade.lock "${basedir}"/delbrigade "$@"
         #vpn_works_keysesks_sync
         #delegation_sync
 elif [ "replacebrigadier" = "${cmd}" ]; then
