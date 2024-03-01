@@ -38,6 +38,8 @@ const (
 	CommandInactive   = "inactive"
 )
 
+const updateTimeFreshness = 1 // hours
+
 const (
 	sqlGetNotVisited = `
 	SELECT 
@@ -47,14 +49,14 @@ const (
 	WHERE
 		update_time > now() - ($1 * INTERVAL '1 hours')
 	AND
-		created_at < now() - ($1 * INTERVAL '1 days') 
+		created_at < now() - ($2 * INTERVAL '1 days') 
 	AND
 		total_users_count=1
 	AND 
 		first_visit IS NULL
 	ORDER BY 
 		created_at ASC
-	LIMIT $2::int
+	LIMIT $3::int
 	`
 	sqlGetInactive = `
 	SELECT 
@@ -64,12 +66,12 @@ const (
 	WHERE
 		update_time > now() - ($1 * INTERVAL '1 days')
 	AND
-		created_at < $1
+		created_at < $2
 	AND 
-		active_users_count < $2::int
+		active_users_count < $3::int
 	ORDER BY 
 		created_at ASC
-	LIMIT $3::int
+	LIMIT $4::int
 	`
 )
 
@@ -160,6 +162,7 @@ func getInactive(db *pgxpool.Pool, schema string, months, num, min int) ([]byte,
 
 	rows, err := tx.Query(ctx,
 		fmt.Sprintf(sqlGetInactive, (pgx.Identifier{"stats", "brigades_stats"}.Sanitize())), // !!!!
+		updateTimeFreshness,
 		maxCreatedAt,
 		min,
 		num,
@@ -205,6 +208,7 @@ func getNotVisited(db *pgxpool.Pool, schema string, days, num int) ([]byte, erro
 
 	rows, err := tx.Query(ctx,
 		fmt.Sprintf(sqlGetNotVisited, (pgx.Identifier{"stats", "brigades_stats"}.Sanitize())), // !!!!
+		updateTimeFreshness,
 		days,
 		num,
 	)
