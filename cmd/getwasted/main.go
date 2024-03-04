@@ -17,11 +17,6 @@ import (
 )
 
 const (
-	defaultBrigadesSchema      = "brigades"
-	defaultBrigadesStatsSchema = "stats"
-)
-
-const (
 	maxPostgresqlNameLen = 63
 	defaultDatabaseURL   = "postgresql:///vgrealm"
 )
@@ -39,41 +34,6 @@ const (
 )
 
 const updateTimeFreshness = 1 // hours
-
-const (
-	sqlGetNotVisited = `
-	SELECT 
-		brigade_id
-	FROM 
-		%s
-	WHERE
-		update_time > now() - ($1 * INTERVAL '1 hours')
-	AND
-		created_at < now() - ($2 * INTERVAL '1 days') 
-	AND
-		total_users_count=1
-	AND 
-		first_visit IS NULL
-	ORDER BY 
-		created_at ASC
-	LIMIT $3::int
-	`
-	sqlGetInactive = `
-	SELECT 
-		brigade_id
-	FROM 
-		%s
-	WHERE
-		update_time > now() - ($1 * INTERVAL '1 days')
-	AND
-		created_at < $2
-	AND 
-		active_users_count < $3::int
-	ORDER BY 
-		created_at ASC
-	LIMIT $4::int
-	`
-)
 
 var errInlalidArgs = errors.New("invalid args")
 
@@ -98,7 +58,7 @@ func main() {
 		log.Fatalf("%s: Can't parse args: %s\n", LogTag, err)
 	}
 
-	dbURL, schema, err := readConfigs()
+	dbURL, err := readConfigs()
 	if err != nil {
 		log.Fatalf("%s: Can't read configs: %s\n", LogTag, err)
 	}
@@ -112,7 +72,7 @@ func main() {
 
 	switch cmd {
 	case CommandNotVisited:
-		output, err = getNotVisited(db, schema, days, num)
+		output, err = getNotVisited(db, days, num)
 		if err != nil {
 			log.Fatalf("%s: Can't get brigades: %s\n", LogTag, err)
 		}
@@ -121,7 +81,7 @@ func main() {
 			fmt.Fprintf(os.Stderr, "WARNING!!! This command should be run on the first day of the month\n")
 		}
 
-		output, err = getInactive(db, schema, months, num, defaultMinActiveUsers)
+		output, err = getInactive(db, months, num, defaultMinActiveUsers)
 		if err != nil {
 			log.Fatalf("%s: Can't get brigades: %s\n", LogTag, err)
 		}
@@ -148,7 +108,7 @@ func main() {
 }
 
 // getInactive - returns list of inactive brigades.
-func getInactive(db *pgxpool.Pool, schema string, months, num, min int) ([]byte, error) {
+func getInactive(db *pgxpool.Pool, months, num, min int) ([]byte, error) {
 	t := time.Now().UTC()
 	firstDayOfMonth := time.Date(t.Year(), t.Month(), 1, 0, 0, 0, 0, time.UTC)
 	maxCreatedAt := firstDayOfMonth.AddDate(0, -months, 0)
@@ -160,9 +120,28 @@ func getInactive(db *pgxpool.Pool, schema string, months, num, min int) ([]byte,
 		return nil, fmt.Errorf("begin: %w", err)
 	}
 
+	sqlGetInactive := `
+	SELECT 
+		brigade_id
+	FROM 
+		%s
+	WHERE
+		(update_time > now() - ($1 * INTERVAL '1 days'))
+	OR
+		-- it's for resolve corrupted brigade deletion
+		((update_time < now() - ($1 * INTERVAL '1 days')) AND (update_time>=$2))
+	AND
+		created_at < $3
+	AND 
+		active_users_count < $4::int
+	ORDER BY 
+		created_at ASC
+	LIMIT $4::int
+	`
 	rows, err := tx.Query(ctx,
 		fmt.Sprintf(sqlGetInactive, (pgx.Identifier{"stats", "brigades_stats"}.Sanitize())), // !!!!
 		updateTimeFreshness,
+		firstDayOfMonth,
 		maxCreatedAt,
 		min,
 		num,
@@ -197,7 +176,7 @@ func getInactive(db *pgxpool.Pool, schema string, months, num, min int) ([]byte,
 	return output, nil
 }
 
-func getNotVisited(db *pgxpool.Pool, schema string, days, num int) ([]byte, error) {
+func getNotVisited(db *pgxpool.Pool, days, num int) ([]byte, error) {
 	ctx := context.Background()
 	output := []byte{}
 
@@ -206,6 +185,23 @@ func getNotVisited(db *pgxpool.Pool, schema string, days, num int) ([]byte, erro
 		return nil, fmt.Errorf("begin: %w", err)
 	}
 
+	sqlGetNotVisited := `
+	SELECT 
+		brigade_id
+	FROM 
+		%s
+	WHERE
+		update_time > now() - ($1 * INTERVAL '1 hours')
+	AND
+		created_at < now() - ($2 * INTERVAL '1 days') 
+	AND
+		total_users_count=1
+	AND 
+		first_visit IS NULL
+	ORDER BY 
+		created_at ASC
+	LIMIT $3::int
+	`
 	rows, err := tx.Query(ctx,
 		fmt.Sprintf(sqlGetNotVisited, (pgx.Identifier{"stats", "brigades_stats"}.Sanitize())), // !!!!
 		updateTimeFreshness,
@@ -305,15 +301,11 @@ func parseArgs() (bool, string, int, int, int, int, error) {
 	}
 }
 
-func readConfigs() (string, string, error) {
+func readConfigs() (string, error) {
 	dbURL := os.Getenv("DB_URL")
 	if dbURL == "" {
 		dbURL = defaultDatabaseURL
 	}
 
-	brigadesStatsSchema := os.Getenv("BRIGADES_STATS_SCHEMA")
-	if brigadesStatsSchema == "" {
-		brigadesStatsSchema = defaultBrigadesStatsSchema
-	}
-	return dbURL, brigadesStatsSchema, nil
+	return dbURL, nil
 }

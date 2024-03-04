@@ -8,6 +8,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/vpngen/dc-mgmt/internal/kdlib"
 	"github.com/vpngen/dc-mgmt/internal/snap"
@@ -28,6 +29,11 @@ type collectConfig struct {
 	maintenanceMode int64
 }
 
+const (
+	connectAttempts = 3
+	connectSleep    = 2 * time.Second
+)
+
 // collectSnaps - collect stats from the pair.
 func collectSnaps(wg *sync.WaitGroup, stream chan<- *snap.IncomingSnaps, sem <-chan struct{}, opts *collectConfig) {
 	defer func() {
@@ -41,28 +47,54 @@ func collectSnaps(wg *sync.WaitGroup, stream chan<- *snap.IncomingSnaps, sem <-c
 		ids = append(ids, base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(id[:]))
 	}
 
-	cleanup, groupStats, err := fetchSnapsBySSH(opts, ids)
+	var (
+		err        error
+		groupStats []byte
+	)
 
-	defer cleanup(LogTag)
+	for i := 0; i < connectAttempts; i++ {
+		func() {
+			var cleanup func(string)
+
+			cleanup, groupStats, err = fetchSnapsBySSH(opts, ids)
+
+			defer cleanup(LogTag + "|" + opts.addr.String())
+		}()
+
+		if err == nil {
+			break
+		}
+	}
+
+	var parsedStats snap.IncomingSnaps
+
+	defer func() {
+		stream <- &parsedStats
+	}()
 
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%s: fetch snaps: %s\n", LogTag, err)
+		fmt.Fprintf(os.Stderr, "%s: [%s]: fetch snaps: %s\n", LogTag, opts.addr, err)
+
+		parsedStats.TotalCount = len(opts.brigades)
+		parsedStats.ErrorsCount = parsedStats.TotalCount
 
 		return
 	}
 
 	// fmt.Fprintf(os.Stderr, "fetch stats: %s\n", groupStats)
 
-	var parsedStats snap.IncomingSnaps
 	if err := json.Unmarshal(groupStats, &parsedStats); err != nil {
-		fmt.Fprintf(os.Stderr, "%s: unmarshal snaps: %s\n", LogTag, err)
+		fmt.Fprintf(os.Stderr, "%s: [%s]: unmarshal snaps: %s\n", LogTag, opts.addr, err)
+
+		parsedStats.TotalCount = len(opts.brigades)
+		parsedStats.ErrorsCount = parsedStats.TotalCount
 
 		return
 	}
 
 	if len(opts.brigades) != parsedStats.TotalCount {
 		fmt.Fprintf(os.Stderr,
-			"%s: brigades count mismatch: %d != %d\n", LogTag,
+			"%s: [%s]: brigades count mismatch: %d != %d\n", LogTag, opts.addr,
 			len(opts.brigades), parsedStats.TotalCount)
 
 		parsedStats.TotalCount = len(opts.brigades)
@@ -70,13 +102,11 @@ func collectSnaps(wg *sync.WaitGroup, stream chan<- *snap.IncomingSnaps, sem <-c
 
 	if parsedStats.TotalCount-parsedStats.ErrorsCount != len(parsedStats.Snaps) {
 		fmt.Fprintf(os.Stderr,
-			"%s: brigades count mismatch: %d != %d\n", LogTag,
+			"%s: [%s]: brigades count mismatch: %d != %d\n", LogTag, opts.addr,
 			parsedStats.TotalCount-parsedStats.ErrorsCount, len(parsedStats.Snaps))
 
 		parsedStats.ErrorsCount = parsedStats.TotalCount - len(parsedStats.Snaps)
 	}
-
-	stream <- &parsedStats
 }
 
 // fetchSnapsBySSH - fetch brigades stats from remote host by ssh.
