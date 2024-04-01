@@ -126,17 +126,19 @@ func getInactive(db *pgxpool.Pool, months, num, min int) ([]byte, error) {
 	FROM 
 		%s
 	WHERE
-		(update_time > now() - ($1 * INTERVAL '1 days'))
-	OR
-		-- it's for resolve corrupted brigade deletion
-		((update_time < now() - ($1 * INTERVAL '1 days')) AND (update_time>=$2))
+		(
+			(update_time > now() - ($1 * INTERVAL '1 days'))
+		OR
+			-- it's for resolve corrupted brigade deletion
+			((update_time < now() - ($1 * INTERVAL '1 days')) AND (update_time>=$2))
+		)
 	AND
 		created_at < $3
 	AND 
 		active_users_count < $4::int
 	ORDER BY 
 		created_at ASC
-	LIMIT $4::int
+	LIMIT $5::int
 	`
 	rows, err := tx.Query(ctx,
 		fmt.Sprintf(sqlGetInactive, (pgx.Identifier{"stats", "brigades_stats"}.Sanitize())), // !!!!
