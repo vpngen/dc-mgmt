@@ -10,7 +10,7 @@ import (
 )
 
 // getBrigadesGroups - returns brigades lists on per pair basis.
-func getBrigadesGroups(db *pgxpool.Pool, schema_pairs, schema_brigades string, filter string) (GroupsList, error) {
+func getBrigadesGroups(db *pgxpool.Pool, schema_pairs, schema_brigades string, extFilter, ctrlFilter string) (GroupsList, error) {
 	const (
 		sqlGetBrigadesGroups = `
 	SELECT
@@ -22,6 +22,8 @@ func getBrigadesGroups(db *pgxpool.Pool, schema_pairs, schema_brigades string, f
 		%s AS b ON p.pair_id = b.pair_id
 	WHERE
 		b.endpoint_ipv4 << $1::cidr
+	AND
+		p.control_ip << $2::cidr
 	GROUP BY
 		p.pair_id
 	HAVING
@@ -29,18 +31,14 @@ func getBrigadesGroups(db *pgxpool.Pool, schema_pairs, schema_brigades string, f
 	`
 	)
 
-	var prefix netip.Prefix
+	extPrefix, err := getFilter(extFilter)
+	if err != nil {
+		return nil, fmt.Errorf("get ext filter: %w", err)
+	}
 
-	switch filter {
-	case "":
-		prefix = netip.PrefixFrom(netip.IPv4Unspecified(), 0)
-	default:
-		var err error
-
-		prefix, err = netip.ParsePrefix(filter)
-		if err != nil {
-			return nil, fmt.Errorf("parse prefix: %w", err)
-		}
+	ctrlPrefix, err := getFilter(ctrlFilter)
+	if err != nil {
+		return nil, fmt.Errorf("get ctrl filter: %w", err)
 	}
 
 	var list GroupsList
@@ -59,7 +57,8 @@ func getBrigadesGroups(db *pgxpool.Pool, schema_pairs, schema_brigades string, f
 			(pgx.Identifier{schema_pairs, "pairs"}.Sanitize()),
 			(pgx.Identifier{schema_brigades, "brigades"}.Sanitize()),
 		),
-		prefix,
+		extPrefix,
+		ctrlPrefix,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("brigades groups: %w", err)
@@ -80,4 +79,17 @@ func getBrigadesGroups(db *pgxpool.Pool, schema_pairs, schema_brigades string, f
 	}
 
 	return list, nil
+}
+
+func getFilter(filter string) (netip.Prefix, error) {
+	if filter == "" {
+		return netip.PrefixFrom(netip.IPv4Unspecified(), 0), nil
+	}
+
+	prefix, err := netip.ParsePrefix(filter)
+	if err != nil {
+		return netip.Prefix{}, fmt.Errorf("parse prefix: %w", err)
+	}
+
+	return prefix, nil
 }

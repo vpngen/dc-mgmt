@@ -22,8 +22,11 @@ type AggrSnaps struct {
 	Version    int       `json:"version"`
 	UpdateTime time.Time `json:"update_time"`
 
-	// Filtered is a filtered prefix if applicable.
-	Filtered netip.Prefix `json:"filtered,omitempty"`
+	// ExternalIPFiltered is a filtered prefix if applicable.
+	ExternalIPFiltered netip.Prefix `json:"ext_ip_filtered,omitempty"`
+
+	// ControlNodeFiltered is a filtered prefix if applicable.
+	ControlNodeFiltered netip.Prefix `json:"ctrl_node_filtered,omitempty"`
 
 	// DatacenterID is a datacenter id.
 	DatacenterID string `json:"datacenter_id"`
