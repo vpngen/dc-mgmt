@@ -8,6 +8,20 @@ import (
 	"github.com/vpngen/keydesk/keydesk"
 )
 
+// InstancedSnaps - structure for encrypted brigade with additional fields.
+type InstancedSnaps struct {
+	Snaps []*EncryptedBrigade `json:"snaps"`
+
+	TotalCount  int `json:"total_count"`
+	ErrorsCount int `json:"errors_count"`
+}
+
+// EncryptedBrigade - structure for encrypted brigade with additional fields.
+type EncryptedBrigade struct {
+	snapCore.EncryptedBrigade
+	InstanceID string `json:"instance_id"`
+}
+
 type Answer struct {
 	keydesk.Answer
 	KeydeskIPv6 netip.Addr `json:"keydesk_ipv6"`
@@ -52,7 +66,7 @@ type AggrSnaps struct {
 	// public key determined by situation.
 	EncryptedPreSharedSecret string `json:"encrypted_psk"`
 
-	Snaps []*snapCore.EncryptedBrigade `json:"snaps"`
+	Snaps []*EncryptedBrigade `json:"snaps"`
 
 	// TotalCount is a total count of the snapshots.
 	TotalCount int `json:"total_count"`

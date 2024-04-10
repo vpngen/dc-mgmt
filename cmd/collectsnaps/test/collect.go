@@ -8,6 +8,8 @@ import (
 	"os/exec"
 	"strings"
 
+	"github.com/google/uuid"
+	dcmgmt "github.com/vpngen/dc-mgmt"
 	"github.com/vpngen/dc-mgmt/internal/snap"
 )
 
@@ -24,7 +26,7 @@ type collectConfig struct {
 }
 
 // collectSnaps - collect stats from the pair.
-func collectSnaps(stream chan<- *snap.IncomingSnaps, opts *collectConfig) {
+func collectSnaps(stream chan<- *dcmgmt.InstancedSnaps, opts *collectConfig) {
 	groupStats, err := fetchSnapsByScript(opts)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s: fetch snaps: %s\n", LogTag, err)
@@ -34,14 +36,27 @@ func collectSnaps(stream chan<- *snap.IncomingSnaps, opts *collectConfig) {
 
 	// fmt.Fprintf(os.Stderr, "fetch stats: %s\n", groupStats)
 
-	var parsedStats snap.IncomingSnaps
-	if err := json.Unmarshal(groupStats, &parsedStats); err != nil {
+	var parsedSnaps snap.IncomingSnaps
+	if err := json.Unmarshal(groupStats, &parsedSnaps); err != nil {
 		fmt.Fprintf(os.Stderr, "%s: unmarshal snaps: %s\n", LogTag, err)
 
 		return
 	}
 
-	stream <- &parsedStats
+	instancedSnaps := &dcmgmt.InstancedSnaps{
+		Snaps:       make([]*dcmgmt.EncryptedBrigade, 0, len(opts.ids)),
+		TotalCount:  parsedSnaps.TotalCount,
+		ErrorsCount: parsedSnaps.ErrorsCount,
+	}
+
+	for _, snap := range parsedSnaps.Snaps {
+		instancedSnaps.Snaps = append(instancedSnaps.Snaps, &dcmgmt.EncryptedBrigade{
+			EncryptedBrigade: *snap,
+			InstanceID:       uuid.New().String(),
+		})
+	}
+
+	stream <- instancedSnaps
 }
 
 // fetchSnapsByScript - fetch brigades stats from remote host by ssh.

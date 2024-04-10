@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/netip"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -16,6 +17,7 @@ func getBrigadesGroups(db *pgxpool.Pool, schema_pairs, schema_brigades string, e
 	SELECT
 		p.control_ip,
 		ARRAY_AGG(b.brigade_id) AS brigade_group
+		ARRAY_AGG(b.instance_id) AS instance_group
 	FROM
 		%s AS p
 	LEFT JOIN
@@ -64,9 +66,22 @@ func getBrigadesGroups(db *pgxpool.Pool, schema_pairs, schema_brigades string, e
 		return nil, fmt.Errorf("brigades groups: %w", err)
 	}
 
-	var group BrigadeGroup
+	var (
+		addr      netip.Addr
+		brigades  []uuid.UUID
+		instances []uuid.UUID
+	)
 
-	if _, err := pgx.ForEachRow(rows, []any{&group.ConnectAddr, &group.Brigades}, func() error {
+	if _, err := pgx.ForEachRow(rows, []any{&addr, &brigades, &instances}, func() error {
+		group := BrigadeGroup{
+			ConnectAddr: addr,
+			Brigades:    make(map[uuid.UUID]uuid.UUID),
+		}
+
+		for i, b := range brigades {
+			group.Brigades[b] = instances[i]
+		}
+
 		list = append(list, group)
 
 		return nil

@@ -11,7 +11,7 @@ import (
 )
 
 // HandleSnapsStream - handle stats stream and update snaps and write to the file.
-func HandleSnapsStream(logTag string, data *dcmgmt.AggrSnaps, filename string, stream <-chan *IncomingSnaps, wg *sync.WaitGroup) {
+func HandleSnapsStream(logTag string, data *dcmgmt.AggrSnaps, filename string, stream <-chan *dcmgmt.InstancedSnaps, wg *sync.WaitGroup) {
 	defer wg.Done()
 
 	for snap := range stream {

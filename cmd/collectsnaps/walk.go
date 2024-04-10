@@ -55,7 +55,7 @@ func pairsWalk(opts *walkConfig) error {
 	sem := make(chan struct{}, ParallelCollectorsLimit) // Semaphore for limiting parallel collectors.
 	var wgg sync.WaitGroup
 
-	stream := make(chan *snap.IncomingSnaps, ParallelCollectorsLimit)
+	stream := make(chan *dcmgmt.InstancedSnaps, ParallelCollectorsLimit)
 	var wgh sync.WaitGroup
 
 	wgh.Add(1)

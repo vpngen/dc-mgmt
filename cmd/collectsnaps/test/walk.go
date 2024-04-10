@@ -31,7 +31,7 @@ func pairsWalk(opts *walkConfig) error {
 		EncryptedPreSharedSecret: opts.epsk,
 	}
 
-	stream := make(chan *snap.IncomingSnaps, 1)
+	stream := make(chan *dcmgmt.InstancedSnaps, 1)
 	var wgh sync.WaitGroup
 
 	wgh.Add(1)

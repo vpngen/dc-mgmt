@@ -10,16 +10,19 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/vpngen/dc-mgmt/internal/kdlib"
 	"github.com/vpngen/dc-mgmt/internal/snap"
 	"golang.org/x/crypto/ssh"
+
+	dcmgmt "github.com/vpngen/dc-mgmt"
 )
 
 type collectConfig struct {
 	sshconf *ssh.ClientConfig
 
 	addr     netip.Addr
-	brigades [][]byte
+	brigades map[uuid.UUID]uuid.UUID
 
 	tag     string
 	realmFP string
@@ -35,7 +38,7 @@ const (
 )
 
 // collectSnaps - collect stats from the pair.
-func collectSnaps(wg *sync.WaitGroup, stream chan<- *snap.IncomingSnaps, sem <-chan struct{}, opts *collectConfig) {
+func collectSnaps(wg *sync.WaitGroup, stream chan<- *dcmgmt.InstancedSnaps, sem <-chan struct{}, opts *collectConfig) {
 	defer func() {
 		<-sem // Release the semaphore
 	}()
@@ -66,46 +69,71 @@ func collectSnaps(wg *sync.WaitGroup, stream chan<- *snap.IncomingSnaps, sem <-c
 		}
 	}
 
-	var parsedStats snap.IncomingSnaps
+	instancedSnaps := &dcmgmt.InstancedSnaps{
+		Snaps: make([]*dcmgmt.EncryptedBrigade, 0, len(opts.brigades)),
+	}
 
 	defer func() {
-		stream <- &parsedStats
+		stream <- instancedSnaps
 	}()
 
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s: [%s]: fetch snaps: %s\n", LogTag, opts.addr, err)
 
-		parsedStats.TotalCount = len(opts.brigades)
-		parsedStats.ErrorsCount = parsedStats.TotalCount
+		instancedSnaps.TotalCount = len(opts.brigades)
+		instancedSnaps.ErrorsCount = instancedSnaps.TotalCount
 
 		return
 	}
 
 	// fmt.Fprintf(os.Stderr, "fetch stats: %s\n", groupStats)
 
-	if err := json.Unmarshal(groupStats, &parsedStats); err != nil {
+	var parsedSnaps snap.IncomingSnaps
+
+	if err := json.Unmarshal(groupStats, &parsedSnaps); err != nil {
 		fmt.Fprintf(os.Stderr, "%s: [%s]: unmarshal snaps: %s\n", LogTag, opts.addr, err)
 
-		parsedStats.TotalCount = len(opts.brigades)
-		parsedStats.ErrorsCount = parsedStats.TotalCount
+		instancedSnaps.TotalCount = len(opts.brigades)
+		instancedSnaps.ErrorsCount = parsedSnaps.TotalCount
 
 		return
 	}
 
-	if len(opts.brigades) != parsedStats.TotalCount {
+	if len(opts.brigades) != parsedSnaps.TotalCount {
 		fmt.Fprintf(os.Stderr,
 			"%s: [%s]: brigades count mismatch: %d != %d\n", LogTag, opts.addr,
-			len(opts.brigades), parsedStats.TotalCount)
+			len(opts.brigades), parsedSnaps.TotalCount)
 
-		parsedStats.TotalCount = len(opts.brigades)
+		instancedSnaps.TotalCount = len(opts.brigades)
 	}
 
-	if parsedStats.TotalCount-parsedStats.ErrorsCount != len(parsedStats.Snaps) {
+	if parsedSnaps.TotalCount-parsedSnaps.ErrorsCount != len(parsedSnaps.Snaps) {
 		fmt.Fprintf(os.Stderr,
 			"%s: [%s]: brigades count mismatch: %d != %d\n", LogTag, opts.addr,
-			parsedStats.TotalCount-parsedStats.ErrorsCount, len(parsedStats.Snaps))
+			parsedSnaps.TotalCount-parsedSnaps.ErrorsCount, len(parsedSnaps.Snaps))
 
-		parsedStats.ErrorsCount = parsedStats.TotalCount - len(parsedStats.Snaps)
+		instancedSnaps.ErrorsCount = parsedSnaps.TotalCount - len(parsedSnaps.Snaps)
+	}
+
+	for _, e := range parsedSnaps.Snaps {
+		brigadeID, err := base32.StdEncoding.WithPadding(base32.NoPadding).DecodeString(e.BrigadeID)
+		if err != nil || len(brigadeID) != 16 {
+			fmt.Fprintf(os.Stderr, "%s: decode brigade id: %s\n", LogTag, err)
+
+			continue
+		}
+
+		instanceID := opts.brigades[uuid.UUID(brigadeID)]
+		if instanceID == uuid.Nil {
+			fmt.Fprintf(os.Stderr, "%s: instance id not found: %s\n", LogTag, e.BrigadeID)
+
+			continue
+		}
+
+		instancedSnaps.Snaps = append(instancedSnaps.Snaps, &dcmgmt.EncryptedBrigade{
+			EncryptedBrigade: *e,
+			InstanceID:       instanceID.String(),
+		})
 	}
 }
 
