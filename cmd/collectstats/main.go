@@ -51,35 +51,30 @@ const (
 	sshTimeOut              = time.Duration(15 * time.Second)
 )
 
-const (
-	sqlGetBrigadesGroups = `
-SELECT
-	p.control_ip,
-	ARRAY_AGG(b.brigade_id) AS brigade_group
-FROM
-	%s AS p
-LEFT JOIN
-	%s AS b ON p.pair_id = b.pair_id
-GROUP BY
-	p.pair_id
-HAVING
-	COUNT(b.brigade_id) > 0;
-`
-)
-
 // BrigadeGroup - brigades in the same pair.
 type BrigadeGroup struct {
 	ConnectAddr netip.Addr
-	Brigades    [][]byte
+	Brigades    map[uuid.UUID]uuid.UUID
 }
 
 // GroupsList - list of brigades groups.
 type GroupsList []BrigadeGroup
 
+// Stats - srorage stats with InstanceID.
+type Stats struct {
+	storage.Stats
+	InstanceID string `json:"instance_id"`
+}
+
 // AggrStats - structure for aggregated stats.
 type AggrStats struct {
 	Ver   int              `json:"version"`
 	Stats []*storage.Stats `json:"stats"`
+}
+
+// InstancedAggrStats - structure for aggregated stats with instance.
+type InstancedAggrStats struct {
+	Stats []*Stats `json:"stats"`
 }
 
 const DataCenterStatsVersion = 1
@@ -99,9 +94,9 @@ const AggrStatsXVersion = 2
 
 // AggrStatsX - structure for aggregated stats with additional fields.
 type AggrStatsX struct {
-	Version         int              `json:"version"`
-	UpdateTime      time.Time        `json:"update_time"`
-	Stats           []*storage.Stats `json:"stats"`
+	Version         int       `json:"version"`
+	UpdateTime      time.Time `json:"update_time"`
+	Stats           []*Stats  `json:"stats"`
 	DataCenterStats `json:"data_center_stats"`
 }
 
@@ -154,7 +149,7 @@ func main() {
 }
 
 // collectStats - collect stats from the pair.
-func collectStats(sshconf *ssh.ClientConfig, addr netip.Addr, brigades [][]byte, stream chan<- *AggrStats, sem <-chan struct{}, wg *sync.WaitGroup) {
+func collectStats(sshconf *ssh.ClientConfig, addr netip.Addr, brigades map[uuid.UUID]uuid.UUID, stream chan<- *InstancedAggrStats, sem <-chan struct{}, wg *sync.WaitGroup) {
 	defer func() {
 		<-sem // Release the semaphore
 	}()
@@ -182,11 +177,36 @@ func collectStats(sshconf *ssh.ClientConfig, addr netip.Addr, brigades [][]byte,
 		return
 	}
 
-	stream <- &parsedStats
+	instancedStats := &InstancedAggrStats{
+		Stats: make([]*Stats, 0, len(parsedStats.Stats)),
+	}
+
+	for _, s := range parsedStats.Stats {
+		brigadeID, err := base32.StdEncoding.WithPadding(base32.NoPadding).DecodeString(s.BrigadeID)
+		if err != nil || len(brigadeID) != 16 {
+			fmt.Fprintf(os.Stderr, "%s: decode brigade id: %s\n", LogTag, err)
+
+			continue
+		}
+
+		instanceID := brigades[uuid.UUID(brigadeID)]
+		if instanceID == uuid.Nil {
+			fmt.Fprintf(os.Stderr, "%s: instance id not found: %s\n", LogTag, s.BrigadeID)
+
+			continue
+		}
+
+		instancedStats.Stats = append(instancedStats.Stats, &Stats{
+			Stats:      *s,
+			InstanceID: instanceID.String(),
+		})
+	}
+
+	stream <- instancedStats
 }
 
 // updateStats - update stats in the database.
-func updateStats(db *pgxpool.Pool, statsSchema string, stats *storage.Stats) error {
+func updateStats(db *pgxpool.Pool, statsSchema string, stats *Stats) error {
 	ctx := context.Background()
 
 	tx, err := db.Begin(ctx)
@@ -202,55 +222,39 @@ func updateStats(db *pgxpool.Pool, statsSchema string, stats *storage.Stats) err
 	sqlUpdateStats := `
 	INSERT INTO %s (
 		brigade_id, 
+		instance_id,
 		created_at,
 		first_visit,
 		total_users_count,
 		throttled_users_count,
 		active_users_count,
-		active_wg_users_count,
-		active_ipsec_users_count,
 		total_traffic_rx,
 		total_traffic_tx,
-		total_wg_traffic_rx,
-		total_wg_traffic_tx,
-		total_ipsec_traffic_rx,
-		total_ipsec_traffic_tx,
 		update_time
-	) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
-	ON CONFLICT (brigade_id) DO UPDATE
+	) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+	ON CONFLICT (brigade_id, instance_id) DO UPDATE
 	SET 
-		first_visit=$3,
-		total_users_count=$4,
-		throttled_users_count=$5,
-		active_users_count=$6,
-		active_wg_users_count=$7,
-		active_ipsec_users_count=$8,
-		total_traffic_rx=$9,
-		total_traffic_tx=$10,
-		total_wg_traffic_rx=$11,
-		total_wg_traffic_tx=$12,
-		total_ipsec_traffic_rx=$13,
-		total_ipsec_traffic_tx=$14,
-		update_time=$15
+		first_visit=$4,
+		total_users_count=$5,
+		throttled_users_count=$6,
+		active_users_count=$7,
+		total_traffic_rx=$8,
+		total_traffic_tx=$9,
+		update_time=$10
 	`
 
 	_, err = tx.Exec(
 		ctx,
 		fmt.Sprintf(sqlUpdateStats, pgx.Identifier{statsSchema, "brigades_stats"}.Sanitize()),
 		brigadeID,
+		stats.InstanceID,
 		stats.BrigadeCreatedAt,
 		zeronull.Timestamp(stats.KeydeskFirstVisit),
 		stats.TotalUsersCount,
 		stats.ThrottledUsersCount,
 		stats.ActiveUsersCount,
-		stats.ActiveWgUsersCount,
-		stats.ActiveIPSecUsersCount,
 		stats.TotalTraffic.Rx,
 		stats.TotalTraffic.Tx,
-		stats.TotalWgTraffic.Rx,
-		stats.TotalWgTraffic.Tx,
-		stats.TotalIPSecTraffic.Rx,
-		stats.TotalIPSecTraffic.Tx,
 		stats.UpdateTime,
 	)
 	if err != nil {
@@ -265,13 +269,13 @@ func updateStats(db *pgxpool.Pool, statsSchema string, stats *storage.Stats) err
 }
 
 // handleStatsStream - handle stats stream and update stats in the database and write to the file.
-func handleStatsStream(db *pgxpool.Pool, statsSchema string, filename string, stream <-chan *AggrStats, wg *sync.WaitGroup, dataCenterStats DataCenterStats) {
+func handleStatsStream(db *pgxpool.Pool, statsSchema string, filename string, stream <-chan *InstancedAggrStats, wg *sync.WaitGroup, dataCenterStats DataCenterStats) {
 	defer wg.Done()
 
 	aggrStats := &AggrStatsX{
 		Version:         AggrStatsXVersion,
 		UpdateTime:      time.Now().UTC(),
-		Stats:           make([]*storage.Stats, 0),
+		Stats:           make([]*Stats, 0),
 		DataCenterStats: dataCenterStats,
 	}
 
@@ -411,7 +415,7 @@ func pairsWalk(db *pgxpool.Pool, sshconf *ssh.ClientConfig, pairsSchema, brigade
 	sem := make(chan struct{}, ParallelCollectorsLimit) // Semaphore for limiting parallel collectors.
 	var wgg sync.WaitGroup
 
-	stream := make(chan *AggrStats, ParallelCollectorsLimit)
+	stream := make(chan *InstancedAggrStats, ParallelCollectorsLimit)
 	var wgh sync.WaitGroup
 
 	wgh.Add(1)
@@ -491,6 +495,23 @@ func getBrigadesGroups(db *pgxpool.Pool, schema_pairs, schema_stats string) (Gro
 		return nil, fmt.Errorf("begin: %w", err)
 	}
 
+	defer tx.Rollback(ctx)
+
+	sqlGetBrigadesGroups := `
+	SELECT
+		p.control_ip,
+		ARRAY_AGG(b.brigade_id) AS brigade_group,
+		ARRAY_AGG(b.instance_id) AS instance_group
+	FROM
+		%s AS p
+	LEFT JOIN
+		%s AS b ON p.pair_id = b.pair_id
+	GROUP BY
+		p.pair_id
+	HAVING
+		COUNT(b.brigade_id) > 0;
+`
+
 	rows, err := tx.Query(ctx,
 		fmt.Sprintf(sqlGetBrigadesGroups,
 			(pgx.Identifier{schema_pairs, "pairs"}.Sanitize()),
@@ -498,21 +519,31 @@ func getBrigadesGroups(db *pgxpool.Pool, schema_pairs, schema_stats string) (Gro
 		),
 	)
 	if err != nil {
-		tx.Rollback(ctx)
-
 		return nil, fmt.Errorf("brigades groups: %w", err)
 	}
 
-	var group BrigadeGroup
+	var (
+		addr netip.Addr
 
-	_, err = pgx.ForEachRow(rows, []any{&group.ConnectAddr, &group.Brigades}, func() error {
+		brigades  []uuid.UUID
+		instances []uuid.UUID
+	)
+
+	_, err = pgx.ForEachRow(rows, []any{&addr, &brigades, &instances}, func() error {
+		group := BrigadeGroup{
+			ConnectAddr: addr,
+			Brigades:    make(map[uuid.UUID]uuid.UUID),
+		}
+
+		for i, b := range brigades {
+			group.Brigades[b] = instances[i]
+		}
+
 		list = append(list, group)
 
 		return nil
 	})
 	if err != nil {
-		tx.Rollback(ctx)
-
 		return nil, fmt.Errorf("brigade group row: %w", err)
 	}
 
