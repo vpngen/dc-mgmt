@@ -16,7 +16,7 @@ func getBrigadesGroups(db *pgxpool.Pool, schema_pairs, schema_brigades string, e
 		sqlGetBrigadesGroups = `
 	SELECT
 		p.control_ip,
-		ARRAY_AGG(b.brigade_id) AS brigade_group
+		ARRAY_AGG(b.brigade_id) AS brigade_group,
 		ARRAY_AGG(b.instance_id) AS instance_group
 	FROM
 		%s AS p
