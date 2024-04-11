@@ -22,7 +22,7 @@ DELETE FROM :"schema_stats_name".brigades_stats WHERE instance_id IS NULL;
 
 ALTER TABLE :"schema_stats_name".brigades_stats ALTER COLUMN instance_id SET NOT NULL;
 ALTER TABLE :"schema_stats_name".brigades_stats ALTER COLUMN instance_id DROP DEFAULT;
-ALTER TABLE :"schema_stats_name".brigades_stats ADD CONSTRAINT fk_brigades_instance_id FOREIGN KEY (instance_id) REFERENCES "schema_brigades_name".brigades(instance_id) ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE :"schema_stats_name".brigades_stats ADD CONSTRAINT fk_brigades_instance_id FOREIGN KEY (instance_id) REFERENCES :"schema_brigades_name".brigades(instance_id) ON DELETE CASCADE ON UPDATE CASCADE;
 ALTER TABLE :"schema_stats_name".brigades_stats ADD PRIMARY KEY (brigade_id, instance_id);
 
 
