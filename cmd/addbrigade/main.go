@@ -545,7 +545,8 @@ INSERT INTO %s
 			keydesk_ipv6,        
 			ipv4_cgnat,          
 			ipv6_ula,            
-			person              
+			person,
+			main              
 		)
 VALUES 
 		(
@@ -559,7 +560,8 @@ VALUES
 			$8,
 			$9,
 			$10,
-			$11
+			$11,
+			true
 		)
 RETURNING instance_id;
 `
