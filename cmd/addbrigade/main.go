@@ -585,7 +585,7 @@ RETURNING instance_id;
 		return 0, fmt.Errorf("create brigade: %w", err)
 	}
 
-	sqlInsertStats := `INSERT INTO %s (brigade_id, instance_id) VALUES ($1);`
+	sqlInsertStats := `INSERT INTO %s (brigade_id, instance_id) VALUES ($1,$2);`
 
 	if _, err = tx.Exec(ctx,
 		fmt.Sprintf(sqlInsertStats, (pgx.Identifier{env.brigadesStatsSchema, "brigades_stats"}.Sanitize())),
