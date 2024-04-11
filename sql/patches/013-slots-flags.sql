@@ -9,20 +9,20 @@ CREATE INDEX pairs_endpoints_ipv4_endpoint_ipv4_enabled_idx ON :"schema_pairs_na
 
 CREATE TABLE :"schema_brigades_name".orphaned_endpoints_ipv4 (
     endpoint_ipv4 inet PRIMARY KEY,
-    update_time timestamp with time zone NOT NULL DEFAULT now() AT TIME ZONE 'UTC',
+    update_time timestamp with time zone NOT NULL DEFAULT (now() AT TIME ZONE 'UTC'),
     FOREIGN KEY (endpoint_ipv4) REFERENCES :"schema_pairs_name".pairs_endpoints_ipv4 (endpoint_ipv4)
 );
 
 CREATE TABLE :"schema_brigades_name".reservations (
     reservation_id uuid PRIMARY KEY NOT NULL DEFAULT gen_random_uuid(),
     dismission bool NOT NULL DEFAULT false,
-    update_time timestamp with time zone NOT NULL DEFAULT now() AT TIME ZONE 'UTC'
+    update_time timestamp with time zone NOT NULL DEFAULT (now() AT TIME ZONE 'UTC')
 );    
 
 CREATE TABLE :"schema_brigades_name".reserved_endpoints_ipv4 (
     endpoint_ipv4 inet NOT NULL,
     reservation_id uuid NOT NULL,
-    update_time timestamp with time zone NOT NULL DEFAULT now() AT TIME ZONE 'UTC',
+    update_time timestamp with time zone NOT NULL DEFAULT (now() AT TIME ZONE 'UTC'),
     FOREIGN KEY (endpoint_ipv4) REFERENCES :"schema_pairs_name".pairs_endpoints_ipv4 (endpoint_ipv4),
     FOREIGN KEY (reservation_id) REFERENCES :"schema_brigades_name".reservations (reservation_id),
     PRIMARY KEY (endpoint_ipv4, reservation_id)
