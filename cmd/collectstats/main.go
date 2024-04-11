@@ -157,7 +157,7 @@ func collectStats(sshconf *ssh.ClientConfig, addr netip.Addr, brigades map[uuid.
 	defer wg.Done()
 
 	ids := make([]string, 0, len(brigades))
-	for _, id := range brigades {
+	for id := range brigades {
 		ids = append(ids, base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(id[:]))
 	}
 

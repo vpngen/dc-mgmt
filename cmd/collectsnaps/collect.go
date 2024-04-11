@@ -46,7 +46,7 @@ func collectSnaps(wg *sync.WaitGroup, stream chan<- *dcmgmt.InstancedSnaps, sem 
 	defer wg.Done()
 
 	ids := make([]string, 0, len(opts.brigades))
-	for _, id := range opts.brigades {
+	for id := range opts.brigades {
 		ids = append(ids, base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(id[:]))
 	}
 
