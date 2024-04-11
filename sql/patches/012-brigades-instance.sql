@@ -7,7 +7,7 @@ SELECT _v.register_patch( '012-brigades-instance', ARRAY[ '001-init', '002-roles
 DROP table IF EXISTS :"schema_brigades_name".brigades_statistics;
 
 ALTER TABLE :"schema_brigades_name".brigades ADD COLUMN instance_id uuid NOT NULL DEFAULT gen_random_uuid();
-ALTER TABLE :"schema_brigades_name".brigades DROP CONSTRAINT brigades_pkey;
+ALTER TABLE :"schema_brigades_name".brigades DROP CONSTRAINT brigades_pkey CASCADE;
 ALTER TABLE :"schema_brigades_name".brigades ADD PRIMARY KEY (brigade_id, instance_id);
 ALTER TABLE :"schema_brigades_name".brigades ALTER COLUMN instance_id DROP DEFAULT;
 

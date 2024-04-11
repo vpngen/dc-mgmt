@@ -2,7 +2,7 @@ BEGIN;
 
 SELECT _v.assert_user_is_superuser();
 
-SELECT _v.register_patch( '013-slot-flags', ARRAY[ '001-init', '002-roles', '003-stats', '004-stats', '005-stats', '006-stats', '007-stats', '008-domains', '009-domains', '010-viewfixes', '011-collectsnaps'.'012-brigades-instance']);
+SELECT _v.register_patch( '013-slot-flags', ARRAY[ '001-init', '002-roles', '003-stats', '004-stats', '005-stats', '006-stats', '007-stats', '008-domains', '009-domains', '010-viewfixes', '011-collectsnaps', '012-brigades-instance']);
 
 ALTER TABLE :"schema_pairs_name".pairs_endpoints_ipv4 ADD COLUMN enabled NOT NULL DEFAULT true;
 CREATE INDEX pairs_endpoints_ipv4_endpoint_ipv4_enabled_idx ON :"schema_pairs_name".pairs_endpoints_ipv4 (endpoint_ipv4, enabled);

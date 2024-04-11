@@ -2,7 +2,7 @@ BEGIN;
 
 SELECT _v.assert_user_is_superuser();
 
-SELECT _v.register_patch( '014-viewfixes', ARRAY[ '001-init', '002-roles', '003-stats', '004-stats', '005-stats', '006-stats', '007-stats', '008-domains', '009-domains', '010-viewfixes', '011-collectsnaps'.'012-brigades-instance','013-slot-flags']);
+SELECT _v.register_patch( '014-viewfixes', ARRAY[ '001-init', '002-roles', '003-stats', '004-stats', '005-stats', '006-stats', '007-stats', '008-domains', '009-domains', '010-viewfixes', '011-collectsnaps', '012-brigades-instance', '013-slot-flags']);
 
 -- The view calculates the number of available IP address 
 -- slots (free_slots_count) for each active pair in the pairs table, 
