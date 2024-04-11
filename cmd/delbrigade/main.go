@@ -176,7 +176,7 @@ func getBrigadeControlIP(db *pgxpool.Pool, schema string, brigadeID string) (net
 
 	sqlGetControlIP := `
 	SELECT
-		mp.control_ip,
+		mb.control_ip,
 		r.reservation_id
 	FROM 
 		%s AS mb
