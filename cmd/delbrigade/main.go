@@ -49,23 +49,8 @@ const (
 const (
 	subdomainAPIAttempts = 5
 	subdomainAPISleep    = 2 * time.Second
-)
 
-const (
-	sqlGetControlIP = `
-	SELECT
-		control_ip
-	FROM %s
-	WHERE
-		brigade_id=$1
-	FOR UPDATE
-	`
-	sqlDelBrigade = `
-	DELETE 
-		FROM %s
-	WHERE brigade_id=$1
-	RETURNING domain_name
-	`
+	deleteAttempts = 5
 )
 
 var errInlalidArgs = errors.New("invalid args")
@@ -127,10 +112,14 @@ func main() {
 		log.Fatalf("%s: Can't get control ip: %s\n", LogTag, err)
 	}
 
+	orphan := false
+
 	// attention! brigadeID - base32-style.
 	output, err := revokeBrigade(sshconf, base32String, control_ip)
 	if err != nil {
-		log.Fatalf("%s: Can't revoke brigade: %s\n", LogTag, err)
+		fmt.Fprintf(os.Stderr, "%s: Can't revoke brigade: %s\n", LogTag, err)
+
+		orphan = true
 	}
 
 	// attention! id - uuid-style string.
@@ -141,6 +130,7 @@ func main() {
 		ident,
 		delegationServer, delegationSyncSSHconf,
 		kdAddrServer, kdAddrSyncSSHconf,
+		orphan,
 	)
 	if err != nil {
 		log.Fatalf("%s: Can't remove brigade: %s\n", LogTag, err)
@@ -166,6 +156,8 @@ func main() {
 	}
 }
 
+var ErrReservedSlot = errors.New("reserved slot")
+
 func getBrigadeControlIP(db *pgxpool.Pool, schema string, brigadeID string) (netip.Addr, error) {
 	ctx := context.Background()
 	emptyIP := netip.Addr{}
@@ -177,17 +169,39 @@ func getBrigadeControlIP(db *pgxpool.Pool, schema string, brigadeID string) (net
 
 	defer tx.Rollback(ctx)
 
-	var control_ip netip.Addr
+	var (
+		control_ip    netip.Addr
+		reservationID pgtype.UUID
+	)
+
+	sqlGetControlIP := `
+	SELECT
+		control_ip,
+		r.reservation_id
+	FROM 
+		%s AS mb
+	JOIN
+		%s AS r ON mb.endpoint_ipv4 = r.endpoint_ipv4
+	WHERE
+		b.brigade_id=$1
+	FOR UPDATE
+	`
 
 	if err := tx.QueryRow(ctx,
 		fmt.Sprintf(sqlGetControlIP,
 			(pgx.Identifier{schema, "meta_brigades"}.Sanitize()),
+			(pgx.Identifier{schema, "reserved_endpoints_ipv4"}.Sanitize()),
 		),
 		brigadeID,
 	).Scan(
 		&control_ip,
+		&reservationID,
 	); err != nil {
 		return emptyIP, fmt.Errorf("brigade query: %w", err)
+	}
+
+	if reservationID.Valid {
+		return emptyIP, fmt.Errorf("%w: %s (%s)", ErrReservedSlot, brigadeID, uuid.UUID(reservationID.Bytes).String())
 	}
 
 	return control_ip, nil
@@ -200,6 +214,7 @@ func removeBrigade(
 	ident string,
 	delegationSyncServer string, delegationSyncSSHconf *ssh.ClientConfig,
 	kdAddrSyncServer string, kdAddrSyncSSHconf *ssh.ClientConfig,
+	orphan bool,
 ) (int32, error) {
 	ctx := context.Background()
 
@@ -210,7 +225,35 @@ func removeBrigade(
 
 	defer tx.Rollback(ctx)
 
+	if orphan {
+		sqlSetOrphan := `INSERT INTO %s (endpoints_ipv4_id) VALUES SELECT endpoint_ipv4_id FROM %s WHERE brigade_id=$1`
+		if _, err := tx.Exec(ctx, fmt.Sprintf(
+			sqlSetOrphan,
+			pgx.Identifier{schema, "orphaned_endpoints_ipv4"}.Sanitize(),
+			pgx.Identifier{schema, "brigades"}.Sanitize(),
+		), brigadeID); err != nil {
+			return 0, fmt.Errorf("orphan insert: %w", err)
+		}
+	}
+
+	sqlDelBrigadesStats := `
+	DELETE
+		FROM %s
+	WHERE brigade_id=$1
+	`
+
+	if _, err := tx.Exec(ctx, fmt.Sprintf(sqlDelBrigadesStats, pgx.Identifier{schema, defaultBrigadesStatsSchema}.Sanitize()), brigadeID); err != nil {
+		return 0, fmt.Errorf("brigades stats delete: %w", err)
+	}
+
 	var domain_name pgtype.Text
+
+	sqlDelBrigade := `
+	DELETE 
+		FROM %s
+	WHERE brigade_id=$1
+	RETURNING domain_name
+	`
 
 	if err := tx.QueryRow(
 		ctx,
@@ -317,45 +360,57 @@ func revokeSubdomain(ctx context.Context, db *pgxpool.Pool, schema string, subdo
 	return nil
 }
 
+var ErrDeleteAttemptsCountExceeded = errors.New("delete attempts count exceeded")
+
 func revokeBrigade(sshconf *ssh.ClientConfig, brigadeID string, control_ip netip.Addr) ([]byte, error) {
 	cmd := fmt.Sprintf("destroy -id %s -ch", brigadeID)
 
 	fmt.Fprintf(os.Stderr, "%s: %s#%s:22 -> %s\n", LogTag, sshkeyRemoteUsername, control_ip, cmd)
 
-	client, err := ssh.Dial("tcp", fmt.Sprintf("%s:22", control_ip), sshconf)
-	if err != nil {
-		return nil, fmt.Errorf("ssh dial: %w", err)
-	}
-	defer client.Close()
+	for attemts := 0; attemts <= deleteAttempts; attemts++ {
+		client, err := ssh.Dial("tcp", fmt.Sprintf("%s:22", control_ip), sshconf)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "ssh dial: %s", err)
 
-	session, err := client.NewSession()
-	if err != nil {
-		return nil, fmt.Errorf("ssh session: %w", err)
-	}
-	defer session.Close()
-
-	var b, e bytes.Buffer
-
-	session.Stdout = &b
-	session.Stderr = &e
-
-	defer func() {
-		switch errstr := e.String(); errstr {
-		case "":
-			fmt.Fprintf(os.Stderr, "%s: SSH Session StdErr: empty\n", LogTag)
-		default:
-			fmt.Fprintf(os.Stderr, "%s: SSH Session StdErr:\n", LogTag)
-			for _, line := range strings.Split(errstr, "\n") {
-				fmt.Fprintf(os.Stderr, "%s: | %s\n", LogTag, line)
-			}
+			continue
 		}
-	}()
 
-	if err := session.Run(cmd); err != nil {
-		return nil, fmt.Errorf("ssh run: %w", err)
+		defer client.Close()
+
+		session, err := client.NewSession()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "ssh session: %s", err)
+
+			continue
+		}
+
+		defer session.Close()
+
+		var b, e bytes.Buffer
+
+		session.Stdout = &b
+		session.Stderr = &e
+
+		defer func() {
+			switch errstr := e.String(); errstr {
+			case "":
+				fmt.Fprintf(os.Stderr, "%s: SSH Session StdErr: empty\n", LogTag)
+			default:
+				fmt.Fprintf(os.Stderr, "%s: SSH Session StdErr:\n", LogTag)
+				for _, line := range strings.Split(errstr, "\n") {
+					fmt.Fprintf(os.Stderr, "%s: | %s\n", LogTag, line)
+				}
+			}
+		}()
+
+		if err := session.Run(cmd); err != nil {
+			return nil, fmt.Errorf("ssh run: %w", err)
+		}
+
+		return nil, nil
 	}
 
-	return nil, nil
+	return nil, fmt.Errorf("%w: %d", ErrDeleteAttemptsCountExceeded, deleteAttempts)
 }
 
 func createDBPool(dburl string) (*pgxpool.Pool, error) {

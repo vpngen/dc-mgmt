@@ -72,125 +72,6 @@ const defaultWireguardConfigs = "native"
 
 const DefaultRandomAttemts = 10000
 
-const (
-	sqlGetBrigades = `
-SELECT
-	keydesk_ipv6,
-	ipv4_cgnat,
-	ipv6_ula
-FROM %s 
-FOR UPDATE`
-
-	sqlPickPair = `
-SELECT
-	pair_id,
-	control_ip,
-	endpoint_ipv4,
-	domain_name
-FROM %s
-WHERE
-pair_id = (
-		SELECT 
-			pair_id 
-		FROM %s 
-		ORDER BY free_slots_count DESC 
-		LIMIT 1
-		)
-ORDER BY domain_name NULLS LAST
-LIMIT 1
-`
-
-	sqlPickPairForcedIP = `
-SELECT
-	pair_id,
-	control_ip,
-	endpoint_ipv4,
-	domain_name
-FROM %s
-WHERE
-	control_ip=$1
-ORDER BY domain_name NULLS LAST
-LIMIT 1
-`
-
-	sqlPickCGNATNet = `
-SELECT 
-	ipv4_net
-FROM %s
-ORDER BY weight DESC, id
-LIMIT 1
-`
-
-	sqlPickULANet = `
-SELECT 
-	ipv6_net
-FROM %s
-ORDER BY iweight ASC, id
-LIMIT 1
-`
-
-	sqlPickKeydeskNet = `
-SELECT 
-	ipv6_net
-FROM %s
-ORDER BY iweight ASC, id
-LIMIT 1
-`
-
-	sqlCreateBrigade = `
-INSERT INTO %s
-		(
-			brigade_id,  
-			pair_id,    
-			brigadier,           
-			endpoint_ipv4,
-			domain_name,       
-			dns_ipv4,            
-			dns_ipv6,            
-			keydesk_ipv6,        
-			ipv4_cgnat,          
-			ipv6_ula,            
-			person              
-		)
-VALUES 
-		(
-			$1,
-			$2,
-			$3,
-			$4,
-			$5,
-			$6,
-			$7,
-			$8,
-			$9,
-			$10,
-			$11
-		)
-`
-
-	sqlFetchBrigade = `
-SELECT
-	meta_brigades.brigade_id,
-	meta_brigades.brigadier,
-	meta_brigades.endpoint_ipv4,
-	meta_brigades.domain_name,
-	meta_brigades.dns_ipv4,
-	meta_brigades.dns_ipv6,
-	meta_brigades.keydesk_ipv6,
-	meta_brigades.ipv4_cgnat,
-	meta_brigades.ipv6_ula,
-	meta_brigades.person,
-	meta_brigades.control_ip
-FROM %s
-WHERE
-	meta_brigades.brigade_id=$1
-`
-	sqlInsertStats      = `INSERT INTO %s (brigade_id) VALUES ($1);`
-	sqlInsertPairDomain = `INSERT INTO %s (domain_name, endpoint_ipv4) VALUES ($1,$2)`
-
-	sqlUpdateBrigadeDomain = `UPDATE %s SET domain_name=$1 WHERE brigade_id=$2`
-)
-
 type brigadeOpts struct {
 	id      string
 	name    string
@@ -334,6 +215,10 @@ func main() {
 	// wgconfx = chunked (wgconf + keydesk IP)
 	wgconf, keydeskIPv6, err := requestBrigade(db, sshconf, &env.dbEnv, &env.delegationCheckEnv, opts, &env.vpnCfgs)
 	if err != nil {
+		if _, err := setOrphan(db, env.brigadesSchema, opts.id); err != nil {
+			fmt.Fprintf(os.Stderr, "%s: Can't set orphan: %s\n", LogTag, err)
+		}
+
 		fatal(w, jout, "%s: Can't request brigade: %s\n", LogTag, err)
 	}
 
@@ -413,12 +298,20 @@ func createBrigade(
 
 	defer tx.Rollback(ctx)
 
-	rows, err := tx.Query(ctx, fmt.Sprintf(sqlGetBrigades, (pgx.Identifier{env.brigadesSchema, "brigades"}.Sanitize())))
+	sqlGetUsedAuxNets := `
+	SELECT
+		keydesk_ipv6,
+		ipv4_cgnat,
+		ipv6_ula
+	FROM %s 
+	FOR UPDATE`
+
+	rows, err := tx.Query(ctx, fmt.Sprintf(sqlGetUsedAuxNets, (pgx.Identifier{env.brigadesSchema, "brigades"}.Sanitize())))
 	if err != nil {
-		return 0, fmt.Errorf("brigades query: %w", err)
+		return 0, fmt.Errorf("used aux nets query: %w", err)
 	}
 
-	// lock on brigades, register used nets
+	// lock on brigades, register used aux nets
 
 	kd6 := make(map[string]struct{})
 	cgnat := make(map[string]struct{})
@@ -450,6 +343,37 @@ func createBrigade(
 		pairControlIP    netip.Addr
 		domainName       pgtype.Text
 	)
+
+	sqlPickPair := `
+	SELECT
+		pair_id,
+		control_ip,
+		endpoint_ipv4,
+		domain_name
+	FROM %s
+	WHERE
+	pair_id = (
+			SELECT 
+				pair_id 
+			FROM %s 
+			ORDER BY free_slots_count DESC 
+			LIMIT 1
+			)
+	ORDER BY domain_name NULLS LAST
+	LIMIT 1
+`
+	sqlPickPairForcedIP := `
+	SELECT
+		pair_id,
+		control_ip,
+		endpoint_ipv4,
+		domain_name
+	FROM %s
+	WHERE
+		control_ip=$1
+	ORDER BY domain_name NULLS LAST
+	LIMIT 1
+`
 
 	switch opts.forceIP {
 	case netip.Addr{}:
@@ -488,6 +412,15 @@ func createBrigade(
 		cgnatNet       netip.Prefix
 	)
 
+	sqlPickCGNATNet := `
+	SELECT 
+		ipv4_net
+	FROM 
+		%s
+	ORDER BY weight DESC, id
+	LIMIT 1
+`
+
 	for attempts := 0; ; attempts++ {
 		if attempts > DefaultRandomAttemts {
 			return 0, fmt.Errorf("cgnat: %w", ErrRandomAttemptsExceeded)
@@ -523,6 +456,15 @@ func createBrigade(
 		ulaNet       netip.Prefix
 	)
 
+	sqlPickULANet := `
+	SELECT 
+		ipv6_net
+	FROM 
+		%s
+	ORDER BY iweight ASC, id
+	LIMIT 1
+`
+
 	for attempts := 0; ; attempts++ {
 		if attempts > DefaultRandomAttemts {
 			return 0, fmt.Errorf("ula: %w", ErrRandomAttemptsExceeded)
@@ -556,6 +498,15 @@ func createBrigade(
 		keydesk          netip.Addr
 	)
 
+	sqlPickKeydeskNet := `
+	SELECT 
+		ipv6_net
+	FROM 
+		%s
+	ORDER BY iweight ASC, id
+	LIMIT 1
+`
+
 	for attempts := 0; ; attempts++ {
 		if attempts > DefaultRandomAttemts {
 			return 0, fmt.Errorf("keydesk: %w", ErrRandomAttemptsExceeded)
@@ -581,8 +532,41 @@ func createBrigade(
 	}
 
 	// create brigade
+	sqlCreateBrigade := `
+INSERT INTO %s
+		(
+			brigade_id,  
+			pair_id,    
+			brigadier,           
+			endpoint_ipv4,
+			domain_name,       
+			dns_ipv4,            
+			dns_ipv6,            
+			keydesk_ipv6,        
+			ipv4_cgnat,          
+			ipv6_ula,            
+			person              
+		)
+VALUES 
+		(
+			$1,
+			$2,
+			$3,
+			$4,
+			$5,
+			$6,
+			$7,
+			$8,
+			$9,
+			$10,
+			$11
+		)
+RETURNING instance_id;
+`
 
-	_, err = tx.Exec(ctx,
+	var instanceID uuid.UUID
+
+	if err = tx.QueryRow(ctx,
 		fmt.Sprintf(sqlCreateBrigade, pgx.Identifier{env.brigadesSchema, "brigades"}.Sanitize()),
 		opts.id,
 		pairID,
@@ -595,14 +579,15 @@ func createBrigade(
 		cgnatNet.String(),
 		ulaNet.String(),
 		opts.person,
-	)
-	if err != nil {
+	).Scan(&instanceID); err != nil {
 		return 0, fmt.Errorf("create brigade: %w", err)
 	}
 
+	sqlInsertStats := `INSERT INTO %s (brigade_id, instance_id) VALUES ($1);`
+
 	if _, err = tx.Exec(ctx,
 		fmt.Sprintf(sqlInsertStats, (pgx.Identifier{env.brigadesStatsSchema, "brigades_stats"}.Sanitize())),
-		opts.id,
+		opts.id, instanceID,
 	); err != nil {
 		return 0, fmt.Errorf("create stats: %w", err)
 	}
@@ -692,6 +677,8 @@ func applySubdomain(ctx context.Context, db *pgxpool.Pool, schema, subdomAPIHost
 		return fmt.Errorf("scan subdomain: %w", err)
 	}
 
+	sqlInsertPairDomain := `INSERT INTO %s (domain_name, endpoint_ipv4) VALUES ($1,$2)`
+
 	if _, err := tx.Exec(
 		ctx,
 		fmt.Sprintf(sqlInsertPairDomain, pgx.Identifier{schema, "domains_endpoints_ipv4"}.Sanitize()),
@@ -699,6 +686,8 @@ func applySubdomain(ctx context.Context, db *pgxpool.Pool, schema, subdomAPIHost
 	); err != nil {
 		return fmt.Errorf("pair domain update: %w", err)
 	}
+
+	sqlUpdateBrigadeDomain := `UPDATE %s SET domain_name=$1 WHERE brigade_id=$2`
 
 	if _, err := tx.Exec(
 		ctx,
@@ -730,6 +719,8 @@ func requestBrigade(
 		return nil, netip.Addr{}, fmt.Errorf("begin: %w", err)
 	}
 
+	defer tx.Rollback(ctx)
+
 	var (
 		brigadeID    []byte
 		fullname     string
@@ -743,6 +734,24 @@ func requestBrigade(
 		pjson        []byte
 		control_ip   netip.Addr
 	)
+
+	sqlFetchBrigade := `
+SELECT
+	meta_brigades.brigade_id,
+	meta_brigades.brigadier,
+	meta_brigades.endpoint_ipv4,
+	meta_brigades.domain_name,
+	meta_brigades.dns_ipv4,
+	meta_brigades.dns_ipv6,
+	meta_brigades.keydesk_ipv6,
+	meta_brigades.ipv4_cgnat,
+	meta_brigades.ipv6_ula,
+	meta_brigades.person,
+	meta_brigades.control_ip
+FROM %s
+WHERE
+	meta_brigades.brigade_id=$1
+`
 
 	err = tx.QueryRow(ctx,
 		fmt.Sprintf(sqlFetchBrigade,
@@ -763,14 +772,7 @@ func requestBrigade(
 		&control_ip,
 	)
 	if err != nil {
-		tx.Rollback(ctx)
-
 		return nil, netip.Addr{}, fmt.Errorf("brigade query: %w", err)
-	}
-
-	err = tx.Rollback(ctx)
-	if err != nil {
-		return nil, netip.Addr{}, fmt.Errorf("commit: %w", err)
 	}
 
 	person := &namesgenerator.Person{}
@@ -1136,4 +1138,67 @@ func readConfigs() (string, *envOpts, error) {
 	env.vpnCfgs.outline = os.Getenv("OUTLINE_CONFIGS")
 
 	return sshKeyFilename, env, nil
+}
+
+func setOrphan(
+	db *pgxpool.Pool,
+	schema string,
+	brigadeID string,
+) (int32, error) {
+	ctx := context.Background()
+
+	tx, err := db.Begin(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("begin: %w", err)
+	}
+
+	defer tx.Rollback(ctx)
+
+	sqlSetOrphan := `INSERT INTO %s (endpoints_ipv4_id) VALUES SELECT endpoint_ipv4_id FROM %s WHERE brigade_id=$1`
+	if _, err := tx.Exec(ctx, fmt.Sprintf(
+		sqlSetOrphan,
+		pgx.Identifier{schema, "orphaned_endpoints_ipv4"}.Sanitize(),
+		pgx.Identifier{schema, "brigades"}.Sanitize(),
+	), brigadeID); err != nil {
+		return 0, fmt.Errorf("orphan insert: %w", err)
+	}
+
+	sqlDelBrigadesStats := `
+	DELETE
+		FROM %s
+	WHERE brigade_id=$1
+	`
+
+	if _, err := tx.Exec(ctx, fmt.Sprintf(sqlDelBrigadesStats, pgx.Identifier{schema, defaultBrigadesStatsSchema}.Sanitize()), brigadeID); err != nil {
+		return 0, fmt.Errorf("brigades stats delete: %w", err)
+	}
+
+	var domain_name pgtype.Text
+
+	sqlDelBrigade := `
+	DELETE 
+		FROM %s
+	WHERE brigade_id=$1
+	RETURNING domain_name
+	`
+
+	if err := tx.QueryRow(
+		ctx,
+		fmt.Sprintf(sqlDelBrigade, pgx.Identifier{schema, "brigades"}.Sanitize()),
+		brigadeID,
+	).Scan(&domain_name); err != nil {
+		return 0, fmt.Errorf("brigade delete: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return 0, fmt.Errorf("commit: %w", err)
+	}
+
+	num := int32(0)
+
+	if err := tx.QueryRow(ctx, kdlib.GetFreeSlotsNumberStatement(schema, true)).Scan(&num); err != nil {
+		return 0, fmt.Errorf("free slots query: %w", err)
+	}
+
+	return num, nil
 }

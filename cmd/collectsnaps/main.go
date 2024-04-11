@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/vpngen/dc-mgmt/internal/kdlib"
 	"github.com/vpngen/dc-mgmt/internal/snap"
 )
@@ -15,7 +16,7 @@ import (
 // BrigadeGroup - brigades in the same pair.
 type BrigadeGroup struct {
 	ConnectAddr netip.Addr
-	Brigades    [][]byte
+	Brigades    map[uuid.UUID]uuid.UUID
 }
 
 // GroupsList - list of brigades groups.

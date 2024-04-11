@@ -52,7 +52,8 @@ type config struct {
 
 	maintenanceMode int64
 
-	cidrFilter string
+	extFilter  string
+	ctrlFilter string
 }
 
 var (
@@ -66,7 +67,8 @@ func parseArgs(opts *config) error {
 	addDate := flag.Bool("ad", false, "add date to snapshot tag")
 	replace := flag.Bool("r", false, "replace prev snapshot")
 	maintenance := flag.Int64("mnt", 0, "maintenance mode")
-	filter := flag.String("net", "", "filter by prefix")
+	extFilter := flag.String("net", "", "filter by prefix")
+	ctrlFilter := flag.String("ctrl", "", "filter by control nodes")
 
 	flag.Parse()
 
@@ -80,7 +82,8 @@ func parseArgs(opts *config) error {
 
 	opts.maintenanceMode = *maintenance
 
-	opts.cidrFilter = *filter
+	opts.extFilter = *extFilter
+	opts.ctrlFilter = *ctrlFilter
 
 	return nil
 }

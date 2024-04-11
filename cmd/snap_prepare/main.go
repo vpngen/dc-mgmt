@@ -13,7 +13,6 @@ import (
 	dcmgmt "github.com/vpngen/dc-mgmt"
 	"golang.org/x/crypto/ssh"
 
-	snapCore "github.com/vpngen/keydesk-snap/core"
 	snapCrypto "github.com/vpngen/keydesk-snap/core/crypto"
 )
 
@@ -77,7 +76,7 @@ func recode(o *opts) error {
 	return nil
 }
 
-func recodeLocker(data *snapCore.EncryptedBrigade, priv *rsa.PrivateKey, pub *rsa.PublicKey) error {
+func recodeLocker(data *dcmgmt.EncryptedBrigade, priv *rsa.PrivateKey, pub *rsa.PublicKey) error {
 	esec, err := base64.StdEncoding.DecodeString(data.EncryptedLockerSecret)
 	if err != nil {
 		return fmt.Errorf("decode epsk: %w", err)
