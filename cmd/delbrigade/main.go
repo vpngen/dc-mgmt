@@ -241,7 +241,7 @@ func removeBrigade(
 	WHERE brigade_id=$1
 	`
 
-	if _, err := tx.Exec(ctx, fmt.Sprintf(sqlDelBrigadesStats, pgx.Identifier{schema, defaultBrigadesStatsSchema}.Sanitize()), brigadeID); err != nil {
+	if _, err := tx.Exec(ctx, fmt.Sprintf(sqlDelBrigadesStats, pgx.Identifier{defaultBrigadesStatsSchema, "brigades_stats"}.Sanitize()), brigadeID); err != nil {
 		return 0, fmt.Errorf("brigades stats delete: %w", err)
 	}
 
