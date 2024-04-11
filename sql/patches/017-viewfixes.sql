@@ -20,7 +20,7 @@ CREATE VIEW :"schema_brigades_name".slots AS
         LEFT JOIN :"schema_brigades_name".orphaned_endpoints_ipv4 AS o ON o.endpoint_ipv4=pei.endpoint_ipv4
         LEFT JOIN :"schema_brigades_name".reserved_endpoints_ipv4 AS r ON r.endpoint_ipv4=pei.endpoint_ipv4
         LEFT JOIN :"schema_brigades_name".brigades AS b ON b.endpoint_ipv4=pei.endpoint_ipv4
-        LEFT JOIN :"schema_pairs_name".domains_endpoints_ipv4 AS dei ON dei.endpoint_ipv4 = pei.endpoint_ipv4
+        LEFT JOIN :"schema_brigades_name".domains_endpoints_ipv4 AS dei ON dei.endpoint_ipv4 = pei.endpoint_ipv4
     WHERE
         o.endpoint_ipv4 IS NULL
     AND
