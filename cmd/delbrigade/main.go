@@ -184,7 +184,6 @@ func getBrigadeControlIP(db *pgxpool.Pool, schema string, brigadeID string) (net
 		%s AS r ON mb.endpoint_ipv4 = r.endpoint_ipv4
 	WHERE
 		mb.brigade_id=$1
-	FOR UPDATE
 	`
 
 	if err := tx.QueryRow(ctx,
