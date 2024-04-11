@@ -6,10 +6,9 @@ SELECT _v.register_patch( '012-brigades-instance', ARRAY[ '001-init', '002-roles
 
 DROP table IF EXISTS :"schema_stats_name".brigades_statistics;
 
-ALTER TABLE :"schema_brigades_name".brigades ADD COLUMN instance_id uuid NOT NULL DEFAULT gen_random_uuid();
+ALTER TABLE :"schema_brigades_name".brigades ADD COLUMN instance_id uuid UNIQUE NOT NULL DEFAULT gen_random_uuid();
 ALTER TABLE :"schema_brigades_name".brigades DROP CONSTRAINT brigades_pkey CASCADE;
 ALTER TABLE :"schema_brigades_name".brigades ADD PRIMARY KEY (brigade_id, instance_id);
-ALTER TABLE :"schema_brigades_name".brigades ALTER COLUMN instance_id DROP DEFAULT;
 
 ALTER TABLE :"schema_brigades_name".brigades ADD COLUMN main bool NOT NULL DEFAULT true;
 ALTER TABLE :"schema_brigades_name".brigades ALTER COLUMN main DROP DEFAULT;
@@ -22,8 +21,7 @@ DELETE FROM :"schema_stats_name".brigades_stats WHERE instance_id IS NULL;
 
 ALTER TABLE :"schema_stats_name".brigades_stats ALTER COLUMN instance_id SET NOT NULL;
 ALTER TABLE :"schema_stats_name".brigades_stats ALTER COLUMN instance_id DROP DEFAULT;
-ALTER TABLE :"schema_stats_name".brigades_stats ADD CONSTRAINT fk_brigades_instance_id FOREIGN KEY (instance_id) REFERENCES :"schema_brigades_name".brigades(instance_id) ON DELETE CASCADE ON UPDATE CASCADE;
 ALTER TABLE :"schema_stats_name".brigades_stats ADD PRIMARY KEY (brigade_id, instance_id);
-
+ALTER TABLE :"schema_stats_name".brigades_stats ADD CONSTRAINT fk_brigades_brigade_id_instance_id FOREIGN KEY (brigade_id, instance_id) REFERENCES :"schema_brigades_name".brigades (brigade_id, instance_id) ON DELETE CASCADE ON UPDATE CASCADE;
 
 COMMIT;
