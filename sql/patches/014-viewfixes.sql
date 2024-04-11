@@ -71,7 +71,7 @@ CREATE VIEW :"schema_brigades_name".meta_brigades AS
     	b.person,
 	p.control_ip
     FROM
-        :"schema_brigades_name".brigades AS b,
+        :"schema_brigades_name".brigades AS b
     JOIN 
         :"schema_pairs_name".pairs AS p ON p.pair_id=b.pair_id
 ;
