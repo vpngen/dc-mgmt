@@ -180,7 +180,7 @@ func getBrigadeControlIP(db *pgxpool.Pool, schema string, brigadeID string) (net
 		r.reservation_id
 	FROM 
 		%s AS mb
-	JOIN
+	LEFT JOIN
 		%s AS r ON mb.endpoint_ipv4 = r.endpoint_ipv4
 	WHERE
 		mb.brigade_id=$1
