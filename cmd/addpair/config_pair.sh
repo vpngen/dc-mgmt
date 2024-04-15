@@ -1,6 +1,6 @@
 #!/bin/sh
 
-set -e
+set +e
 
 DBNAME=${DBNAME:-"vgrealm"}
 SCHEMA=${SCHEMA:-"pairs"}
@@ -86,6 +86,12 @@ ${SQL_SELECT_NODES}
 EOF
 )
 
+rc=$?
+if [ $rc -ne 0 ]; then
+        echo "[-]         Can't select: psql: ${rc}"
+        exit 1
+fi
+
 cfgpair () {
         pair_id="$1"
         control_ip="$2"
@@ -104,12 +110,14 @@ cfgpair () {
         rc=$?
         if [ $rc -ne 0 ]; then
                 echo "[-]         Something wrong with ssh host key: $rc"
-                exit 1
+                
+                return
         fi
 
         if [ -z "${ssh_ed25519_pubkey}" ]; then
                 echo "[-]         Empty ssh host key"
-                exit 1
+                
+                return
         fi
 
         echo "    ssh host key: ${ssh_ed25519_pubkey}"
@@ -119,12 +127,14 @@ cfgpair () {
         rc=$?
         if [ $rc -ne 0 ]; then
                 echo "[-]         Something wrong with ssh router key: $rc"
-                exit 1
+                
+                return
         fi
 
         if [ -z "${router_nacl_pubkey}" ]; then
                 echo "[-]         Empty ssh router key"
-                exit 1
+                
+                return
         fi
 
         echo "    router key: ${router_nacl_pubkey}"
@@ -147,22 +157,36 @@ cfgpair () {
         COMMIT;
 EOF
 
+        rc=$?
+        if [ $rc -ne 0 ]; then
+                echo "[-]         Can't update: psql: ${rc}"
+                
+                return
+        fi
+
         echo "Updated pair ${pair_id}"
 
         if [ -z "${do_not_enable}" ]; then
-        psql -d "${DBNAME}" \
-                -q -X -t -A -F ";" \
-                --set ON_ERROR_STOP=yes \
-                --set schema_name="${SCHEMA}" \
-                --set pair_id="${pair_id}" <<EOF
-        BEGIN;
+                psql -d "${DBNAME}" \
+                        -q -X -t -A -F ";" \
+                        --set ON_ERROR_STOP=yes \
+                        --set schema_name="${SCHEMA}" \
+                        --set pair_id="${pair_id}" <<EOF
+                BEGIN;
 
-        UPDATE :"schema_name".pairs
-        SET is_active = true
-        WHERE pair_id = :'pair_id';
+                UPDATE :"schema_name".pairs
+                SET is_active = true
+                WHERE pair_id = :'pair_id';
 
-        COMMIT;
+                COMMIT;
 EOF
+
+                rc=$?
+                if [ $rc -ne 0 ]; then
+                        echo "[-]         Can't update: psql: ${rc}"
+                
+                        return
+                fi
         fi
 }
 
