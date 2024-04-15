@@ -38,17 +38,17 @@ CREATE VIEW :"schema_brigades_name".active_pairs AS
 DROP VIEW IF EXISTS :"schema_brigades_name".slots;
 CREATE VIEW :"schema_brigades_name".slots AS 
     SELECT
-        pairs.pair_id,
-        pairs.control_ip,
-        pairs_endpoints_ipv4.endpoint_ipv4,
-        domains_endpoints_ipv4.domain_name
+        p.pair_id,
+        p.control_ip,
+        pei.endpoint_ipv4,
+        dei.domain_name
     FROM 
-        :"schema_pairs_name".pairs
-        JOIN :"schema_pairs_name".pairs_endpoints_ipv4 ON pairs_endpoints_ipv4.pair_id = pairs.pair_id
-        LEFT JOIN :"schema_brigades_name".brigades ON brigades.endpoint_ipv4 = pairs_endpoints_ipv4.endpoint_ipv4
+        :"schema_pairs_name".pairs AS p
+        JOIN :"schema_pairs_name".pairs_endpoints_ipv4 AS pei ON pei.pair_id = p.pair_id
+        LEFT JOIN :"schema_brigades_name".brigades AS b ON b.endpoint_ipv4 = pei.endpoint_ipv4
         LEFT JOIN :"schema_brigades_name".orphaned_endpoints_ipv4 AS o ON o.endpoint_ipv4=pei.endpoint_ipv4
         LEFT JOIN :"schema_brigades_name".reserved_endpoints_ipv4 AS r ON r.endpoint_ipv4=pei.endpoint_ipv4
-        LEFT JOIN :"schema_brigades_name".domains_endpoints_ipv4 ON domains_endpoints_ipv4.endpoint_ipv4 = pairs_endpoints_ipv4.endpoint_ipv4
+        LEFT JOIN :"schema_brigades_name".domains_endpoints_ipv4 AS dei ON dei.endpoint_ipv4 = pei.endpoint_ipv4
     WHERE
         o.endpoint_ipv4 IS NULL
     AND
