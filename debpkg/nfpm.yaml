@@ -169,6 +169,12 @@ contents:
     mode: 0005
     owner: root
     group: root
+- src: dc-mgmt/cmd/addpair/config_pair.sh
+  dst: /opt/vg-dc-admin/config_pair.sh
+  file_info:
+    mode: 0005
+    owner: root
+    group: root
 - src: bin/reset
   dst: /opt/vg-dc-admin/reset
   file_info:
