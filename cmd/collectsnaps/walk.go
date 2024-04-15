@@ -27,7 +27,7 @@ type walkConfig struct {
 
 // pairsWalk - walk through pairs and collect snapshots.
 func pairsWalk(opts *walkConfig) error {
-	groups, err := getBrigadesGroups(opts.db, opts.pairsSchema, opts.brigadesSchema, opts.cidrFilter)
+	groups, err := getBrigadesGroups(opts.db, opts.pairsSchema, opts.brigadesSchema, opts.extFilter, opts.ctrlFilter)
 	if err != nil {
 		return fmt.Errorf("get brigades groups: %w", err)
 	}
@@ -44,14 +44,18 @@ func pairsWalk(opts *walkConfig) error {
 		EncryptedPreSharedSecret: opts.epsk,
 	}
 
-	if opts.cidrFilter != "" {
-		data.Filtered, _ = netip.ParsePrefix(opts.cidrFilter)
+	if opts.extFilter != "" {
+		data.ExternalIPFiltered, _ = netip.ParsePrefix(opts.extFilter)
+	}
+
+	if opts.ctrlFilter != "" {
+		data.ControlNodeFiltered, _ = netip.ParsePrefix(opts.ctrlFilter)
 	}
 
 	sem := make(chan struct{}, ParallelCollectorsLimit) // Semaphore for limiting parallel collectors.
 	var wgg sync.WaitGroup
 
-	stream := make(chan *snap.IncomingSnaps, ParallelCollectorsLimit)
+	stream := make(chan *dcmgmt.InstancedSnaps, ParallelCollectorsLimit)
 	var wgh sync.WaitGroup
 
 	wgh.Add(1)
