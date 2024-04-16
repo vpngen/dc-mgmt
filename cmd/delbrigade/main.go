@@ -225,7 +225,7 @@ func removeBrigade(
 	defer tx.Rollback(ctx)
 
 	if orphan {
-		sqlSetOrphan := `INSERT INTO %s (endpoints_ipv4) SELECT endpoint_ipv4 FROM %s WHERE brigade_id=$1`
+		sqlSetOrphan := `INSERT INTO %s (endpoint_ipv4) SELECT endpoint_ipv4 FROM %s WHERE brigade_id=$1`
 		if _, err := tx.Exec(ctx, fmt.Sprintf(
 			sqlSetOrphan,
 			pgx.Identifier{schema, "orphaned_endpoints_ipv4"}.Sanitize(),
