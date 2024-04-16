@@ -21,8 +21,15 @@ fi
 printdef () {
         msg="$1"
 
-        echo "ERROR: ${msg}" >&2
+        if [ -n "${msg}" ]; then
+                echo "ERROR: ${msg}" >&2
+        fi
+
         echo "Usage: $0 [-e] [-f] [-net <control network>]" >&2
+        echo "Options:" >&2
+        echo "  -e Enable pairs after update" >&2
+        echo "  -f Force update all pairs" >&2
+        echo "  -net Control network for filtering" >&2
 }
 
 while [ "$#" -gt 0 ]; do
