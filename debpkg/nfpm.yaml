@@ -182,7 +182,7 @@ contents:
     owner: root
     group: root
 - src: dc-mgmt/cmd/createreservation/create_reservation.sh
-  dst: /opt/vg-dc-admin/config_pair.sh
+  dst: /opt/vg-dc-admin/create_reservation.sh
   file_info:
     mode: 0005
     owner: root
