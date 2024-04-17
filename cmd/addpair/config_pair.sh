@@ -21,14 +21,21 @@ fi
 printdef () {
         msg="$1"
 
-        echo "ERROR: ${msg}" >&2
-        echo "Usage: $0 [-ne] [-f] [-net <control network>]" >&2
+        if [ -n "${msg}" ]; then
+                echo "ERROR: ${msg}" >&2
+        fi
+
+        echo "Usage: $0 [-e] [-f] [-net <control network>]" >&2
+        echo "Options:" >&2
+        echo "  -e Enable pairs after update" >&2
+        echo "  -f Force update all pairs" >&2
+        echo "  -net Control network for filtering" >&2
 }
 
 while [ "$#" -gt 0 ]; do
         case "$1" in
-                -ne)
-                        DO_NOT_ENABLE=true
+                -e)
+                        ENABLE=true
                         shift
                         ;;
                 -net)
@@ -50,7 +57,7 @@ if [ -z "${CONTROL_NETWORK}" ]; then
 fi
 
 echo "Control network: ${CONTROL_NETWORK}"
-if [ -z "${DO_NOT_ENABLE}" ]; then
+if [ -n "${ENABLE}" ]; then
         echo "Enable: true"
 else
         echo "Enable: false"
@@ -95,11 +102,11 @@ fi
 cfgpair () {
         pair_id="$1"
         control_ip="$2"
-        do_not_enable="$3"
+        enable="$3"
 
         echo "    pair: ${pair_id}"
         echo "    control IP: ${control_ip}"
-        if [ -z "${do_not_enable}" ]; then
+        if [ -n "${enable}" ]; then
                 echo "    enable: true"
         else
                 echo "    enable: false"
@@ -166,7 +173,7 @@ EOF
 
         echo "Updated pair ${pair_id}"
 
-        if [ -z "${do_not_enable}" ]; then
+        if [ -n "${enable}" ]; then
                 psql -d "${DBNAME}" \
                         -q -X -t -A -F ";" \
                         --set ON_ERROR_STOP=yes \

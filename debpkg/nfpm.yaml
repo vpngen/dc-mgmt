@@ -181,6 +181,12 @@ contents:
     mode: 0005
     owner: root
     group: root
+- src: dc-mgmt/cmd/createreservation/create_reservation.sh
+  dst: /opt/vg-dc-admin/create_reservation.sh
+  file_info:
+    mode: 0005
+    owner: root
+    group: root
 
 - dst: /opt/vg-dc-vpnapi
   type: dir
