@@ -40,7 +40,7 @@ genconf () {
         echo "Generate configuration for reservation: ${reservation_uuid}" >&2
         echo >&2
 
-        out="{\"plan\":["
+        out="{\"reservation_id\":\"${reservation_uuid}\", \"plan\":["
 
         groups=$(psql -d "${DBNAME}" -q -t -A \
                 --set brigades_schema="${BRIGADES_SCHEMA}" \
