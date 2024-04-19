@@ -94,14 +94,14 @@ func collectSnaps(wg *sync.WaitGroup, stream chan<- *dcmgmt.InstancedSnaps, sem 
 		fmt.Fprintf(os.Stderr, "%s: [%s]: unmarshal snaps: %s\n", LogTag, opts.addr, err)
 
 		instancedSnaps.TotalCount = len(opts.brigades)
-		instancedSnaps.ErrorsCount = parsedSnaps.TotalCount
+		instancedSnaps.ErrorsCount = instancedSnaps.TotalCount
 
 		return
 	}
 
 	if len(opts.brigades) != parsedSnaps.TotalCount {
 		fmt.Fprintf(os.Stderr,
-			"%s: [%s]: brigades count mismatch: %d != %d\n", LogTag, opts.addr,
+			"%s: [%s]: brigades count mismatch: exp: %d != in: %d\n", LogTag, opts.addr,
 			len(opts.brigades), parsedSnaps.TotalCount)
 
 		instancedSnaps.TotalCount = len(opts.brigades)
@@ -109,7 +109,7 @@ func collectSnaps(wg *sync.WaitGroup, stream chan<- *dcmgmt.InstancedSnaps, sem 
 
 	if parsedSnaps.TotalCount-parsedSnaps.ErrorsCount != len(parsedSnaps.Snaps) {
 		fmt.Fprintf(os.Stderr,
-			"%s: [%s]: brigades count mismatch: %d != %d\n", LogTag, opts.addr,
+			"%s: [%s]: snaps count mismatch: exp: %d != in: %d\n", LogTag, opts.addr,
 			parsedSnaps.TotalCount-parsedSnaps.ErrorsCount, len(parsedSnaps.Snaps))
 
 		instancedSnaps.ErrorsCount = parsedSnaps.TotalCount - len(parsedSnaps.Snaps)
