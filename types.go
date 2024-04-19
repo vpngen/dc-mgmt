@@ -74,3 +74,38 @@ type AggrSnaps struct {
 	// ErrorsCount is a count of the errors during the snapshot collection.
 	ErrorsCount int `json:"errors_count"`
 }
+
+// ReservationNodeConfig - reservation node config.
+type ReservationNodeConfig struct {
+	ControlIP        string   `json:"control_ip"`
+	RouterNACLPubKey string   `json:"router_nacl_pubkey"`
+	Slots            []string `json:"slots"`
+}
+
+// ReservationConfig - reservation config.
+type ReservationConfig struct {
+	ReservationID string                  `json:"reservation_id"`
+	Plan          []ReservationNodeConfig `json:"plan"`
+}
+
+// PreparedSnap - prepared snapshot.
+type PreparedSnap struct {
+	BrigadeID       string   `json:"brigade_id"`
+	EndpointIPv4    string   `json:"endpoint_ipv4"`
+	DomainNames     []string `json:"domain_names"`
+	Payload         string   `json:"payload"`          // encrypted by realm public key
+	EncryptedSecret string   `json:"encrypted_secret"` // encrypted by target realm public key
+}
+
+// RestoreNodeConfig - restore node config.
+type RestoreNodeConfig struct {
+	ControlIP string         `json:"control_ip"`
+	Snaps     []PreparedSnap `json:"snaps"`
+}
+
+// RestorePlan - restore plan.
+type RestorePlan struct {
+	RealmFP       string              `json:"realm_fp"`
+	ReservationID string              `json:"reservation_id"`
+	Plan          []RestoreNodeConfig `json:"plan"`
+}
