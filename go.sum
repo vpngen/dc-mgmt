@@ -108,6 +108,8 @@ github.com/mailru/easyjson v0.7.7 h1:UGYAvKxe3sBsEDzO8ZeWOSlIQfWFlxbzLZe7hwFURr0
 github.com/mailru/easyjson v0.7.7/go.mod h1:xzfreul335JAWq5oZzymOObrkdz5UnU4kGfJJLY9Nlc=
 github.com/miekg/dns v1.1.58 h1:ca2Hdkz+cDg/7eNF6V56jjzuZ4aCAE+DbVkILdQWG/4=
 github.com/miekg/dns v1.1.58/go.mod h1:Ypv+3b/KadlvW9vJfXOTf300O4UqaHFzFCuHz+rPkBY=
+github.com/miekg/dns v1.1.59 h1:C9EXc/UToRwKLhK5wKU/I4QVsBUc8kE6MkHBkeypWZs=
+github.com/miekg/dns v1.1.59/go.mod h1:nZpewl5p6IvctfgrckopVx2OlSEHPRO/U4SYkRklrEk=
 github.com/mitchellh/mapstructure v1.5.0 h1:jeMsZIYE/09sWLaz43PL7Gy6RuMjD2eJVyuac5Z2hdY=
 github.com/mitchellh/mapstructure v1.5.0/go.mod h1:bFUtVrKA4DC2yAKiSyO/QUcy7e+RRV2QTWOzhPopBRo=
 github.com/nxadm/tail v1.4.4/go.mod h1:kenIhsEOeOJmVchQTgglprH7qJGnHDVpk1VPCcaMI8A=
@@ -141,6 +143,8 @@ github.com/vpngen/keydesk v1.6.8 h1:F6rWElUzOlGlrRe+fFuDgqkTkt5D8ZI9dP8XsT3FZ8k=
 github.com/vpngen/keydesk v1.6.8/go.mod h1:4yYjJ8a9BuDOIZEsQZSGjOkcIm5qHCCswl+jIjrcNGI=
 github.com/vpngen/keydesk-snap v0.0.13 h1:qYvTox2TsV/VBAKQ2Rzt7bu6eElkqQZGDY0sJEJTouA=
 github.com/vpngen/keydesk-snap v0.0.13/go.mod h1:d4WhkM89AvA+UJwecDIRq0ZXrPGJvr65Ntx+YIUT7Wk=
+github.com/vpngen/keydesk-snap v0.0.17 h1:DPQXi0RKfsT9WpVCHTGk16MJGpQbKIDHmHurv+wYVLQ=
+github.com/vpngen/keydesk-snap v0.0.17/go.mod h1:d4WhkM89AvA+UJwecDIRq0ZXrPGJvr65Ntx+YIUT7Wk=
 github.com/vpngen/vpngine v0.1.0 h1:0qZDD2c9Y0MWaSDdNlAxQ7k6A0zXrKvvqAlC7Q0YlEE=
 github.com/vpngen/vpngine v0.1.0/go.mod h1:19XDA1qngyb8zSHRhpYAK4T3Q1cC6HwTXkfuU4u3wtE=
 github.com/vpngen/wordsgens v1.0.2 h1:VxLk1TW2MRkEp93xIqwCmzVoiAQJ+4+zq/Fp4H5oUBQ=
@@ -148,6 +152,8 @@ github.com/vpngen/wordsgens v1.0.2/go.mod h1:MwR0TzA/9pHCBYy+o0mMZtxPnjlNH8/7Kel
 github.com/yuin/goldmark v1.4.13/go.mod h1:6yULJ656Px+3vBD8DxQVa3kxgyrAnzto9xy5taEt/CY=
 go.mongodb.org/mongo-driver v1.14.0 h1:P98w8egYRjYe3XDjxhYJagTokP/H6HzlsnojRgZRd80=
 go.mongodb.org/mongo-driver v1.14.0/go.mod h1:Vzb0Mk/pa7e6cWw85R4F/endUC3u0U9jGcNU603k65c=
+go.mongodb.org/mongo-driver v1.15.0 h1:rJCKC8eEliewXjZGf0ddURtl7tTVy1TK3bfl0gkUSLc=
+go.mongodb.org/mongo-driver v1.15.0/go.mod h1:Vzb0Mk/pa7e6cWw85R4F/endUC3u0U9jGcNU603k65c=
 go.opentelemetry.io/otel v1.25.0 h1:gldB5FfhRl7OJQbUHt/8s0a7cE8fbsPAtdpRaApKy4k=
 go.opentelemetry.io/otel v1.25.0/go.mod h1:Wa2ds5NOXEMkCmUou1WA7ZBfLTHWIsp034OVD7AO+Vg=
 go.opentelemetry.io/otel/metric v1.25.0 h1:LUKbS7ArpFL/I2jJHdJcqMGxkRdxpPHE0VU/D4NuEwA=
