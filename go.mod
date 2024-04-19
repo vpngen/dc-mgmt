@@ -11,10 +11,10 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/mux v1.8.1
 	github.com/jackc/pgx/v5 v5.5.5
-	github.com/miekg/dns v1.1.58
+	github.com/miekg/dns v1.1.59
 	github.com/vpngen/domain-commander v0.3.0
 	github.com/vpngen/keydesk v1.6.8
-	github.com/vpngen/keydesk-snap v0.0.13
+	github.com/vpngen/keydesk-snap v0.0.17
 	github.com/vpngen/vpngine v0.1.0
 	github.com/vpngen/wordsgens v1.0.2
 	golang.org/x/crypto v0.22.0
@@ -45,7 +45,7 @@ require (
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/oklog/ulid v1.3.1 // indirect
 	github.com/opentracing/opentracing-go v1.2.0 // indirect
-	go.mongodb.org/mongo-driver v1.14.0 // indirect
+	go.mongodb.org/mongo-driver v1.15.0 // indirect
 	go.opentelemetry.io/otel v1.25.0 // indirect
 	go.opentelemetry.io/otel/metric v1.25.0 // indirect
 	go.opentelemetry.io/otel/trace v1.25.0 // indirect
