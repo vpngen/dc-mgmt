@@ -11,8 +11,8 @@ import (
 )
 
 const (
-	defaultRealmPrivkeyFilename    = "/etc/vg-keydesk-snap/priv/realm.pem"
-	defaultAuthoritiesKeysFilename = "/etc/vg-keydesk-snap/authorities_keys"
+	defaultRealmPrivkeyFilename    = "/etc/vg-dc-snaps/priv/realm.pem"
+	defaultAuthoritiesKeysFilename = "/etc/vg-dc-snaps/authorities_keys"
 )
 
 type cfg struct {
