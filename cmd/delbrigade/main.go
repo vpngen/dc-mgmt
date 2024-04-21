@@ -68,46 +68,57 @@ func setLogTag() string {
 	return filepath.Base(executable)
 }
 
+type opts struct {
+	sshKeyFilename string
+
+	dburl string
+
+	subdomAPIHost  string
+	subdomAPIToken string
+
+	ident string
+
+	delegationUser   string
+	delegationServer string
+
+	kdAddrUser   string
+	kdAddrServer string
+}
+
 func main() {
 	var w io.WriteCloser
 
-	chunked, base32String, uuidString, err := parseArgs()
+	chunked, secondary, base32String, uuidString, err := parseArgs()
 	if err != nil {
 		log.Fatalf("%s: Can't parse args: %s\n", LogTag, err)
 	}
 
-	sshKeyFilename,
-		dbname, schema,
-		subdomAPIHost, subdomAPIToken,
-		ident,
-		delegationUser, delegationServer,
-		kdAddrUser, kdAddrServer,
-		err := readConfigs()
+	opts, err := readConfigs()
 	if err != nil {
 		log.Fatalf("%s: Can't read configs: %s\n", LogTag, err)
 	}
 
-	sshconf, err := kdlib.CreateSSHConfig(sshKeyFilename, sshkeyRemoteUsername, kdlib.SSHDefaultTimeOut)
+	sshconf, err := kdlib.CreateSSHConfig(opts.sshKeyFilename, sshkeyRemoteUsername, kdlib.SSHDefaultTimeOut)
 	if err != nil {
 		log.Fatalf("%s: Can't create ssh configs: %s\n", LogTag, err)
 	}
 
-	delegationSyncSSHconf, err := kdlib.CreateSSHConfig(sshKeyFilename, delegationUser, kdlib.SSHDefaultTimeOut)
+	delegationSyncSSHconf, err := kdlib.CreateSSHConfig(opts.sshKeyFilename, opts.delegationUser, kdlib.SSHDefaultTimeOut)
 	if err != nil {
 		log.Fatalf("Can't create delegation sync ssh config: %s\n", err)
 	}
 
-	kdAddrSyncSSHconf, err := kdlib.CreateSSHConfig(sshKeyFilename, kdAddrUser, kdlib.SSHDefaultTimeOut)
+	kdAddrSyncSSHconf, err := kdlib.CreateSSHConfig(opts.sshKeyFilename, opts.kdAddrUser, kdlib.SSHDefaultTimeOut)
 	if err != nil {
 		log.Fatalf("Can't create keydesk address ssh config: %s\n", err)
 	}
 
-	db, err := createDBPool(dbname)
+	db, err := createDBPool(opts.dburl)
 	if err != nil {
 		log.Fatalf("%s: Can't create db pool: %s\n", LogTag, err)
 	}
 
-	control_ip, err := getBrigadeControlIP(db, schema, uuidString)
+	controlIP, instanceID, err := getBrigadeControlIP(db, uuidString, secondary)
 	if err != nil {
 		log.Fatalf("%s: Can't get control ip: %s\n", LogTag, err)
 	}
@@ -115,7 +126,7 @@ func main() {
 	orphan := false
 
 	// attention! brigadeID - base32-style.
-	output, err := revokeBrigade(sshconf, base32String, control_ip)
+	output, err := revokeBrigade(sshconf, base32String, controlIP)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s: Can't revoke brigade: %s\n", LogTag, err)
 
@@ -124,12 +135,13 @@ func main() {
 
 	// attention! id - uuid-style string.
 	num, err := removeBrigade(
-		db, schema,
+		db,
 		uuidString,
-		subdomAPIHost, subdomAPIToken,
-		ident,
-		delegationServer, delegationSyncSSHconf,
-		kdAddrServer, kdAddrSyncSSHconf,
+		instanceID,
+		opts.subdomAPIHost, opts.subdomAPIToken,
+		opts.ident,
+		opts.delegationServer, delegationSyncSSHconf,
+		opts.kdAddrServer, kdAddrSyncSSHconf,
 		orphan,
 	)
 	if err != nil {
@@ -158,57 +170,89 @@ func main() {
 
 var ErrReservedSlot = errors.New("reserved slot")
 
-func getBrigadeControlIP(db *pgxpool.Pool, schema string, brigadeID string) (netip.Addr, error) {
+func getBrigadeControlIP(db *pgxpool.Pool, brigadeID string, secondary bool) (netip.Addr, uuid.UUID, error) {
 	ctx := context.Background()
-	emptyIP := netip.Addr{}
+
+	var (
+		controlIP     netip.Addr
+		instanceID    uuid.UUID
+		reservationID pgtype.UUID
+	)
 
 	tx, err := db.Begin(ctx)
 	if err != nil {
-		return emptyIP, fmt.Errorf("begin: %w", err)
+		return controlIP, instanceID, fmt.Errorf("begin: %w", err)
 	}
 
 	defer tx.Rollback(ctx)
 
-	var (
-		control_ip    netip.Addr
-		reservationID pgtype.UUID
-	)
+	if !secondary {
+		sqlGetBrigadesCount := `
+		SELECT
+			COUNT(*)
+		FROM
+			%s
+		WHERE
+			brigade_id=$1
+		`
+
+		var count int32
+
+		if err := tx.QueryRow(ctx,
+			fmt.Sprintf(sqlGetBrigadesCount, pgx.Identifier{defaultBrigadesSchema, "brigades"}.Sanitize()),
+			brigadeID,
+		).Scan(&count); err != nil {
+			return controlIP, instanceID, fmt.Errorf("brigade count: %w", err)
+		}
+
+		if count == 0 {
+			return controlIP, instanceID, fmt.Errorf("%w: %s", ErrReservedSlot, brigadeID)
+		}
+
+	}
 
 	sqlGetControlIP := `
 	SELECT
 		mb.control_ip,
+		mb.instance_id,
 		r.reservation_id
 	FROM 
 		%s AS mb
-	LEFT JOIN
-		%s AS r ON mb.endpoint_ipv4 = r.endpoint_ipv4
+	LEFT JOIN 
+		%s AS rei ON mb.endpoint_ipv4 = rei.endpoint_ipv4
 	WHERE
 		mb.brigade_id=$1
+	AND
+		mb.main=$2
+	LIMIT 1
 	`
 
 	if err := tx.QueryRow(ctx,
 		fmt.Sprintf(sqlGetControlIP,
-			(pgx.Identifier{schema, "meta_brigades"}.Sanitize()),
-			(pgx.Identifier{schema, "reserved_endpoints_ipv4"}.Sanitize()),
+			(pgx.Identifier{defaultBrigadesSchema, "meta_brigades"}.Sanitize()),
+			(pgx.Identifier{defaultBrigadesSchema, "reserved_endpoints_ipv4"}.Sanitize()),
 		),
 		brigadeID,
+		!secondary,
 	).Scan(
-		&control_ip,
+		&controlIP,
+		&instanceID,
 		&reservationID,
 	); err != nil {
-		return emptyIP, fmt.Errorf("brigade query: %w", err)
+		return controlIP, instanceID, fmt.Errorf("brigade query: %w", err)
 	}
 
 	if reservationID.Valid {
-		return emptyIP, fmt.Errorf("%w: %s (%s)", ErrReservedSlot, brigadeID, uuid.UUID(reservationID.Bytes).String())
+		return controlIP, instanceID, fmt.Errorf("%w: %s (%s)", ErrReservedSlot, brigadeID, uuid.UUID(reservationID.Bytes).String())
 	}
 
-	return control_ip, nil
+	return controlIP, instanceID, nil
 }
 
 func removeBrigade(
-	db *pgxpool.Pool, schema string,
+	db *pgxpool.Pool,
 	brigadeID string,
+	instanceID uuid.UUID,
 	subdomAPIHost, subdomAPIToken string,
 	ident string,
 	delegationSyncServer string, delegationSyncSSHconf *ssh.ClientConfig,
@@ -228,8 +272,8 @@ func removeBrigade(
 		sqlSetOrphan := `INSERT INTO %s (endpoint_ipv4) SELECT endpoint_ipv4 FROM %s WHERE brigade_id=$1`
 		if _, err := tx.Exec(ctx, fmt.Sprintf(
 			sqlSetOrphan,
-			pgx.Identifier{schema, "orphaned_endpoints_ipv4"}.Sanitize(),
-			pgx.Identifier{schema, "brigades"}.Sanitize(),
+			pgx.Identifier{defaultBrigadesSchema, "orphaned_endpoints_ipv4"}.Sanitize(),
+			pgx.Identifier{defaultBrigadesSchema, "brigades"}.Sanitize(),
 		), brigadeID); err != nil {
 			return 0, fmt.Errorf("orphan insert: %w", err)
 		}
@@ -238,10 +282,15 @@ func removeBrigade(
 	sqlDelBrigadesStats := `
 	DELETE
 		FROM %s
-	WHERE brigade_id=$1
+	WHERE 
+		brigade_id=$1
+	AND
+		instance_id=$2
 	`
 
-	if _, err := tx.Exec(ctx, fmt.Sprintf(sqlDelBrigadesStats, pgx.Identifier{defaultBrigadesStatsSchema, "brigades_stats"}.Sanitize()), brigadeID); err != nil {
+	if _, err := tx.Exec(ctx,
+		fmt.Sprintf(sqlDelBrigadesStats, pgx.Identifier{defaultBrigadesStatsSchema, "brigades_stats"}.Sanitize()),
+		brigadeID, instanceID); err != nil {
 		return 0, fmt.Errorf("brigades stats delete: %w", err)
 	}
 
@@ -250,21 +299,24 @@ func removeBrigade(
 	sqlDelBrigade := `
 	DELETE 
 		FROM %s
-	WHERE brigade_id=$1
+	WHERE 
+		brigade_id=$1
+	AND
+		instance_id=$2
 	RETURNING domain_name
 	`
 
 	if err := tx.QueryRow(
 		ctx,
-		fmt.Sprintf(sqlDelBrigade, pgx.Identifier{schema, "brigades"}.Sanitize()),
-		brigadeID,
+		fmt.Sprintf(sqlDelBrigade, pgx.Identifier{defaultBrigadesSchema, "brigades"}.Sanitize()),
+		brigadeID, instanceID,
 	).Scan(&domain_name); err != nil {
 		return 0, fmt.Errorf("brigade delete: %w", err)
 	}
 
 	num := int32(0)
 
-	if err := tx.QueryRow(ctx, kdlib.GetFreeSlotsNumberStatement(schema, true)).Scan(&num); err != nil {
+	if err := tx.QueryRow(ctx, kdlib.GetFreeSlotsNumberStatement(defaultBrigadesSchema, true)).Scan(&num); err != nil {
 		return 0, fmt.Errorf("free slots query: %w", err)
 	}
 
@@ -273,14 +325,14 @@ func removeBrigade(
 	}
 
 	if domain_name.Valid {
-		if err := revokeSubdomain(ctx, db, schema, subdomAPIHost, subdomAPIToken, domain_name.String); err != nil {
+		if err := revokeSubdomain(ctx, db, subdomAPIHost, subdomAPIToken, domain_name.String); err != nil {
 			return 0, fmt.Errorf("revoke subdomain: %w", err)
 		}
 	}
 
 	// Sync delegation list.
 
-	delegationList, err := dcmgmt.NewDelegationList(ctx, db, schema)
+	delegationList, err := dcmgmt.NewDelegationList(ctx, db, defaultBrigadesSchema)
 	if err != nil {
 		return 0, fmt.Errorf("delegation list: %w", err)
 	}
@@ -295,7 +347,7 @@ func removeBrigade(
 
 	// Sync keydesk address list.
 
-	kdAddrList, err := dcmgmt.NewKdAddrList(ctx, db, schema)
+	kdAddrList, err := dcmgmt.NewKdAddrList(ctx, db, defaultBrigadesSchema)
 	if err != nil {
 		return 0, fmt.Errorf("keydesk addr list: %w", err)
 	}
@@ -311,7 +363,7 @@ func removeBrigade(
 	return num, nil
 }
 
-func revokeSubdomain(ctx context.Context, db *pgxpool.Pool, schema string, subdomAPIHost, subdomAPIToken string, domain_name string) error {
+func revokeSubdomain(ctx context.Context, db *pgxpool.Pool, subdomAPIHost, subdomAPIToken string, domain_name string) error {
 	if subdomAPIToken == dcmgmt.NoUseSubdomainAPIToken {
 		return nil
 	}
@@ -326,7 +378,7 @@ func revokeSubdomain(ctx context.Context, db *pgxpool.Pool, schema string, subdo
 	sqlDelPairDomain := `DELETE FROM %s WHERE domain_name=$1`
 	commTag, err := tx.Exec(ctx, fmt.Sprintf(
 		sqlDelPairDomain,
-		pgx.Identifier{schema, "domains_endpoints_ipv4"}.Sanitize()),
+		pgx.Identifier{defaultBrigadesSchema, "domains_endpoints_ipv4"}.Sanitize()),
 		domain_name,
 	)
 	if err != nil {
@@ -426,10 +478,11 @@ func createDBPool(dburl string) (*pgxpool.Pool, error) {
 	return pool, nil
 }
 
-func parseArgs() (bool, string, string, error) {
+func parseArgs() (bool, bool, string, string, error) {
 	brigadeID := flag.String("id", "", "brigadier_id in base32 form")
 	brigadeUUID := flag.String("uuid", "", "brigadier_id in uuid form")
 	chunked := flag.Bool("ch", false, "chunked output")
+	secondary := flag.Bool("s", false, "secondary brigade")
 
 	flag.Parse()
 
@@ -438,79 +491,84 @@ func parseArgs() (bool, string, string, error) {
 		// brigadeID must be base32 decodable.
 		buf, err := base32.StdEncoding.WithPadding(base32.NoPadding).DecodeString(*brigadeID)
 		if err != nil {
-			return false, "", "", fmt.Errorf("id base32: %s: %w", *brigadeID, err)
+			return false, false, "", "", fmt.Errorf("id base32: %s: %w", *brigadeID, err)
 		}
 
 		id, err := uuid.FromBytes(buf)
 		if err != nil {
-			return false, "", "", fmt.Errorf("id uuid: %s: %w", *brigadeID, err)
+			return false, false, "", "", fmt.Errorf("id uuid: %s: %w", *brigadeID, err)
 		}
 
-		return *chunked, *brigadeID, id.String(), nil
+		return *chunked, *secondary, *brigadeID, id.String(), nil
 	case *brigadeUUID != "" && *brigadeID == "":
 		id, err := uuid.Parse(*brigadeUUID)
 		if err != nil {
-			return false, "", "", fmt.Errorf("id uuid: %s: %w", *brigadeID, err)
+			return false, false, "", "", fmt.Errorf("id uuid: %s: %w", *brigadeID, err)
 		}
 
 		bid := base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(id[:])
 
-		return *chunked, bid, id.String(), nil
+		return *chunked, *secondary, bid, id.String(), nil
 	default:
-		return false, "", "", fmt.Errorf("both ids: %w", errInlalidArgs)
+		return false, false, "", "", fmt.Errorf("both ids: %w", errInlalidArgs)
 	}
 }
 
-func readConfigs() (string, string, string, string, string, string, string, string, string, string, error) {
+func readConfigs() (*opts, error) {
 	dbURL := os.Getenv("DB_URL")
 	if dbURL == "" {
 		dbURL = defaultDatabaseURL
 	}
 
-	brigadeSchema := os.Getenv("BRIGADES_SCHEMA")
-	if brigadeSchema == "" {
-		brigadeSchema = defaultBrigadesSchema
-	}
-
 	sshKeyFilename, err := kdlib.LookupForSSHKeyfile(os.Getenv("SSH_KEY"), sshKeyDefaultPath)
 	if err != nil {
-		return "", "", "", "", "", "", "", "", "", "", fmt.Errorf("ssh key: %w", err)
+		return nil, fmt.Errorf("ssh key: %w", err)
 	}
 
 	subdomainAPIHost := os.Getenv("SUBDOMAIN_API_SERVER")
 	if subdomainAPIHost == "" {
-		return "", "", "", "", "", "", "", "", "", "", errors.New("empty subdomapi host")
+		return nil, errors.New("empty subdomapi host")
 	}
 
 	if _, err := netip.ParseAddrPort(subdomainAPIHost); err != nil {
-		return "", "", "", "", "", "", "", "", "", "", fmt.Errorf("parse subdomapi host: %w", err)
+		return nil, fmt.Errorf("parse subdomapi host: %w", err)
 	}
 
 	subdomainAPIToken := os.Getenv("SUBDOMAIN_API_TOKEN")
 	if subdomainAPIToken == "" {
-		return "", "", "", "", "", "", "", "", "", "", errors.New("empty subdomapi token")
+		return nil, errors.New("empty subdomapi token")
 	}
 
 	_, ident, err := dcmgmt.ParseDCNameEnv()
 	if err != nil {
-		return "", "", "", "", "", "", "", "", "", "", fmt.Errorf("dc name: %w", err)
+		return nil, fmt.Errorf("dc name: %w", err)
 	}
 
 	delegationUser, delegationServer, err := dcmgmt.ParseConnEnv("DELEGATION_SYNC_CONNECT")
 	if err != nil {
-		return "", "", "", "", "", "", "", "", "", "", fmt.Errorf("delegation sync connect: %w", err)
+		return nil, fmt.Errorf("delegation sync connect: %w", err)
 	}
 
 	kdAddrUser, kdAddrServer, err := dcmgmt.ParseConnEnv("KEYDESK_ADDRESS_SYNC_CONNECT")
 	if err != nil {
-		return "", "", "", "", "", "", "", "", "", "", fmt.Errorf("keydesk address sync connect: %w", err)
+		return nil, fmt.Errorf("keydesk address sync connect: %w", err)
 	}
 
-	return sshKeyFilename,
-		dbURL, brigadeSchema,
-		subdomainAPIHost, subdomainAPIToken,
-		ident,
-		delegationUser, delegationServer,
-		kdAddrUser, kdAddrServer,
+	return &opts{
+			sshKeyFilename: sshKeyFilename,
+
+			dburl: dbURL,
+
+			subdomAPIHost:  subdomainAPIHost,
+			subdomAPIToken: subdomainAPIToken,
+
+			ident: ident,
+
+			delegationUser:   delegationUser,
+			delegationServer: delegationServer,
+
+			kdAddrUser:   kdAddrUser,
+			kdAddrServer: kdAddrServer,
+		},
 		nil
 }
