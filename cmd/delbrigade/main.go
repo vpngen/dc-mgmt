@@ -168,7 +168,10 @@ func main() {
 	}
 }
 
-var ErrReservedSlot = errors.New("reserved slot")
+var (
+	ErrReservedSlot       = errors.New("reserved slot")
+	ErrNoDeletebleBrigade = errors.New("no deleteble brigade")
+)
 
 func getBrigadeControlIP(db *pgxpool.Pool, brigadeID string, secondary bool) (netip.Addr, uuid.UUID, error) {
 	ctx := context.Background()
@@ -206,7 +209,7 @@ func getBrigadeControlIP(db *pgxpool.Pool, brigadeID string, secondary bool) (ne
 		}
 
 		if count == 0 {
-			return controlIP, instanceID, fmt.Errorf("%w: %s", ErrReservedSlot, brigadeID)
+			return controlIP, instanceID, fmt.Errorf("%w: %s", ErrNoDeletebleBrigade, brigadeID)
 		}
 
 	}
@@ -215,7 +218,7 @@ func getBrigadeControlIP(db *pgxpool.Pool, brigadeID string, secondary bool) (ne
 	SELECT
 		mb.control_ip,
 		mb.instance_id,
-		r.reservation_id
+		rei.reservation_id
 	FROM 
 		%s AS mb
 	LEFT JOIN 
