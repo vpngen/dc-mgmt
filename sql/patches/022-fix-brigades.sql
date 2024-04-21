@@ -6,6 +6,6 @@ SELECT _v.register_patch( '022-fix-brigades', ARRAY[ '001-init', '002-roles', '0
 
 ALTER TABLE :"schema_brigades_name".brigades DROP CONSTRAINT brigades_brigadier_key; 
 
-ALTER TABLE :"schema_brigades_name".brigades ADD CONSTRAINT unique_brigadier_per_id UNIQUE (id, brigadier);
+ALTER TABLE :"schema_brigades_name".brigades ADD CONSTRAINT unique_brigadier_per_id UNIQUE (brigade_id, brigadier);
 
 COMMIT;
