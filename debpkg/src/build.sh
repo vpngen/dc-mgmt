@@ -17,6 +17,7 @@ go build -C dc-mgmt/tools/cmd/dns-srv -o ../../../../bin/dns-srv
 go build -C dc-mgmt/tools/cmd/dns-chk -o ../../../../bin/dns-chk
 go build -C dc-mgmt/cmd/collectsnaps -o ../../../bin/collectsnaps
 go build -C dc-mgmt/cmd/snap_prepare -o ../../../bin/snap_prepare
+go build -C dc-mgmt/cmd/restoresnaps -o ../../../bin/restoresnaps
 
 go install github.com/goreleaser/nfpm/v2/cmd/nfpm@latest
 
