@@ -20,7 +20,7 @@ func HandleSnapsStream(logTag string, data *dcmgmt.AggrSnaps, filename string, s
 		data.ErrorsCount += snap.ErrorsCount
 	}
 
-	f, err := os.Create(filename + fileTempSuffix)
+	f, err := os.OpenFile(filename+fileTempSuffix, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o640)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s: create stats file: %s\n", logTag, err)
 
