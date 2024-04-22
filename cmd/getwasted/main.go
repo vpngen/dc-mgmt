@@ -22,6 +22,11 @@ const (
 )
 
 const (
+	defaultBrigadesSchema      = "brigades"
+	defaultBrigadesStatsSchema = "stats"
+)
+
+const (
 	defaultFirstVisitDaysLimit        = 1
 	defaultActiveCreatedAtMonthsLimit = 1
 	defaultMinActiveUsers             = 5
@@ -122,26 +127,42 @@ func getInactive(db *pgxpool.Pool, months, num, min int) ([]byte, error) {
 
 	sqlGetInactive := `
 	SELECT 
-		brigade_id
+		bs.brigade_id
 	FROM 
-		%s
+		%s bs
+	JOIN 
+		%s b ON bs.brigade_id = b.brigade_id
+	LEFT JOIN
+		%s b2 ON b.brigade_id = b2.brigade_id AND b2.main = false
+	LEFT JOIN 
+		%s AS rei ON b.endpoint_ipv4 = rei.endpoint_ipv4
 	WHERE
 		(
-			(update_time > now() - ($1 * INTERVAL '1 days'))
+			(bs.update_time > now() - ($1 * INTERVAL '1 days'))
 		OR
 			-- it's for resolve corrupted brigade deletion
-			((update_time < now() - ($1 * INTERVAL '1 days')) AND (update_time>=$2))
+			((bs.update_time < now() - ($1 * INTERVAL '1 days')) AND (bs.update_time>=$2))
 		)
 	AND
-		created_at < $3
+		bs.created_at < $3
 	AND 
-		active_users_count < $4::int
+		bs.active_users_count < $4::int
+	AND
+		b.main = true
+	AND
+		rei.endpoint_ipv4 IS NULL
+	AND
+		b2.brigade_id IS NULL
 	ORDER BY 
-		created_at ASC
+		bs.created_at ASC
 	LIMIT $5::int
 	`
 	rows, err := tx.Query(ctx,
-		fmt.Sprintf(sqlGetInactive, (pgx.Identifier{"stats", "brigades_stats"}.Sanitize())), // !!!!
+		fmt.Sprintf(sqlGetInactive,
+			pgx.Identifier{defaultBrigadesStatsSchema, "brigades_stats"}.Sanitize(), // !!!!
+			pgx.Identifier{defaultBrigadesSchema, "brigades"}.Sanitize(),
+			pgx.Identifier{defaultBrigadesSchema, "brigades"}.Sanitize(),
+			pgx.Identifier{defaultBrigadesSchema, "reserved_endpoints_ipv4"}.Sanitize()), // !!!!
 		updateTimeFreshness,
 		firstDayOfMonth,
 		maxCreatedAt,
@@ -189,23 +210,39 @@ func getNotVisited(db *pgxpool.Pool, days, num int) ([]byte, error) {
 
 	sqlGetNotVisited := `
 	SELECT 
-		brigade_id
+		bs.brigade_id
 	FROM 
-		%s
+		%s bs
+	JOIN 
+		%s b ON bs.brigade_id = b.brigade_id
+	LEFT JOIN
+		%s b2 ON b.brigade_id = b2.brigade_id AND b2.main = false
+	LEFT JOIN 
+		%s AS rei ON b.endpoint_ipv4 = rei.endpoint_ipv4
 	WHERE
-		update_time > now() - ($1 * INTERVAL '1 hours')
+		bs.update_time > now() - ($1 * INTERVAL '1 hours')
 	AND
-		created_at < now() - ($2 * INTERVAL '1 days') 
+		bs.created_at < now() - ($2 * INTERVAL '1 days') 
 	AND
-		total_users_count=1
+		bs.total_users_count=1
 	AND 
-		first_visit IS NULL
+		bs.first_visit IS NULL
+	AND
+		rei.endpoint_ipv4 IS NULL
+	AND
+		b.main = true
+	AND
+		b2.brigade_id IS NULL
 	ORDER BY 
-		created_at ASC
+		bs.created_at ASC
 	LIMIT $3::int
 	`
 	rows, err := tx.Query(ctx,
-		fmt.Sprintf(sqlGetNotVisited, (pgx.Identifier{"stats", "brigades_stats"}.Sanitize())), // !!!!
+		fmt.Sprintf(sqlGetNotVisited,
+			pgx.Identifier{defaultBrigadesStatsSchema, "brigades_stats"}.Sanitize(),      // !!!!
+			pgx.Identifier{defaultBrigadesSchema, "brigades"}.Sanitize(),                 // !!!!
+			pgx.Identifier{defaultBrigadesSchema, "brigades"}.Sanitize(),                 // !!!!
+			pgx.Identifier{defaultBrigadesSchema, "reserved_endpoints_ipv4"}.Sanitize()), // !!!!
 		updateTimeFreshness,
 		days,
 		num,

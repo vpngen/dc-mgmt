@@ -18,7 +18,7 @@ const (
 )
 
 const (
-	DefaultRealmsKeysDir = "/etc/vg-keydesk-snap"
+	DefaultRealmsKeysDir = "/etc/vg-dc-snaps"
 )
 
 const (
