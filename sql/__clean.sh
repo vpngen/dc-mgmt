@@ -16,6 +16,10 @@ SCHEMA_STATS=${SCHEMA_STATS:-"stats"}
 echo "stats schema: $SCHEMA_STATS"
 STATS_DBUSER=${STATS_DBUSER:-"vgstats"}
 echo "brigades user: $STATS_DBUSER"
+SNAPS_DBUSER=${SNAPS_DBUSER:-"vgsnaps"}
+echo "brigades user: $SNAPS_DBUSER"
+MIGR_DBUSER=${MIGR_DBUSER:-"vgmigr"}
+echo "brigades user: $MIGR_DBUSER"
 
 set -x
 

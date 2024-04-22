@@ -105,7 +105,7 @@ func composeFilename(basePath, baseTag, tag string) (string, error) {
 	fn := fmt.Sprintf("%s.json", tag)
 
 	if _, err := os.Stat(path); os.IsNotExist(err) {
-		if err := os.MkdirAll(path, 0o755); err != nil {
+		if err := os.MkdirAll(path, 0o750); err != nil {
 			return "", fmt.Errorf("create path: %w", err)
 		}
 	}
