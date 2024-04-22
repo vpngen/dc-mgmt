@@ -422,7 +422,7 @@ func recreateBrigade(db *pgxpool.Pool, rid string, data *storage.Brigade, caddr,
 
 	if _, err = tx.Exec(ctx,
 		fmt.Sprintf(sqlInsertStats, (pgx.Identifier{defaultBrigadesStatsSchema, "brigades_stats"}.Sanitize())),
-		data.BrigadeID, instanceID,
+		uuid.UUID(brigadeID), instanceID,
 	); err != nil {
 		return fmt.Errorf("create stats: %w", err)
 	}
