@@ -6,6 +6,7 @@ import (
 
 	snapCore "github.com/vpngen/keydesk-snap/core"
 	"github.com/vpngen/keydesk/keydesk"
+	"github.com/vpngen/keydesk/keydesk/storage"
 )
 
 // InstancedSnaps - structure for encrypted brigade with additional fields.
@@ -108,4 +109,9 @@ type RestorePlan struct {
 	RealmFP       string              `json:"realm_fp"`
 	ReservationID string              `json:"reservation_id"`
 	Plan          []RestoreNodeConfig `json:"plan"`
+}
+
+// ControlNodeRestorePlan - control node restore plan.
+type ControlNodeRestorePlan struct {
+	Plan []*storage.Brigade `json:"plan"`
 }

@@ -47,18 +47,6 @@ const (
 	BrigadeUlaPrefix   = 64
 )
 
-const (
-	sqlGetControlIP = `
-	SELECT
-		control_ip,
-		keydesk_ipv6
-	FROM %s
-	WHERE
-		brigade_id=$1
-	FOR UPDATE
-	`
-)
-
 const defaultWireguardConfigs = "native"
 
 var errInlalidArgs = errors.New("invalid args")
@@ -114,7 +102,7 @@ func main() {
 	}
 
 	// attention! brigadeID - base32-style.
-	wgconf, err := replaceBrigadier(db, schema, sshconf, brigadeID, controlIP, opts)
+	wgconf, err := replaceBrigadier(sshconf, brigadeID, controlIP, opts)
 	if err != nil {
 		fatal(w, jout, "%s: Can't replace brigadier: %s\n", LogTag, err)
 	}
@@ -188,6 +176,18 @@ func checkBrigade(db *pgxpool.Pool, schema string, brigadeID string) (netip.Addr
 		keydeskIPv6 netip.Addr
 	)
 
+	sqlGetControlIP := `
+	SELECT
+		control_ip,
+		keydesk_ipv6
+	FROM %s
+	WHERE
+		brigade_id=$1
+	AND
+		main=true
+	FOR UPDATE
+	`
+
 	err = tx.QueryRow(ctx,
 		fmt.Sprintf(sqlGetControlIP,
 			(pgx.Identifier{schema, "meta_brigades"}.Sanitize()),
@@ -211,7 +211,7 @@ func checkBrigade(db *pgxpool.Pool, schema string, brigadeID string) (netip.Addr
 	return controlIP, keydeskIPv6, nil
 }
 
-func replaceBrigadier(db *pgxpool.Pool, schema string, sshconf *ssh.ClientConfig, brigadeID string, control_ip netip.Addr, opts vpnCfgs) (*models.Newuser, error) {
+func replaceBrigadier(sshconf *ssh.ClientConfig, brigadeID string, control_ip netip.Addr, opts vpnCfgs) (*models.Newuser, error) {
 	cmd := fmt.Sprintf("replace -id %s -ch -j", brigadeID)
 
 	if opts.wg != "" {

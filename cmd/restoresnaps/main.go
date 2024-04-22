@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/base32"
 	"encoding/base64"
@@ -17,6 +18,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	dcmgmt "github.com/vpngen/dc-mgmt"
+	"github.com/vpngen/dc-mgmt/internal/kdlib"
 	"github.com/vpngen/keydesk/keydesk/storage"
 	"github.com/vpngen/wordsgens/namesgenerator"
 	"golang.org/x/crypto/ssh"
@@ -87,42 +89,80 @@ CTRL:
 			continue
 		}
 
+		controlPlan := &dcmgmt.ControlNodeRestorePlan{
+			Plan: make([]*storage.Brigade, 0, len(controls.Snaps)),
+		}
+
 		for _, snap := range controls.Snaps {
-			if err := restoreSnap(&snap, o, caddr); err != nil {
+			brigade, err := restoreSnap(&snap, o, caddr)
+			if err != nil {
 				fmt.Fprintf(os.Stderr, "ERROR: control_ip: %s restore snap: %s\n", controls.ControlIP, err)
 
 				continue CTRL
 			}
+
+			controlPlan.Plan = append(controlPlan.Plan, brigade)
 		}
 
 		// request control to restore
+		cleanup, err := putBrigadesBySSH(o.sshconf, caddr, *controlPlan)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "ERROR: control_ip: %s put brigades: %s\n", controls.ControlIP, err)
+		}
+
+		cleanup(LogTag + "|" + caddr.String())
 	}
 
 	return nil
 }
 
-func restoreSnap(snap *dcmgmt.PreparedSnap, o *opts, caddr netip.Addr) error {
+// putBrigadesBySSH - put brigades by ssh.
+func putBrigadesBySSH(sshconf *ssh.ClientConfig, addr netip.Addr, plan dcmgmt.ControlNodeRestorePlan) (func(string), error) {
+	cmd := "restorebrigades"
+
+	fmt.Fprintf(os.Stderr, "%s#%s:22 -> %s\n", sshkeyRemoteUsername, addr, cmd)
+
+	client, b, e, cleanup, err := kdlib.NewSSHCient(sshconf, addr.String()+":22")
+	if err != nil {
+		return cleanup, fmt.Errorf("new ssh client: %w", err)
+	}
+
+	defer client.Close()
+
+	data, err := json.Marshal(plan)
+	if err != nil {
+		return cleanup, fmt.Errorf("marshal plan: %w", err)
+	}
+
+	if err := kdlib.SSHSessionStart(client, b, e, cmd, bytes.NewReader(data)); err != nil {
+		return cleanup, fmt.Errorf("write remote file: %w", err)
+	}
+
+	return cleanup, nil
+}
+
+func restoreSnap(snap *dcmgmt.PreparedSnap, o *opts, caddr netip.Addr) (*storage.Brigade, error) {
 	if snap == nil {
-		return fmt.Errorf("%w: nil snap", ErrInvalidSnapshotData)
+		return nil, fmt.Errorf("%w: nil snap", ErrInvalidSnapshotData)
 	}
 
 	addr, err := netip.ParseAddr(snap.EndpointIPv4)
 	if err != nil {
-		return fmt.Errorf("parse ip: %w", err)
+		return nil, fmt.Errorf("parse ip: %w", err)
 	}
 
 	if !o.enet.Contains(addr) {
-		return nil
+		return nil, nil
 	}
 
 	esecret, err := base64.StdEncoding.DecodeString(snap.EncryptedSecret)
 	if err != nil {
-		return fmt.Errorf("decode secret: %w", err)
+		return nil, fmt.Errorf("decode secret: %w", err)
 	}
 
 	secret, err := snapCrypto.DecryptSecret(o.privKey, esecret)
 	if err != nil {
-		return fmt.Errorf("decrypt psk: %w", err)
+		return nil, fmt.Errorf("decrypt psk: %w", err)
 	}
 
 	finalsecret := make([]byte, 0, len([]byte(snap.BrigadeID))+len([]byte(o.reservationID))+len(secret))
@@ -132,25 +172,25 @@ func restoreSnap(snap *dcmgmt.PreparedSnap, o *opts, caddr netip.Addr) error {
 
 	buf, err := snapSnap.DecryptDecompressSnapshot(dec, finalsecret)
 	if err != nil {
-		return fmt.Errorf("decrypt decompress snapshot: %w", err)
+		return nil, fmt.Errorf("decrypt decompress snapshot: %w", err)
 	}
 
 	brigade := &storage.Brigade{}
 
 	if err := json.Unmarshal(buf, brigade); err != nil {
-		return fmt.Errorf("unmarshal brigade: %w", err)
+		return nil, fmt.Errorf("unmarshal brigade: %w", err)
 	}
 
 	if err := checkBrigadeConfig(brigade, snap.BrigadeID, snap.EndpointIPv4); err != nil {
-		return fmt.Errorf("check brigade: %w", err)
+		return nil, fmt.Errorf("check brigade: %w", err)
 	}
 
 	// recreateBrigade
 	if err := recreateBrigade(o.db, o.reservationID, brigade, caddr, addr); err != nil {
-		return fmt.Errorf("recreate brigade: %w", err)
+		return nil, fmt.Errorf("recreate brigade: %w", err)
 	}
 
-	return nil
+	return brigade, nil
 }
 
 func checkBrigadeConfig(data *storage.Brigade, brigadeID string, endpointIPv4 string) error {
@@ -278,7 +318,7 @@ func checkBrigade(ctx context.Context, tx pgx.Tx,
 
 	if err := tx.QueryRow(ctx,
 		fmt.Sprintf(sqlSelectBrigade, (pgx.Identifier{defaultBrigadesSchema, "brigades"}.Sanitize())),
-		bid, endpointIPv4,
+		bid, data.EndpointIPv4,
 	).Scan(&brigadeID, &instanceID, &pairID,
 		&brigadier,
 		&endpointIPv4,
@@ -421,8 +461,8 @@ func recreateBrigade(db *pgxpool.Pool, rid string, data *storage.Brigade, caddr,
 		`
 
 	if _, err = tx.Exec(ctx,
-		fmt.Sprintf(sqlInsertStats, (pgx.Identifier{defaultBrigadesSchema, "brigades_stats"}.Sanitize())),
-		data.BrigadeID, instanceID,
+		fmt.Sprintf(sqlInsertStats, (pgx.Identifier{defaultBrigadesStatsSchema, "brigades_stats"}.Sanitize())),
+		uuid.UUID(brigadeID), instanceID,
 	); err != nil {
 		return fmt.Errorf("create stats: %w", err)
 	}
