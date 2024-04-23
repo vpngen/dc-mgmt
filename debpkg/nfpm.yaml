@@ -195,12 +195,6 @@ contents:
     mode: 0005
     owner: root
     group: root
-- src: dc-mgmt/cmd/createreservation/create_reservation.sh
-  dst: /opt/vg-dc-admin/create_reservation.sh
-  file_info:
-    mode: 0005
-    owner: root
-    group: root
 
 - dst: /opt/vg-dc-vpnapi
   type: dir
@@ -371,6 +365,18 @@ contents:
     group: root
 - src: bin/restoresnaps
   dst: /opt/vg-dc-snaps/restoresnaps
+  file_info:
+    mode: 0005
+    owner: root
+    group: root
+- src: dc-mgmt/cmd/createreservation/create_reservation.sh
+  dst: /opt/vg-dc-snaps/create_reservation.sh
+  file_info:
+    mode: 0005
+    owner: root
+    group: root
+- src: dc-mgmt/cmd/switchlocalmigr/switch_local_migr.sh
+  dst: /opt/vg-dc-snaps/switch_local_migr.sh
   file_info:
     mode: 0005
     owner: root
