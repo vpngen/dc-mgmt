@@ -6,6 +6,7 @@ DBNAME=${DBNAME:-"vgrealm"}
 
 PAIRS_SCHEMA=${PAIRS_SCHEMA:-"pairs"}
 BRIGADES_SCHEMA=${BRIGADES_SCHEMA:-"brigades"}
+STATS_SCHEMA=${STATS_SCHEMA:-"stats"}
 
 
 printdef () {
@@ -251,6 +252,58 @@ EOF
                 genconf "${reservation_uuid}"
         fi
 }
+
+rollback () {
+        while [ "$#" -gt 0 ]; do
+                case "$1" in
+                        -list)
+                                DO_LIST="x"
+                                shift
+                                ;;
+                        *)
+                                reservation_uuid="$1"
+
+                                break
+                                ;;
+                esac
+        done
+
+        if [ -z "${reservation_uuid}" ]; then
+                printdef "Reservation UUID not specified"
+                exit 1
+        fi
+
+        echo "ROLLBACK reservation UUID: ${reservation_uuid}" >&2
+        echo >&2
+
+        psql -d "${DBNAME}" -q \
+                --set brigades_schema="${BRIGADES_SCHEMA}" \
+                --set stats_schema="${STATS_SCHEMA}" \
+                --set reservation_uuid="${reservation_uuid}" \
+                --set ON_ERROR_STOP=yes  <<EOF
+BEGIN;
+
+DELETE FROM 
+        :"stats_schema".brigades_stats
+USING :"stats_schema".brigades_stats bs
+        JOIN :"brigades_schema".brigades b ON bs.brigade_id = b.brigade_id AND bs.instance_id = b.instance_id
+        JOIN :"brigades_schema".reserved_endpoints_ipv4 re ON b.endpoint_ipv4 = re.endpoint_ipv4
+WHERE
+        e.reservation_id = :'reservation_uuid'
+        AND b.main = false;
+
+DELETE FROM 
+        :"brigades_schema".brigades 
+USING :"brigades_schema".brigades b
+        JOIN :"brigades_schema".reserved_endpoints_ipv4 re ON b.endpoint_ipv4 = re.endpoint_ipv4
+WHERE
+        e.reservation_id = :'reservation_uuid'
+        AND b.main = false;
+
+COMMIT;
+EOF
+}
+
 
 show () {
         while [ "$#" -gt 0 ]; do
