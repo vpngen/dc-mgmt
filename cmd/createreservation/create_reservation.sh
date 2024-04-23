@@ -6,6 +6,7 @@ DBNAME=${DBNAME:-"vgrealm"}
 
 PAIRS_SCHEMA=${PAIRS_SCHEMA:-"pairs"}
 BRIGADES_SCHEMA=${BRIGADES_SCHEMA:-"brigades"}
+STATS_SCHEMA=${STATS_SCHEMA:-"stats"}
 
 
 printdef () {
@@ -252,6 +253,61 @@ EOF
         fi
 }
 
+rollback () {
+        while [ "$#" -gt 0 ]; do
+                case "$1" in
+                        -list)
+                                DO_LIST="x"
+                                shift
+                                ;;
+                        *)
+                                reservation_uuid="$1"
+
+                                break
+                                ;;
+                esac
+        done
+
+        if [ -z "${reservation_uuid}" ]; then
+                printdef "Reservation UUID not specified"
+                exit 1
+        fi
+
+        echo "ROLLBACK reservation UUID: ${reservation_uuid}" >&2
+        echo >&2
+
+        psql -d "${DBNAME}" -q \
+                --set brigades_schema="${BRIGADES_SCHEMA}" \
+                --set stats_schema="${STATS_SCHEMA}" \
+                --set reservation_uuid="${reservation_uuid}" \
+                --set ON_ERROR_STOP=yes  <<EOF
+BEGIN;
+
+DELETE FROM 
+        :"stats_schema".brigades_stats
+USING 
+        :"brigades_schema".brigades b,
+        :"brigades_schema".reserved_endpoints_ipv4 re
+WHERE
+        re.reservation_id = :'reservation_uuid'
+        AND (brigades_stats.brigade_id = b.brigade_id AND brigades_stats.instance_id = b.instance_id)
+        AND b.endpoint_ipv4 = re.endpoint_ipv4
+        AND b.main = false;
+
+DELETE FROM 
+        :"brigades_schema".brigades 
+USING 
+        :"brigades_schema".reserved_endpoints_ipv4 re
+WHERE
+        re.reservation_id = :'reservation_uuid',
+        AND brigades.endpoint_ipv4 = re.endpoint_ipv4
+        AND brigades.main = false;
+
+COMMIT;
+EOF
+}
+
+
 show () {
         while [ "$#" -gt 0 ]; do
                 case "$1" in
@@ -369,10 +425,12 @@ BEGIN;
 
 DELETE FROM 
         :"brigades_schema".reserved_endpoints_ipv4 
-USING :"brigades_schema".reserved_endpoints_ipv4 e
-LEFT JOIN :"brigades_schema".brigades b ON e.endpoint_ipv4 = b.endpoint_ipv4
+USING 
+        :"brigades_schema".reserved_endpoints_ipv4 e
+        LEFT JOIN :"brigades_schema".brigades b ON e.endpoint_ipv4 = b.endpoint_ipv4
 WHERE
         e.reservation_id = :'reservation_uuid'
+        AND reserved_endpoints_ipv4.endpoint_ipv4 = e.endpoint_ipv4
         AND b.endpoint_ipv4 IS NULL;
 
 DELETE FROM :"brigades_schema".reservations WHERE reservation_id = :'reservation_uuid';
@@ -388,10 +446,12 @@ BEGIN;
 
 DELETE FROM 
         :"brigades_schema".reserved_endpoints_ipv4 
-USING :"brigades_schema".reserved_endpoints_ipv4 e
-LEFT JOIN :"brigades_schema".brigades b ON e.endpoint_ipv4 = b.endpoint_ipv4
+USING 
+        :"brigades_schema".reserved_endpoints_ipv4 e
+        LEFT JOIN :"brigades_schema".brigades b ON e.endpoint_ipv4 = b.endpoint_ipv4
 WHERE
-        e.reservation_id = :'reservation_uuid';
+        e.reservation_id = :'reservation_uuid'
+        AND reserved_endpoints_ipv4.endpoint_ipv4 = e.endpoint_ipv4;
 
 DELETE FROM :"brigades_schema".reservations WHERE reservation_id = :'reservation_uuid';
 
@@ -426,6 +486,9 @@ case "${COMMAND}" in
                 ;;
         genconf)
                 genconf "$@"
+                ;;
+        rollback)
+                rollback "$@"
                 ;;
         *)
                 printdef "Unknown command: ${COMMAND}"

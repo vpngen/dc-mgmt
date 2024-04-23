@@ -17,7 +17,7 @@ import (
 const (
 	SSHKeyED25519Filename = "id_ed25519"
 	SSHDefaultFilename    = SSHKeyED25519Filename
-	SSHDefaultTimeOut     = time.Duration(15 * time.Second)
+	SSHDefaultTimeOut     = time.Duration(5 * time.Second)
 )
 
 var ErrNoSSHKeyFile = errors.New("no ssh key file")
