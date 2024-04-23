@@ -14,3 +14,24 @@
 - [] обработка бинарников в шел-скриптов nfpm
 - [] настройка preinstall-nfpm скрипта
 
+
+## Hints
+
+### Calculated IPv6 to IPv4:
+
+```shell
+echo "fdcc:1786:d861::3" | cut -f 2,3 -d ':' | sed 's/\://' | xxd -r -p | hexdump -v -e '/1 "%u."' | sed 's/\.$/\n/'
+```
+
+### Keydesk brigade ID to Database UUID:
+
+```shell
+echo "${brigade_id}=========" | base32 -d 2>/dev/null | hexdump -ve '1/1 "%02x"'
+```
+
+### Database UUID to Keydesk brigade ID:
+
+```shell
+echo "${brigade_id}" | xxd -r -p -l 16 | base32 | tr -d "="
+```
+
