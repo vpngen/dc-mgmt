@@ -285,20 +285,23 @@ BEGIN;
 
 DELETE FROM 
         :"stats_schema".brigades_stats
-USING :"stats_schema".brigades_stats bs
-        JOIN :"brigades_schema".brigades b ON bs.brigade_id = b.brigade_id AND bs.instance_id = b.instance_id
-        JOIN :"brigades_schema".reserved_endpoints_ipv4 re ON b.endpoint_ipv4 = re.endpoint_ipv4
+USING 
+        :"brigades_schema".brigades b,
+        :"brigades_schema".reserved_endpoints_ipv4 re
 WHERE
-        e.reservation_id = :'reservation_uuid'
+        re.reservation_id = :'reservation_uuid'
+        AND (brigades_stats.brigade_id = b.brigade_id AND brigades_stats.instance_id = b.instance_id)
+        AND b.endpoint_ipv4 = re.endpoint_ipv4
         AND b.main = false;
 
 DELETE FROM 
         :"brigades_schema".brigades 
-USING :"brigades_schema".brigades b
-        JOIN :"brigades_schema".reserved_endpoints_ipv4 re ON b.endpoint_ipv4 = re.endpoint_ipv4
+USING 
+        :"brigades_schema".reserved_endpoints_ipv4 re
 WHERE
-        e.reservation_id = :'reservation_uuid'
-        AND b.main = false;
+        re.reservation_id = :'reservation_uuid',
+        AND brigades.endpoint_ipv4 = re.endpoint_ipv4
+        AND brigades.main = false;
 
 COMMIT;
 EOF
@@ -422,10 +425,12 @@ BEGIN;
 
 DELETE FROM 
         :"brigades_schema".reserved_endpoints_ipv4 
-USING :"brigades_schema".reserved_endpoints_ipv4 e
-LEFT JOIN :"brigades_schema".brigades b ON e.endpoint_ipv4 = b.endpoint_ipv4
+USING 
+        :"brigades_schema".reserved_endpoints_ipv4 e
+        LEFT JOIN :"brigades_schema".brigades b ON e.endpoint_ipv4 = b.endpoint_ipv4
 WHERE
         e.reservation_id = :'reservation_uuid'
+        AND reserved_endpoints_ipv4.endpoint_ipv4 = e.endpoint_ipv4
         AND b.endpoint_ipv4 IS NULL;
 
 DELETE FROM :"brigades_schema".reservations WHERE reservation_id = :'reservation_uuid';
@@ -441,10 +446,12 @@ BEGIN;
 
 DELETE FROM 
         :"brigades_schema".reserved_endpoints_ipv4 
-USING :"brigades_schema".reserved_endpoints_ipv4 e
-LEFT JOIN :"brigades_schema".brigades b ON e.endpoint_ipv4 = b.endpoint_ipv4
+USING 
+        :"brigades_schema".reserved_endpoints_ipv4 e
+        LEFT JOIN :"brigades_schema".brigades b ON e.endpoint_ipv4 = b.endpoint_ipv4
 WHERE
-        e.reservation_id = :'reservation_uuid';
+        e.reservation_id = :'reservation_uuid'
+        AND reserved_endpoints_ipv4.endpoint_ipv4 = e.endpoint_ipv4;
 
 DELETE FROM :"brigades_schema".reservations WHERE reservation_id = :'reservation_uuid';
 
@@ -479,6 +486,9 @@ case "${COMMAND}" in
                 ;;
         genconf)
                 genconf "$@"
+                ;;
+        rollback)
+                rollback "$@"
                 ;;
         *)
                 printdef "Unknown command: ${COMMAND}"
