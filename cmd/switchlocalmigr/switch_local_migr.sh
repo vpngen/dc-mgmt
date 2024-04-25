@@ -197,19 +197,3 @@ EOF
 
 done
 
-SSH_KEY=${SSH_KEY:-"${HOME}/.ssh/id_ed25519"}
-
-DELEGATION_FILENAME="domain-generate-${DC_NAME}.csv"
-RELOAD_FILENAME="domain-generate.reload"
-
-domains="$(psql -qtAF ';' -d "${DBNAME}" \
-        --set BRIGADES_SCHEMA="${BRIGADES_SCHEMA}" <<EOF
-SELECT 
-	domain_name,endpoint_ipv4 
-FROM 
-	:"BRIGADES_SCHEMA".domains_endpoints_ipv4;
-EOF
-)"
-
-echo "$domains" | ssh -i "${SSH_KEY}" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "${DELEGATION_SYNC_CONNECT}" \
-        "dd status=none of=${DELEGATION_FILENAME}.tmp && mv -f ${DELEGATION_FILENAME}.tmp ${DELEGATION_FILENAME} && touch ${RELOAD_FILENAME}"

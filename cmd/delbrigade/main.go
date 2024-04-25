@@ -197,6 +197,7 @@ func getBrigadeControlIP(db *pgxpool.Pool, brigadeID string, secondary bool) (ne
 			%s
 		WHERE
 			brigade_id=$1
+			AND main=false
 		`
 
 		var count int32
@@ -208,7 +209,7 @@ func getBrigadeControlIP(db *pgxpool.Pool, brigadeID string, secondary bool) (ne
 			return controlIP, instanceID, fmt.Errorf("brigade count: %w", err)
 		}
 
-		if count == 0 {
+		if count > 0 {
 			return controlIP, instanceID, fmt.Errorf("%w: %s", ErrNoDeletebleBrigade, brigadeID)
 		}
 

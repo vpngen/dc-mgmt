@@ -13,11 +13,13 @@ go build -C dc-mgmt/cmd/reset -o ../../../bin/reset
 go build -C dc-mgmt/cmd/getwasted -o ../../../bin/getwasted
 go build -C dc-mgmt/cmd/collectstats -o ../../../bin/collectstats
 go build -C dc-mgmt/cmd/get_free_slots -o ../../../bin/get_free_slots
-go build -C dc-mgmt/tools/cmd/dns-srv -o ../../../../bin/dns-srv
-go build -C dc-mgmt/tools/cmd/dns-chk -o ../../../../bin/dns-chk
 go build -C dc-mgmt/cmd/collectsnaps -o ../../../bin/collectsnaps
 go build -C dc-mgmt/cmd/snap_prepare -o ../../../bin/snap_prepare
 go build -C dc-mgmt/cmd/restoresnaps -o ../../../bin/restoresnaps
+
+go build -C dc-mgmt/tools/cmd/dns-srv -o ../../../../bin/dns-srv
+go build -C dc-mgmt/tools/cmd/dns-chk -o ../../../../bin/dns-chk
+go build -C dc-mgmt/tools/cmd/delegation-sync -o ../../../../bin/delegation-sync
 
 go install github.com/goreleaser/nfpm/v2/cmd/nfpm@latest
 
