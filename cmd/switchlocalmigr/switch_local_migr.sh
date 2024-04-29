@@ -7,16 +7,6 @@ DBNAME=${DBNAME:-"vgrealm"}
 PAIRS_SCHEMA=${PAIRS_SCHEMA:-"pairs"}
 BRIGADES_SCHEMA=${BRIGADES_SCHEMA:-"brigades"}
 
-if [ -s  "/etc/vg-dc-mgmt/dc-name.env" ]; then
-        # shellcheck source=/dev/null
-        . "/etc/vg-dc-mgmt/dc-name.env"
-fi
-
-if [ -s "/etc/vg-dc-vpnapi/modbrigade.env" ]; then
-        # shellcheck source=/dev/null
-        . "/etc/vg-dc-vpnapi/modbrigade.env"
-fi
-
 printdef() {
         echo "Usage: -r <reservation_id> -f <snapshot_file> [-n] [-inet <cidr>] [-enet <cidr>]"
         echo "       -n : dry run"
@@ -81,7 +71,7 @@ if [ -z "$ENET_FILTER" ]; then
 fi
 
 # Loop through each item in the JSON array within the "snap" key
-jq -c '.snaps[]' < "$SNAPSHOT_FILE" | while read -r snap; do
+echo "$SNAPSHOT_FILE" | jq -c '.snaps[]' | while read -r snap; do
         brigade_id_32="$(echo "$snap" | jq -r '.brigade_id')"
         brigade_id="$(echo "${brigade_id_32}=========" | base32 -d 2>/dev/null | hexdump -ve '1/1 "%02x"')"
 

@@ -104,6 +104,16 @@ contents:
     owner: root
     group: root
 
+- src: dc-mgmt/debpkg/src/subdomain-api.env-sample
+  dst: /etc/vg-dc-vpnapi/subdomain-api.env-sample
+  file_info:
+    mode: 0440
+    owner: vgvpnapi
+    group: vgvpnapi
+
+- dst: /etc/vg-dc-vpnapi/subdomain-api.env
+  type: ghost
+
 - dst: /etc/vg-dc-vpnapi/modbrigade.env
   type: ghost
 
@@ -138,6 +148,23 @@ contents:
     group: root
 
 - dst: /etc/vg-dc-stats/stats-sync.env
+  type: ghost
+
+- dst: /etc/vg-dc-migr
+  type: dir
+  file_info:
+    mode: 0110
+    owner: root
+    group: vgmigr
+
+- src: dc-mgmt/debpkg/src/subdomain-api.env-sample
+  dst: /etc/vg-dc-migr/subdomain-api.env-sample
+  file_info:
+    mode: 0440
+    owner: vgmigr
+    group: vgmigr
+
+- dst: /etc/vg-dc-vpnapi/subdomain-api.env
   type: ghost
 
 - dst: /opt/vg-dc-admin
