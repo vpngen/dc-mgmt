@@ -420,7 +420,7 @@ contents:
     mode: 0005
     owner: root
     group: root
-- src: dc-mgmt/cmd/acceptremotemigr/switch_local_migr.sh
+- src: dc-mgmt/cmd/acceptremotemigr/accept_remote_migr.sh
   dst: /opt/vg-dc-snaps/accept_remote_migr.sh
   file_info:
     mode: 0005
