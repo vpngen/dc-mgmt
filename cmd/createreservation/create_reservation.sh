@@ -57,7 +57,10 @@ FROM
         JOIN :"pairs_schema".pairs p ON pe.pair_id = p.pair_id
 WHERE
         r.reservation_id = :'reservation_uuid'
-GROUP BY p.pair_id;
+GROUP BY 
+        p.pair_id
+ORDER BY 
+        p.control_ip ASC;
 
 EOF
 )
@@ -90,7 +93,9 @@ FROM
 WHERE
         r.reservation_id = :'reservation_uuid'
 AND
-        p.control_ip = :'control_ip';
+        p.control_ip = :'control_ip'
+ORDER BY 
+        r.endpoint_ipv4 ASC;
 
 EOF
 )       

@@ -71,7 +71,7 @@ if [ -z "$ENET_FILTER" ]; then
 fi
 
 # Loop through each item in the JSON array within the "snap" key
-echo "$SNAPSHOT_FILE" | jq -c '.snaps[]' | while read -r snap; do
+cat "$SNAPSHOT_FILE" | jq -c '.snaps[]' | while read -r snap; do
         brigade_id_32="$(echo "$snap" | jq -r '.brigade_id')"
         brigade_id="$(echo "${brigade_id_32}=========" | base32 -d 2>/dev/null | hexdump -ve '1/1 "%02x"')"
 

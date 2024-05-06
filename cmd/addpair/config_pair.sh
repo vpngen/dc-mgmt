@@ -204,5 +204,5 @@ for node in ${list}; do
         echo "Pair: ${pair_id}"
         echo "Control IP: ${control_ip}"
 
-        cfgpair "${pair_id}" "${control_ip}" "${DO_NOT_ENABLE}"
+        cfgpair "${pair_id}" "${control_ip}" "${ENABLE}"
 done

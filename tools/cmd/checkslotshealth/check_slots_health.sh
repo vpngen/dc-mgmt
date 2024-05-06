@@ -17,7 +17,9 @@ elif [ -x "/opt/vg-dc-vpnapi/gen" ]; then
 fi
 
 printdef() {
-        echo "Usage: [-inet <cidr>] [-enet <cidr>]"
+        echo "Usage: [-f] [-inet <cidr>] [-enet <cidr>]"
+        echo "       -f : force on not-active pairs"
+        echo "       -r : recheck orphaned pairs"
         echo "       -inet : target control network filter"
         echo "       -enet : target external network filter"
 
@@ -47,6 +49,31 @@ orphan_slot () {
                         VALUES
                                 (:'endpoint_ipv4')
                         ON CONFLICT DO NOTHING;
+                COMMIT;
+EOF
+}
+
+bless_slot () {
+        control_ip=$1
+        endpoint_ipv4=$2
+
+        if [ -z "${control_ip}" ] || [ -z "${endpoint_ipv4}" ]; then
+                echo "Missing control_ip or endpoint_ipv4" >&2
+                return
+        fi
+
+        echo >&2
+        echo "Blessing slot: control_ip=${control_ip} endpoint_ipv4=${endpoint_ipv4}" >&2
+        
+        psql -d "${DBNAME}" -q -t -A \
+                --set ON_ERROR_STOP=yes \
+                --set brigades_schema="${BRIGADES_SCHEMA}" \
+                --set endpoint_ipv4="${endpoint_ipv4}" <<EOF
+                BEGIN;
+                        DELETE FROM 
+                                :"brigades_schema".orphaned_endpoints_ipv4
+                        WHERE
+                               endpoint_ipv4=:'endpoint_ipv4';
                 COMMIT;
 EOF
 }
@@ -89,6 +116,12 @@ while [ $# -gt 0 ]; do
                         GEN_URL="$2"
                         shift
                         ;;
+                -f)
+                        FORCE=yes
+                        ;;
+                -r)
+                        RECHECK=yes
+                        ;;
                 *)
                         printdef "Unknown option: $1"
                         ;;
@@ -106,21 +139,37 @@ if [ -z "$CONTROL_IP" ]; then
                 ENET_FILTER="0.0.0.0/0"
         fi
 
+        IS_ACTIVE="p.is_active = true"
+        if [ "${FORCE}" = "yes" ]; then
+                IS_ACTIVE="true"
+        fi
+
+        IS_RECHECK="o.endpoint_ipv4 IS NULL"
+        if [ -n "${RECHECK}" ]; then
+                IS_RECHECK="o.endpoint_ipv4 IS NOT NULL"
+        fi
+
         count=$(psql -d "${DBNAME}" -q -t -A \
                 --set ON_ERROR_STOP=yes \
                 --set brigades_schema="${BRIGADES_SCHEMA}" \
                 --set pairs_schema="${PAIRS_SCHEMA}" \
                 --set inet_filter="${INET_FILTER}" \
                 --set enet_filter="${ENET_FILTER}" <<EOF
-SELECT 
+SELECT
         count(*)
-FROM
-        :"brigades_schema".slots s
-        JOIN :"pairs_schema".pairs p ON s.pair_id = p.pair_id
+FROM 
+        :"pairs_schema".pairs AS p
+        JOIN :"pairs_schema".pairs_endpoints_ipv4 AS pei ON pei.pair_id=p.pair_id
+        LEFT JOIN :"brigades_schema".orphaned_endpoints_ipv4 AS o ON o.endpoint_ipv4=pei.endpoint_ipv4
+        LEFT JOIN :"brigades_schema".reserved_endpoints_ipv4 AS r ON r.endpoint_ipv4=pei.endpoint_ipv4
+        LEFT JOIN :"brigades_schema".brigades AS b ON b.endpoint_ipv4=pei.endpoint_ipv4
 WHERE
-        p.is_active = true
-        AND s.control_ip << :'inet_filter' 
-        AND s.endpoint_ipv4 << :'enet_filter';
+        ${IS_ACTIVE}
+        AND ${IS_RECHECK}
+        AND r.endpoint_ipv4 IS NULL
+        AND b.endpoint_ipv4 IS NULL
+        AND p.control_ip <<= :'inet_filter' 
+        AND pei.endpoint_ipv4 <<= :'enet_filter';
 EOF
 )
 
@@ -135,16 +184,22 @@ EOF
                 --set pairs_schema="${PAIRS_SCHEMA}" \
                 --set inet_filter="${INET_FILTER}" \
                 --set enet_filter="${ENET_FILTER}" <<EOF
-SELECT 
-        s.control_ip,
-        s.endpoint_ipv4
-FROM
-        :"brigades_schema".slots s
-        JOIN :"pairs_schema".pairs p ON s.pair_id = p.pair_id
+SELECT
+        p.control_ip,
+        pei.endpoint_ipv4
+FROM 
+        :"pairs_schema".pairs AS p
+        JOIN :"pairs_schema".pairs_endpoints_ipv4 AS pei ON pei.pair_id=p.pair_id
+        LEFT JOIN :"brigades_schema".orphaned_endpoints_ipv4 AS o ON o.endpoint_ipv4=pei.endpoint_ipv4
+        LEFT JOIN :"brigades_schema".reserved_endpoints_ipv4 AS r ON r.endpoint_ipv4=pei.endpoint_ipv4
+        LEFT JOIN :"brigades_schema".brigades AS b ON b.endpoint_ipv4=pei.endpoint_ipv4
 WHERE
-        p.is_active = true
-        AND s.control_ip << :'inet_filter' 
-        AND s.endpoint_ipv4 << :'enet_filter';
+        ${IS_ACTIVE}
+        AND ${IS_RECHECK}
+        AND r.endpoint_ipv4 IS NULL
+        AND b.endpoint_ipv4 IS NULL
+        AND p.control_ip <<= :'inet_filter' 
+        AND pei.endpoint_ipv4 <<= :'enet_filter';
 EOF
 )
 
@@ -164,11 +219,16 @@ EOF
         for slot in $slots; do
                 control_ip=$(echo "$slot" | cut -d '|' -f 1)
                 endpoint_ipv4=$(echo "$slot" | cut -d '|' -f 2)
+                
+                if [ -n "${RECHECK}" ]; then
+                        BLESS="-r"
+                fi
 
                 flock -x -E 1 -w 60 /tmp/modbrigade.lock "$0" \
                         -control_ip "${control_ip}" -endpoint_ipv4 "${endpoint_ipv4}" \
                         -id "${BRIGADE_ID}" \
-                        -name "${GEN_NAME}" -person "${GEN_PERSON}" -desc "${GEN_DESC}" -url "${GEN_URL}" 
+                        -name "${GEN_NAME}" -person "${GEN_PERSON}" -desc "${GEN_DESC}" -url "${GEN_URL}" \
+                        "${BLESS}"
 
                 sleep 1
         done
@@ -267,6 +327,11 @@ else
 
         if [ -z "${ORPHANED}" ]; then
                 echo "[+] Slot ${ENDPOINT_IPV4} is clear" >&2
+
+                if [ -n "${RECHECK}" ]; then
+                        # bless slot
+                        bless_slot "${CONTROL_IP}" "${ENDPOINT_IPV4}"
+                fi
         else 
                 echo "[-] Slot ${ENDPOINT_IPV4} was orphaned" >&2
         fi
