@@ -104,6 +104,16 @@ contents:
     owner: root
     group: root
 
+- src: dc-mgmt/debpkg/src/subdomain-api.env-sample
+  dst: /etc/vg-dc-vpnapi/subdomain-api.env-sample
+  file_info:
+    mode: 0440
+    owner: vgvpnapi
+    group: vgvpnapi
+
+- dst: /etc/vg-dc-vpnapi/subdomain-api.env
+  type: ghost
+
 - dst: /etc/vg-dc-vpnapi/modbrigade.env
   type: ghost
 
@@ -138,6 +148,23 @@ contents:
     group: root
 
 - dst: /etc/vg-dc-stats/stats-sync.env
+  type: ghost
+
+- dst: /etc/vg-dc-migr
+  type: dir
+  file_info:
+    mode: 0110
+    owner: root
+    group: vgmigr
+
+- src: dc-mgmt/debpkg/src/subdomain-api.env-sample
+  dst: /etc/vg-dc-migr/subdomain-api.env-sample
+  file_info:
+    mode: 0440
+    owner: vgmigr
+    group: vgmigr
+
+- dst: /etc/vg-dc-vpnapi/subdomain-api.env
   type: ghost
 
 - dst: /opt/vg-dc-admin
@@ -257,8 +284,14 @@ contents:
     mode: 0005
     owner: root
     group: root
-- src: dc-mgmt/cmd/delegation-sync.sh
+- src: dc-mgmt/tools/cmd/delegation-sync/delegation-sync.sh
   dst: /opt/vg-dc-vpnapi/delegation-sync.sh
+  file_info:
+    mode: 0005
+    owner: root
+    group: root
+- src: dc-mgmt/tools/cmd/checkslotshealth/check_slots_health.sh
+  dst: /opt/vg-dc-vpnapi/check_slots_health.sh
   file_info:
     mode: 0005
     owner: root
@@ -277,6 +310,12 @@ contents:
     group: root
 - src : bin/dns-srv
   dst : /opt/vg-dc-vpnapi/dns-srv
+  file_info:
+    mode: 0005
+    owner: root
+    group: root
+- src : bin/delegation-sync
+  dst : /opt/vg-dc-vpnapi/delegation-sync
   file_info:
     mode: 0005
     owner: root
@@ -377,6 +416,18 @@ contents:
     group: root
 - src: dc-mgmt/cmd/switchlocalmigr/switch_local_migr.sh
   dst: /opt/vg-dc-snaps/switch_local_migr.sh
+  file_info:
+    mode: 0005
+    owner: root
+    group: root
+- src: dc-mgmt/cmd/acceptremotemigr/accept_remote_migr.sh
+  dst: /opt/vg-dc-snaps/accept_remote_migr.sh
+  file_info:
+    mode: 0005
+    owner: root
+    group: root
+- src: dc-mgmt/cmd/releaseremotemigr/release_remote_migr.sh
+  dst: /opt/vg-dc-snaps/release_remote_migr.sh
   file_info:
     mode: 0005
     owner: root
