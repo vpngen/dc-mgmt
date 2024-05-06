@@ -284,8 +284,14 @@ contents:
     mode: 0005
     owner: root
     group: root
-- src: dc-mgmt/tools/cmd/delegation-sync.sh
+- src: dc-mgmt/tools/cmd/delegation-sync/delegation-sync.sh
   dst: /opt/vg-dc-vpnapi/delegation-sync.sh
+  file_info:
+    mode: 0005
+    owner: root
+    group: root
+- src: dc-mgmt/tools/cmd/checkslotshealth/check_slots_health.sh
+  dst: /opt/vg-dc-vpnapi/check_slots_health.sh
   file_info:
     mode: 0005
     owner: root
