@@ -510,7 +510,7 @@ func getBrigadesGroups(db *pgxpool.Pool, schema_pairs, schema_stats string) (Gro
 		p.control_ip,
 		ARRAY_AGG(b.brigade_id) AS brigade_group,
 		ARRAY_AGG(b.instance_id) AS instance_group,
-		Array_Agg(b.is_main) AS main_group
+		Array_Agg(b.main) AS main_group
 	FROM
 		%s AS p
 	LEFT JOIN

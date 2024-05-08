@@ -46,6 +46,8 @@ type cfg struct {
 	sshKeyFilename string // ssh key filename
 
 	dburl string
+
+	onlyBase bool
 }
 
 type opts struct {
@@ -61,6 +63,8 @@ type opts struct {
 	sshconf *ssh.ClientConfig
 
 	db *pgxpool.Pool
+
+	onlyBase bool
 }
 
 var (
@@ -121,6 +125,8 @@ func conf() (*opts, error) {
 		sshconf: sshconf,
 
 		db: db,
+
+		onlyBase: c.onlyBase,
 	}, nil
 }
 
@@ -151,6 +157,7 @@ func parseArgs(c *cfg) error {
 	enet := flag.String("enet", "0.0.0.0/0", "external network for filtering inside reservation")
 	planfile := flag.String("f", "", "plan file")
 	sshKeyFilename := flag.String("s", "", "ssh key filename")
+	onlyBase := flag.Bool("o", false, "only base")
 
 	flag.Parse()
 
@@ -171,6 +178,7 @@ func parseArgs(c *cfg) error {
 	c.planfile = *planfile
 	c.inet = *inet
 	c.enet = *enet
+	c.onlyBase = *onlyBase
 
 	return nil
 }

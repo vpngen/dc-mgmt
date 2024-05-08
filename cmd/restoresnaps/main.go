@@ -104,6 +104,10 @@ CTRL:
 			controlPlan.Plan = append(controlPlan.Plan, brigade)
 		}
 
+		if o.onlyBase {
+			continue
+		}
+
 		// request control to restore
 		cleanup, err := putBrigadesBySSH(o.sshconf, caddr, *controlPlan)
 		if err != nil {
