@@ -539,7 +539,7 @@ func getBrigadesGroups(db *pgxpool.Pool, schema_pairs, schema_stats string) (Gro
 		flags     []bool
 	)
 
-	_, err = pgx.ForEachRow(rows, []any{&addr, &brigades, &instances}, func() error {
+	_, err = pgx.ForEachRow(rows, []any{&addr, &brigades, &instances, &flags}, func() error {
 		group := BrigadeGroup{
 			ConnectAddr: addr,
 			Brigades:    make(map[uuid.UUID]InstanceMain),
