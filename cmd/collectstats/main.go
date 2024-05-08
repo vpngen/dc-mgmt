@@ -51,10 +51,16 @@ const (
 	sshTimeOut              = time.Duration(15 * time.Second)
 )
 
+// InstanceMain - instance with main flag.
+type InstanceMain struct {
+	InstanceID uuid.UUID
+	Main       bool
+}
+
 // BrigadeGroup - brigades in the same pair.
 type BrigadeGroup struct {
 	ConnectAddr netip.Addr
-	Brigades    map[uuid.UUID]uuid.UUID
+	Brigades    map[uuid.UUID]InstanceMain
 }
 
 // GroupsList - list of brigades groups.
@@ -64,6 +70,7 @@ type GroupsList []BrigadeGroup
 type Stats struct {
 	storage.Stats
 	InstanceID string `json:"instance_id"`
+	IsMain     bool   `json:"is_main"`
 }
 
 // AggrStats - structure for aggregated stats.
@@ -149,7 +156,7 @@ func main() {
 }
 
 // collectStats - collect stats from the pair.
-func collectStats(sshconf *ssh.ClientConfig, addr netip.Addr, brigades map[uuid.UUID]uuid.UUID, stream chan<- *InstancedAggrStats, sem <-chan struct{}, wg *sync.WaitGroup) {
+func collectStats(sshconf *ssh.ClientConfig, addr netip.Addr, brigades map[uuid.UUID]InstanceMain, stream chan<- *InstancedAggrStats, sem <-chan struct{}, wg *sync.WaitGroup) {
 	defer func() {
 		<-sem // Release the semaphore
 	}()
@@ -189,8 +196,8 @@ func collectStats(sshconf *ssh.ClientConfig, addr netip.Addr, brigades map[uuid.
 			continue
 		}
 
-		instanceID := brigades[uuid.UUID(brigadeID)]
-		if instanceID == uuid.Nil {
+		instance := brigades[uuid.UUID(brigadeID)]
+		if instance.InstanceID == uuid.Nil {
 			fmt.Fprintf(os.Stderr, "%s: instance id not found: %s\n", LogTag, s.BrigadeID)
 
 			continue
@@ -198,7 +205,8 @@ func collectStats(sshconf *ssh.ClientConfig, addr netip.Addr, brigades map[uuid.
 
 		instancedStats.Stats = append(instancedStats.Stats, &Stats{
 			Stats:      *s,
-			InstanceID: instanceID.String(),
+			InstanceID: instance.InstanceID.String(),
+			IsMain:     instance.Main,
 		})
 	}
 
@@ -501,7 +509,8 @@ func getBrigadesGroups(db *pgxpool.Pool, schema_pairs, schema_stats string) (Gro
 	SELECT
 		p.control_ip,
 		ARRAY_AGG(b.brigade_id) AS brigade_group,
-		ARRAY_AGG(b.instance_id) AS instance_group
+		ARRAY_AGG(b.instance_id) AS instance_group,
+		Array_Agg(b.main) AS main_group
 	FROM
 		%s AS p
 	LEFT JOIN
@@ -527,16 +536,20 @@ func getBrigadesGroups(db *pgxpool.Pool, schema_pairs, schema_stats string) (Gro
 
 		brigades  []uuid.UUID
 		instances []uuid.UUID
+		flags     []bool
 	)
 
 	_, err = pgx.ForEachRow(rows, []any{&addr, &brigades, &instances}, func() error {
 		group := BrigadeGroup{
 			ConnectAddr: addr,
-			Brigades:    make(map[uuid.UUID]uuid.UUID),
+			Brigades:    make(map[uuid.UUID]InstanceMain),
 		}
 
 		for i, b := range brigades {
-			group.Brigades[b] = instances[i]
+			group.Brigades[b] = InstanceMain{
+				InstanceID: instances[i],
+				Main:       flags[i],
+			}
 		}
 
 		list = append(list, group)

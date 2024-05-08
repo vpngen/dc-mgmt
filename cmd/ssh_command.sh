@@ -30,14 +30,6 @@ if [ -s "/etc/vg-dc-vpnapi/creation.env" ]; then
         . "/etc/vg-dc-vpnapi/creation.env"
 fi
 
-vpn_works_keysesks_sync() {
-        /usr/bin/flock -x -E 0 -n /tmp/modbrigade.lock "${basedir}"/vpn-works-keydesks-sync.sh 2>&1 | /usr/bin/logger -p local0.notice -t KDSYNC
-}
-
-delegation_sync() {
-        /usr/bin/flock -x -E 0 -n /tmp/modbrigade.lock "${basedir}"/delegation-sync.sh 2>&1 | /usr/bin/logger -p local0.notice -t DOMSYNC
-}
-
 if [ "addbrigade" = "${cmd}" ]; then
         DC_ID="${DC_ID}" \
         DC_NAME="${DC_NAME}" \
@@ -53,8 +45,6 @@ if [ "addbrigade" = "${cmd}" ]; then
         OUTLINE_CONFIGS="${OUTLINE_CONFIGS}" \
         IPSEC_CONFIGS="${IPSEC_CONFIGS}" \
         flock -x -E 1 -w 60 /tmp/modbrigade.lock "${basedir}"/addbrigade "$@"
-        #vpn_works_keysesks_sync
-        #delegation_sync
 elif [ "delbrigade" = "${cmd}" ]; then
         DC_ID="${DC_ID}" \
         DC_NAME="${DC_NAME}" \
@@ -70,8 +60,6 @@ elif [ "delbrigade" = "${cmd}" ]; then
         OUTLINE_CONFIGS="${OUTLINE_CONFIGS}" \
         IPSEC_CONFIGS="${IPSEC_CONFIGS}" \
         flock -x -E 1 -w 60 /tmp/modbrigade.lock "${basedir}"/delbrigade "$@"
-        #vpn_works_keysesks_sync
-        #delegation_sync
 elif [ "replacebrigadier" = "${cmd}" ]; then
         DC_ID="${DC_ID}" \
         DC_NAME="${DC_NAME}" \
