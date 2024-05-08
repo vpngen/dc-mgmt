@@ -138,7 +138,7 @@ EOF
 
                 echo "$snap" | jq -r '.domain_names | join(" ")' | while read -r dn; do
                         echo "         Domain: '$dn' set to $new_ipv4"
-                        if [ -z "$DRY_RUN" ]; then
+                        if [ -z "$DRY_RUN" ] && [ -n "${dn}" ]; then
                                 psql -d "$DBNAME" -q -t -A \
                                         -v ON_ERROR_STOP=1 \
                                         -v BRIGADES_SCHEMA="$BRIGADES_SCHEMA" \
@@ -158,6 +158,8 @@ SET
 COMMIT;
 EOF
                                 echo "         Success"
+                        elif [ -z "$DRY_RUN" ] && [ -z "${dn}" ]; then
+                                echo "         Emtry domain name, skipped"
                         else
                                 echo "         Dry runned"
                         fi
@@ -165,7 +167,7 @@ EOF
                         break # !!! only one domain name is now supported
                 done
 
-                if [ -z "$DRY_RUN" ]; then
+                if [ -z "$DRY_RUN" ] && [ -n "${domain_name}" ]; then
                         psql -d "$DBNAME" -q -t -A \
                                 -v RESERVATION_ID="$RESERVATION_ID" \
                                 -v BRIGADE_ID="$brigade_id" \
@@ -187,6 +189,26 @@ WHERE
 COMMIT;
 EOF
                         echo "         Success"
+                elif [ -z "$DRY_RUN" ] && [ -z "${domain_name}" ]; then
+                        psql -d "$DBNAME" -q -t -A \
+                                -v RESERVATION_ID="$RESERVATION_ID" \
+                                -v BRIGADE_ID="$brigade_id" \
+                                -v BRIGADES_SCHEMA="$BRIGADES_SCHEMA" \
+                                -v NEW_INSTANCE_ID="$new_instance_id" \
+                                -v NEW_IPV4="$new_ipv4" <<EOF
+BEGIN;
+
+UPDATE 
+        :"BRIGADES_SCHEMA".brigades 
+SET  
+        main = true
+WHERE 
+        brigade_id = :'BRIGADE_ID' 
+        AND instance_id = :'NEW_INSTANCE_ID';
+
+COMMIT;
+EOF
+                        echo "         Emtry domain name, skipped"                
                 else
                         echo "         Dry runned"
                 fi
