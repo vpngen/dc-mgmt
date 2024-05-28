@@ -1,18 +1,15 @@
 ## DEB-package automation
 
-`./cmd` - директория с исходным кодом `.go` и `.sh`.
- - `.go` - компилируем бинарники с именем папки. Складываем в `${TMP_DIR}` 
- - `.sh` - копируем в `${TMP_DIR}`
-
-
-Сборка DEB-пакета осуществляется nsfp-docker.
+`./cmd` - a directory containing the source code files with `.go` and `.sh` extensions.
+ - `.go` - compile binaries with the same name as the directory. Store them in `${TMP_DIR}`.
+ - `.sh` - copy them to `${TMP_DIR}`.
 
 
 ## TODO
-- [x] выборка версии Go из go.mod
-- [x] компиляция всех main.go c параметрами из сребы окружения
-- [] обработка бинарников в шел-скриптов nfpm
-- [] настройка preinstall-nfpm скрипта
+- [x] Select Go version from go.mod
+- [x] Compile all main.go files with environment variables
+- [ ] Handle binaries in nfpm shell scripts
+- [ ] Configure preinstall-nfpm script
 
 
 ## Hints
@@ -35,3 +32,10 @@ echo "${brigade_id}=========" | base32 -d 2>/dev/null | hexdump -ve '1/1 "%02x"'
 echo "${brigade_id}" | xxd -r -p -l 16 | base32 | tr -d "="
 ```
 
+## License
+
+This project is licensed under the Mozilla Public License 2.0. See the [LICENSE](LICENSE) file for more details.
+
+## Copyright
+
+See the [COPYRIGHT](COPYRIGHT) file for detailed copyright information.
