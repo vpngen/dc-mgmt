@@ -432,6 +432,12 @@ contents:
     mode: 0005
     owner: root
     group: root
+- src: dc-mgmt/cmd/releaseremotemigr/subdomain_reservation.sh
+  dst: /opt/vg-dc-snaps/subdomain_reservation.sh
+  file_info:
+    mode: 0005
+    owner: root
+    group: root
 
 - src: dc-mgmt/systemd/vg-dc-snaps.timer
   dst: /etc/systemd/system/vg-dc-snaps.timer

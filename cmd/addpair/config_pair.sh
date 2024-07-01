@@ -72,7 +72,7 @@ SQL_SELECT_NODES=$(cat <<EOF
         FROM 
                 :"schema_name".pairs
         WHERE 
-                control_ip << :'control_ip'
+                control_ip <<= :'control_ip'
 EOF
 )
 
@@ -111,6 +111,8 @@ cfgpair () {
         else
                 echo "    enable: false"
         fi
+
+        ssh-keygen -f "/home/vgadmin/.ssh/known_hosts" -R "${control_ip}"
 
         CMD="cat /etc/ssh/ssh_host_ed25519_key.pub"
         ssh_ed25519_pubkey=$(ssh -o IdentitiesOnly=yes -o IdentityFile="${SSH_KEY}" -o StrictHostKeyChecking=no -T "${USERNAME}"@"${control_ip}" "${CMD}")

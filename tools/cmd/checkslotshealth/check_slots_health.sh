@@ -228,7 +228,7 @@ EOF
                         -control_ip "${control_ip}" -endpoint_ipv4 "${endpoint_ipv4}" \
                         -id "${BRIGADE_ID}" \
                         -name "${GEN_NAME}" -person "${GEN_PERSON}" -desc "${GEN_DESC}" -url "${GEN_URL}" \
-                        "${BLESS}"
+                        ${BLESS}
 
                 sleep 1
         done
