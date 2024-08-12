@@ -155,6 +155,15 @@ var (
 
 var LogTag = setLogTag()
 
+var (
+	cgnatNetWindow netip.Prefix = netip.MustParsePrefix("100.64.0.0/10")
+	reservedCGNATs              = []netip.Prefix{
+		netip.MustParsePrefix("100.125.0.0/16"),
+		netip.MustParsePrefix("100.126.0.0/16"),
+		netip.MustParsePrefix("100.127.0.0/16"),
+	}
+)
+
 const defaultLogTag = "addbrigade"
 
 func setLogTag() string {
@@ -407,44 +416,57 @@ func createBrigade(
 
 	// pick up cgnat
 
-	var (
-		cgnatNetWindow netip.Prefix
-		cgnatNet       netip.Prefix
-	)
+	var cgnatNet netip.Prefix
 
-	sqlPickCGNATNet := `
-	SELECT 
-		ipv4_net
-	FROM 
-		%s
-	ORDER BY weight DESC, id
-	LIMIT 1
-`
+	/*
+			sqlPickCGNATNet := `
+			SELECT
+				ipv4_net
+			FROM
+				%s
+			ORDER BY weight DESC, id
+			LIMIT 1
+		`
+	*/
 
+CGNATLOOP:
 	for attempts := 0; ; attempts++ {
 		if attempts > DefaultRandomAttemts {
 			return 0, fmt.Errorf("cgnat: %w", ErrRandomAttemptsExceeded)
 		}
 
-		if err := tx.QueryRow(
-			ctx,
-			fmt.Sprintf(sqlPickCGNATNet, pgx.Identifier{env.brigadesSchema, "ipv4_cgnat_nets_weight"}.Sanitize()),
-		).Scan(&cgnatNetWindow); err != nil {
-			return 0, fmt.Errorf("cgnat weight query: %w", err)
-		}
+		/*
+			if err := tx.QueryRow(
+				ctx,
+				fmt.Sprintf(sqlPickCGNATNet, pgx.Identifier{env.brigadesSchema, "ipv4_cgnat_nets_weight"}.Sanitize()),
+			).Scan(&cgnatNetWindow); err != nil {
+				return 0, fmt.Errorf("cgnat weight query: %w", err)
+			}
+		*/
 
 		addr := kdlib.RandomAddrIPv4(cgnatNetWindow)
 		if kdlib.IsZeroEnding(addr) {
 			continue
 		}
 
-		cgnatNet = netip.PrefixFrom(addr, BrigadeCgnatPrefix)
-		if cgnatNet.Masked().Addr() == addr || kdlib.LastPrefixIPv4(cgnatNet.Masked()) == addr {
+		cgnatNet = netip.PrefixFrom(addr, BrigadeCgnatPrefix).Masked()
+		if cgnatNet.Addr() == addr || kdlib.LastPrefixIPv4(cgnatNet) == addr {
 			continue
 		}
-		if _, ok := cgnat[cgnatNet.Masked().Addr().String()]; !ok {
-			break
+
+		for _, reserved := range reservedCGNATs {
+			if cgnatNet.Overlaps(reserved) {
+				continue CGNATLOOP
+			}
 		}
+
+		break
+
+		/*
+			if _, ok := cgnat[cgnatNet.Masked().Addr().String()]; !ok {
+				break
+			}
+		*/
 	}
 
 	fmt.Fprintf(os.Stderr, "%s: cgnat_gnet: %s cgnat_net: %s\n", LogTag, cgnatNetWindow, cgnatNet)
@@ -783,7 +805,8 @@ WHERE
 		return nil, netip.Addr{}, fmt.Errorf("person: %w", err)
 	}
 
-	cmd := fmt.Sprintf("create -id %s -ep4 %s -int4 %s -int6 %s -dns4 %s -dns6 %s -kd6 %s -name %s -person %s -desc %s -url %s -dn %s -ch -j",
+	// cmd := fmt.Sprintf("create -id %s -ep4 %s -int4 %s -int6 %s -dns4 %s -dns6 %s -kd6 %s -name %s -person %s -desc %s -url %s -dn %s -ch -j",
+	cmd := fmt.Sprintf("create -id %s -ep4 %s -int4 %s -int6 %s -dns4 %s -dns6 %s -kd6 %s -name %s -person %s -desc %s -url %s -dn %s -j",
 		base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(brigadeID),
 		endpointIPv4,
 		ipv4CGNAT,
@@ -851,8 +874,11 @@ WHERE
 		return nil, netip.Addr{}, fmt.Errorf("ssh run: %w", err)
 	}
 
-	payload, err := io.ReadAll(httputil.NewChunkedReader(&b))
+	// payload, err := io.ReadAll(httputil.NewChunkedReader(&b))
+	payload, err := io.ReadAll(&b)
 	if err != nil {
+		fmt.Fprintf(os.Stderr, "%s: Chunk read: %s\n", LogTag, payload)
+
 		return nil, netip.Addr{}, fmt.Errorf("chunk read: %w", err)
 	}
 
@@ -1171,7 +1197,7 @@ func setOrphan(
 	WHERE brigade_id=$1
 	`
 
-	if _, err := tx.Exec(ctx, fmt.Sprintf(sqlDelBrigadesStats, pgx.Identifier{schema, defaultBrigadesStatsSchema}.Sanitize()), brigadeID); err != nil {
+	if _, err := tx.Exec(ctx, fmt.Sprintf(sqlDelBrigadesStats, pgx.Identifier{defaultBrigadesStatsSchema, "brigades_stats"}.Sanitize()), brigadeID); err != nil {
 		return 0, fmt.Errorf("brigades stats delete: %w", err)
 	}
 
@@ -1192,14 +1218,14 @@ func setOrphan(
 		return 0, fmt.Errorf("brigade delete: %w", err)
 	}
 
-	if err := tx.Commit(ctx); err != nil {
-		return 0, fmt.Errorf("commit: %w", err)
-	}
-
 	num := int32(0)
 
 	if err := tx.QueryRow(ctx, kdlib.GetFreeSlotsNumberStatement(schema, true)).Scan(&num); err != nil {
 		return 0, fmt.Errorf("free slots query: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return 0, fmt.Errorf("commit: %w", err)
 	}
 
 	return num, nil
