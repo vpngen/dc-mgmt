@@ -21,6 +21,8 @@ go build -C dc-mgmt/tools/cmd/dns-srv -o ../../../../bin/dns-srv
 go build -C dc-mgmt/tools/cmd/dns-chk -o ../../../../bin/dns-chk
 go build -C dc-mgmt/tools/cmd/delegation-sync -o ../../../../bin/delegation-sync
 
+go build -C dc-mgmt/socket/cmd/create_brigade -o ../../../../bin/create_brigade
+
 go install github.com/goreleaser/nfpm/v2/cmd/nfpm@latest
 
 nfpm package --config "dc-mgmt/debpkg/nfpm.yaml" --target "${SHARED_BASE}/pkg" --packager deb

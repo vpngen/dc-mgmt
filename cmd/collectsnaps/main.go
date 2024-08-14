@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/netip"
@@ -50,7 +51,9 @@ func main() {
 		log.Fatalf("%s: Can't create ssh configs: %s\n", LogTag, err)
 	}
 
-	db, err := kdlib.CreateDBPool(opts.dbURL)
+	ctx := context.Background()
+
+	db, err := kdlib.CreateDBPool(ctx, opts.dbURL)
 	if err != nil {
 		log.Fatalf("%s: Can't create db pool: %s\n", LogTag, err)
 	}

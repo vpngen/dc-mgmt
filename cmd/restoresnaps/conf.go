@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"crypto/rsa"
 	"errors"
 	"flag"
@@ -108,7 +109,9 @@ func conf() (*opts, error) {
 		return nil, fmt.Errorf("can't create ssh configs: %w", err)
 	}
 
-	db, err := kdlib.CreateDBPool(c.dburl)
+	ctx := context.Background()
+
+	db, err := kdlib.CreateDBPool(ctx, c.dburl)
 	if err != nil {
 		return nil, fmt.Errorf("can't create db pool: %w", err)
 	}

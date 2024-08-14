@@ -452,6 +452,25 @@ contents:
     owner: root
     group: root
 
+- dst: /opt/vg-dc-socket
+  type: dir
+  file_info:
+    mode: 0111
+    owner: root
+    group: root
+- src: dc-mgmt/socket/cmd/create_brigade/create_brigade.sh
+  dst: /opt/vg-dc-socket/create_brigade.sh
+  file_info:
+    mode: 0005
+    owner: root
+    group: root
+- src: bin/create_brigade
+  dst: /opt/vg-dc-socket/create_brigade
+  file_info:
+    mode: 0005
+    owner: root
+    group: root
+
 overrides:
   deb:
     scripts:

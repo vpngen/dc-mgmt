@@ -48,12 +48,14 @@ func main() {
 		log.Fatalf("Can't create keydesk address ssh config: %s\n", err)
 	}
 
-	db, err := kdlib.CreateDBPool(dbname)
+	ctx := context.Background()
+
+	db, err := kdlib.CreateDBPool(ctx, dbname)
 	if err != nil {
 		log.Fatalf("%s: Can't create db pool: %s\n", LogTag, err)
 	}
 
-	kdAddrList, err := dcmgmt.NewKdAddrList(context.Background(), db, schema)
+	kdAddrList, err := dcmgmt.NewKdAddrList(ctx, db, schema)
 	if err != nil {
 		log.Fatalf("%s: Can't get keydesk address list: %s\n", LogTag, err)
 	}
