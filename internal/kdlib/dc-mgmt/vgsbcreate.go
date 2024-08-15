@@ -1,4 +1,4 @@
-package main
+package dcmgmt
 
 import (
 	"bytes"
@@ -18,34 +18,10 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/vpngen/wordsgens/namesgenerator"
 	"golang.org/x/crypto/ssh"
-
-	dcmgmtlib "github.com/vpngen/dc-mgmt/internal/kdlib/dc-mgmt"
 )
 
 const (
 	sshkeyRemoteUsername = "_serega_"
-	sshkeyDefaultPath    = "/etc/vg-dc-vpnapi"
-)
-
-const defaultWireguardConfigs = "native"
-
-// Args errors.
-var (
-	ErrEmptyBrigadierName   = errors.New("empty brigadier name")
-	ErrInvalidBrigadierName = errors.New("invalid brigadier name")
-	ErrEmptyPersonName      = errors.New("empty person name")
-	ErrEmptyPersonDesc      = errors.New("empty person desc")
-	ErrEmptyPersonURL       = errors.New("empty person url")
-	ErrInvalidPersonName    = errors.New("invalid person name")
-	ErrInvalidPersonDesc    = errors.New("invalid person desc")
-	ErrInvalidPersonURL     = errors.New("invalid person url")
-	ErrNoSSHKeyFile         = errors.New("no ssh key file")
-)
-
-// SubdomAPI config errors.
-var (
-	ErrEmptySubdomAPIServer = errors.New("empty subdomapi host")
-	ErrEmptySubdomAPIToken  = errors.New("empty subdomapi token")
 )
 
 var ErrNotDelegated = errors.New("not delegated")
@@ -60,20 +36,12 @@ type delegationSync struct {
 	server  string
 }
 
-type vpnCfgs struct {
-	wg      string
-	ovc     string
-	ipsec   string
-	outline string
+type VpnCfgs struct {
+	Wg      string
+	Ovc     string
+	Ipsec   string
+	Outline string
 }
-
-/*type envOpts struct {
-	dc
-	subdomainAPI
-	delegationSync
-	delegationCheck
-	vpnCfgs
-}*/
 
 type brigadeOpts struct {
 	id     string
@@ -88,7 +56,7 @@ type pairOpts struct {
 	domain       string
 }
 
-func createBrigade(
+func vgsCreateBrigade(
 	ctx context.Context,
 	db *pgxpool.Pool,
 	logger *slog.Logger,
@@ -112,7 +80,7 @@ func createBrigade(
 	}
 
 	// pick up cgnat
-	cgnatNet, err := dcmgmtlib.RandomCGNAT24Net()
+	cgnatNet, err := RandomCGNAT24Net()
 	if err != nil {
 		return fmt.Errorf("random cgnat: %w", err)
 	}
@@ -120,7 +88,7 @@ func createBrigade(
 	logger.Debug("create brigade", "cgnat_net", cgnatNet)
 
 	// pick up ula
-	ulaNet, err := dcmgmtlib.RandomULA64Net()
+	ulaNet, err := RandomULA64Net()
 	if err != nil {
 		return fmt.Errorf("random ula: %w", err)
 	}
@@ -128,7 +96,7 @@ func createBrigade(
 	logger.Debug("create brigade", "ula_net", ulaNet)
 
 	// pick up keydesk
-	keydesk, err := dcmgmtlib.RandomKeydesk()
+	keydesk, err := RandomKeydesk()
 	if err != nil {
 		return fmt.Errorf("random keydesk: %w", err)
 	}
@@ -179,20 +147,20 @@ RETURNING instance_id;
 
 	// Pick up subdomain.
 	if popts.domain == "" {
-		if err := dcmgmtlib.ApplySubdomain(ctx, db, subdomAPI.host, subdomAPI.token, bopts.id, popts.endpointIPv4); err != nil {
+		if err := ApplySubdomain(ctx, db, subdomAPI.host, subdomAPI.token, bopts.id, popts.endpointIPv4); err != nil {
 			return fmt.Errorf("apply subdomain: %w", err)
 		}
 	}
 
 	// Sync delegation list.
-	delegationList, err := dcmgmtlib.NewDelegationList(ctx, db, "brigades")
+	delegationList, err := NewDelegationList(ctx, db, "brigades")
 	if err != nil {
 		return fmt.Errorf("delegation list: %w", err)
 	}
 
 	logger.Debug("create brigade", "delegation_list", delegationList)
 
-	cleanup, err := dcmgmtlib.SyncDelegationList(delegationSync.sshconf, delegationSync.server, dcident, delegationList)
+	cleanup, err := SyncDelegationList(delegationSync.sshconf, delegationSync.server, dcident, delegationList)
 	cleanup("create brigade")
 
 	if err != nil {
@@ -202,14 +170,15 @@ RETURNING instance_id;
 	return nil
 }
 
-func requestBrigade(
+func vgsRequestBrigade(
 	ctx context.Context,
 	db *pgxpool.Pool,
 	logger *slog.Logger,
 	sshconf *ssh.ClientConfig,
 	bid string,
 	ns []string,
-	vpnCfgs *vpnCfgs,
+	vpnCfgs *VpnCfgs,
+	maxusers int,
 ) error {
 	tx, err := db.Begin(ctx)
 	if err != nil {
@@ -227,6 +196,7 @@ func requestBrigade(
 		ipv4CGNAT    netip.Prefix
 		ipv6ULA      netip.Prefix
 		control_ip   netip.Addr
+		kdIPv6       netip.Addr
 	)
 
 	sqlFetchBrigade := `
@@ -238,7 +208,8 @@ SELECT
 	meta_brigades.dns_ipv6,
 	meta_brigades.ipv4_cgnat,
 	meta_brigades.ipv6_ula,
-	meta_brigades.control_ip
+	meta_brigades.control_ip,
+	meta_brigades.keydesk_ipv6
 FROM brigades.meta_brigades
 WHERE
 	meta_brigades.brigade_id=$1
@@ -253,37 +224,40 @@ WHERE
 		&ipv4CGNAT,
 		&ipv6ULA,
 		&control_ip,
+		&kdIPv6,
 	)
 	if err != nil {
 		return fmt.Errorf("brigade query: %w", err)
 	}
 
 	// cmd := fmt.Sprintf("create -id %s -ep4 %s -int4 %s -int6 %s -dns4 %s -dns6 %s -kd6 %s -name %s -person %s -desc %s -url %s -dn %s -ch -j",
-	cmd := fmt.Sprintf("create -id %s -ep4 %s -int4 %s -int6 %s -dns4 %s -dns6 %s -dn %s -j",
+	cmd := fmt.Sprintf("create -id %s -ep4 %s -int4 %s -int6 %s -dns4 %s -dns6 %s -kd6 %s -dn %s -j -mode vgsocket -maxusers %d",
 		base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(brigadeID),
 		endpointIPv4,
 		ipv4CGNAT,
 		ipv6ULA,
 		dnsIPv4,
 		dnsIPv6,
+		kdIPv6,
 		domain.String,
+		maxusers,
 	)
 
 	if vpnCfgs != nil {
-		if vpnCfgs.wg != "" {
-			cmd += fmt.Sprintf(" -wg %s", vpnCfgs.wg)
+		if vpnCfgs.Wg != "" {
+			cmd += fmt.Sprintf(" -wg %s", vpnCfgs.Wg)
 		}
 
-		if vpnCfgs.ovc != "" {
-			cmd += fmt.Sprintf(" -ovc %s", vpnCfgs.ovc)
+		if vpnCfgs.Ovc != "" {
+			cmd += fmt.Sprintf(" -ovc %s", vpnCfgs.Ovc)
 		}
 
-		if vpnCfgs.ipsec != "" {
-			cmd += fmt.Sprintf(" -ipsec %s", vpnCfgs.ipsec)
+		if vpnCfgs.Ipsec != "" {
+			cmd += fmt.Sprintf(" -ipsec %s", vpnCfgs.Ipsec)
 		}
 
-		if vpnCfgs.outline != "" {
-			cmd += fmt.Sprintf(" -outline %s", vpnCfgs.outline)
+		if vpnCfgs.Outline != "" {
+			cmd += fmt.Sprintf(" -outline %s", vpnCfgs.Outline)
 		}
 	}
 
@@ -330,15 +304,15 @@ WHERE
 
 	logger.Debug("waiting for delegation", "domain_name", domain.String, "endpoint_ipv4", endpointIPv4)
 
-	if !waitForAllDelegations(logger, domain.String, endpointIPv4, ns) {
+	if !vgsWaitForAllDelegations(logger, domain.String, endpointIPv4, ns) {
 		return fmt.Errorf("delegation: %w", ErrNotDelegated)
 	}
 
 	return nil
 }
 
-func waitForAllDelegations(logger *slog.Logger, domain string, endpointIPv4 netip.Addr, domainNS []string) bool {
-	var kdOk, domainOk bool
+func vgsWaitForAllDelegations(logger *slog.Logger, domain string, endpointIPv4 netip.Addr, domainNS []string) bool {
+	var domainOk bool
 
 	wg := &sync.WaitGroup{}
 
@@ -347,7 +321,7 @@ func waitForAllDelegations(logger *slog.Logger, domain string, endpointIPv4 neti
 		go func() {
 			defer wg.Done()
 
-			ok, err := dcmgmtlib.WaitForDelegation(domain, endpointIPv4, domainNS...)
+			ok, err := WaitForDelegation(domain, endpointIPv4, domainNS...)
 			if err != nil {
 				logger.Error("wait for delegation", "domain", domain, "endpoint_ipv4", endpointIPv4, "err", err)
 			}
@@ -358,5 +332,5 @@ func waitForAllDelegations(logger *slog.Logger, domain string, endpointIPv4 neti
 
 	wg.Wait()
 
-	return kdOk && domainOk
+	return domainOk
 }

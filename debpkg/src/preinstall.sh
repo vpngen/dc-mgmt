@@ -44,7 +44,7 @@ create_users () {
         if id "${VGSOCKET_ADMIN_USER}" >/dev/null 2>&1; then
                 echo "user ${VGSOCKET_ADMIN_USER} already exists"
         else
-                useradd -p "*" -m "${VGSOCKET_ADMIN_USER}" -s /bin/bash 
+                useradd -p "*" -m "${VGSOCKET_ADMIN_USER}" -s /bin/bash -G "${VPNAPI_USER}"
         fi
 
         if id "${VGSOCKET_COMMON_USER}" >/dev/null 2>&1; then

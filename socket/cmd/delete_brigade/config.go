@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
-	"github.com/vpngen/wordsgens/namesgenerator"
 
 	"github.com/vpngen/dc-mgmt/internal/kdlib"
 	dcmgmtlib "github.com/vpngen/dc-mgmt/internal/kdlib/dc-mgmt"
@@ -43,11 +42,7 @@ const (
 	DefaultPairsApp = "/opt/socket-control-endpoints/hetzner_pairs.sh"
 )
 
-const (
-	sshkeyDefaultPath       = "/etc/vg-dc-vpnapi"
-	defaultMaxUsers         = 100
-	defaultWireguardConfigs = "native"
-)
+const sshkeyDefaultPath = "/etc/vg-dc-vpnapi"
 
 type Config struct {
 	DatabaseURL string // Database URL
@@ -56,8 +51,7 @@ type Config struct {
 
 	LogLevel slog.Level // Log level
 
-	BrigadeID   uuid.UUID // Brigade ID
-	BrigadeName string    // Brigade name
+	BrigadeID uuid.UUID // Brigade ID
 
 	PairsApp string // Script which creates pairs
 
@@ -71,18 +65,7 @@ type Config struct {
 	DelegationSyncUser string // Delegation sync user
 	DelegationSyncHost string // Delegation sync host
 
-	// Name servers.
-	NameServers []string // Domain nameservers
-
-	// Config types.
-	WG      string // Wireguard configs
-	OVC     string // OVC configs
-	IPsec   string // IPsec configs
-	Outline string // Outline configs
-
 	SSHKeyFile string // SSH key file
-
-	MaxUsers int // Max users
 }
 
 var (
@@ -181,29 +164,8 @@ func (c *Config) delegationSync() error {
 		return errors.New("empty domain nameservers")
 	}
 
-	c.NameServers = strings.Split(ns, ",")
-
 	c.DelegationSyncUser = user
 	c.DelegationSyncHost = server
-
-	return nil
-}
-
-func (c *Config) vpnConfigTypes() error {
-	// Some code to configure types
-	wg := os.Getenv("WIREGUARD_CONFIGS")
-	if wg == "" {
-		wg = defaultWireguardConfigs
-	}
-
-	ovc := os.Getenv("OVC_CONFIGS")
-	ipsec := os.Getenv("IPSEC_CONFIGS")
-	outline := os.Getenv("OUTLINE_CONFIGS")
-
-	c.WG = wg
-	c.OVC = ovc
-	c.IPsec = ipsec
-	c.Outline = outline
 
 	return nil
 }
@@ -252,11 +214,6 @@ func (c *Config) readEnv() error {
 		return fmt.Errorf("delegation sync: %w", err)
 	}
 
-	// VPN config types.
-	if err := c.vpnConfigTypes(); err != nil {
-		return fmt.Errorf("vpn config types: %w", err)
-	}
-
 	// SSH config.
 	if err := c.sshConfig(); err != nil {
 		return fmt.Errorf("ssh config: %w", err)
@@ -268,41 +225,15 @@ func (c *Config) readEnv() error {
 func (c *Config) readArgs() error {
 	// Some code to read args from os.Args
 	id := flag.String("id", "", "brigade ID (UUID form)")
-	name := flag.String("name", "", "brigade name")
-	auto := flag.Bool("auto", false, "auto-generate brigade ID and name")
-	maxusers := flag.Int("maxusers", 0, "max users")
 
 	flag.Parse()
 
-	switch *auto {
-	case true:
-		c.BrigadeID = uuid.New()
-
-		name, _, err := namesgenerator.IndianNameShort()
-		if err != nil {
-			return fmt.Errorf("auto-generate brigade name: %w", err)
-		}
-
-		c.BrigadeName = name
-	default:
-		if *name == "" {
-			return ErrBrigadeName
-		}
-
-		brigadeID, err := uuid.Parse(*id)
-		if err != nil {
-			return fmt.Errorf("brigade ID: %w", err)
-		}
-
-		c.BrigadeName = *name
-		c.BrigadeID = brigadeID
+	brigadeID, err := uuid.Parse(*id)
+	if err != nil {
+		return fmt.Errorf("brigade ID: %w", err)
 	}
 
-	c.MaxUsers = *maxusers
-
-	if *maxusers == 0 {
-		c.MaxUsers = defaultMaxUsers
-	}
+	c.BrigadeID = brigadeID
 
 	return nil // just for future cases
 }

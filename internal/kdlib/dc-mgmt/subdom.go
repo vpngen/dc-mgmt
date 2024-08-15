@@ -79,3 +79,54 @@ func ApplySubdomain(ctx context.Context, db *pgxpool.Pool, apihost, apitoken str
 
 	return nil
 }
+
+func RevokeSubdomain(ctx context.Context, db *pgxpool.Pool, apihost, apitoken string, domain string) error {
+	if apitoken == NoUseSubdomainAPIToken {
+		return nil
+	}
+
+	tx, err := db.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("begin: %w", err)
+	}
+
+	defer tx.Rollback(ctx)
+
+	sqlDelPairDomain := `DELETE FROM brigades.domains_endpoints_ipv4 WHERE domain_name=$1`
+
+	commTag, err := tx.Exec(ctx, sqlDelPairDomain, domain)
+	if err != nil {
+		return fmt.Errorf("pair domain delete: %w", err)
+	}
+
+	if commTag.RowsAffected() == 0 {
+		return fmt.Errorf("pair domain delete: no rows affected")
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("commit: %w", err)
+	}
+
+	for i := 0; i < subdomainAPIAttempts; i++ {
+		if err := kdlib.SubdomainDelete(apihost, apitoken, domain); err != nil {
+
+			fmt.Fprintf(os.Stderr, "Can't delete subdomain (%d): %s\n", i+1, err)
+
+			if i == subdomainAPIAttempts-1 {
+				return fmt.Errorf("delete subdomain: %w", err)
+			}
+
+			select {
+			case <-ctx.Done():
+				return fmt.Errorf("context done: %w", ctx.Err())
+			case <-time.After(subdomainAPISleep):
+			}
+
+			continue
+		}
+
+		break
+	}
+
+	return nil
+}

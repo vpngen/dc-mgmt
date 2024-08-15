@@ -22,6 +22,7 @@ go build -C dc-mgmt/tools/cmd/dns-chk -o ../../../../bin/dns-chk
 go build -C dc-mgmt/tools/cmd/delegation-sync -o ../../../../bin/delegation-sync
 
 go build -C dc-mgmt/socket/cmd/create_brigade -o ../../../../bin/create_brigade
+go build -C dc-mgmt/socket/cmd/delete_brigade -o ../../../../bin/delete_brigade
 
 go install github.com/goreleaser/nfpm/v2/cmd/nfpm@latest
 

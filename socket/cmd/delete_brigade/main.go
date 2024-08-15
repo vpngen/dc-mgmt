@@ -16,8 +16,8 @@ import (
 
 func main() {
 	// 1. create order
-	// 2. create control/endpoint pair
-	// 3. create brigade
+	// 2. delete brigade
+	// 3. delete control/endpoint pair
 
 	cfg, err := NewConfig()
 	if err != nil {
@@ -45,35 +45,19 @@ func main() {
 	SqFmt := sq.StatementBuilder.PlaceholderFormat(sq.Dollar)
 
 	// 1. create order
-	orderID, err := dcmgmtlib.VgsOrderCreateBrigade(ctx, logger, dbPool, SqFmt, cfg.BrigadeID, cfg.BrigadeName)
+	orderID, pairID, controlIP, err := dcmgmtlib.VgsOrderDeleteBrigade(ctx, logger, dbPool, SqFmt, cfg.BrigadeID)
 	if err != nil {
 		logger.Error("error creating order", "error", err)
 
 		log.Fatalf("Error creating order: %s", err)
 	}
 
-	// 2. create control/endpoint pair
-	pairID, controlIP, endpointIPv4, err := dcmgmtlib.VgsCreatePair(ctx, logger, dbPool, SqFmt,
-		cfg.PairsApp, orderID, cfg.MgmtRandomResponses)
-	if err != nil {
-		logger.Error("error creating pair", "error", err)
-
-		log.Fatalf("Error creating pair: %s", err)
-	}
-
-	// 3. create brigade
-	if err := dcmgmtlib.VgsCreateBrigade(ctx, logger, dbPool, SqFmt, orderID,
-		cfg.DCIdent, pairID, controlIP, endpointIPv4,
-		cfg.BrigadeID, cfg.BrigadeName,
+	// 2. delete brigade
+	if err := dcmgmtlib.VgsDeleteBrigade(ctx, logger, dbPool, SqFmt, orderID,
+		cfg.DCIdent, pairID, controlIP,
+		cfg.BrigadeID,
 		cfg.SubdomAPIHost, cfg.SubdomAPIToken,
 		cfg.SSHKeyFile, cfg.DelegationSyncUser, cfg.DelegationSyncHost,
-		cfg.NameServers, &dcmgmtlib.VpnCfgs{
-			Wg:      cfg.WG,
-			Ovc:     cfg.OVC,
-			Ipsec:   cfg.IPsec,
-			Outline: cfg.Outline,
-		},
-		cfg.MaxUsers,
 		cfg.MgmtRandomResponses,
 	); err != nil {
 		logger.Error("error creating brigade", "error", err)
@@ -81,5 +65,14 @@ func main() {
 		log.Fatalf("Error creating brigade: %s", err)
 	}
 
-	logger.Info("brigade created", "brigade_id", cfg.BrigadeID, "brigade_name", cfg.BrigadeName)
+	// 3. delete control/endpoint pair
+
+	if err := dcmgmtlib.VgsDeletePair(ctx, logger, dbPool, SqFmt,
+		cfg.PairsApp, orderID, pairID, cfg.MgmtRandomResponses); err != nil {
+		logger.Error("error deleting pair", "error", err)
+
+		log.Fatalf("Error deleting pair: %s", err)
+	}
+
+	logger.Info("brigade deleted", "brigade_id", cfg.BrigadeID)
 }

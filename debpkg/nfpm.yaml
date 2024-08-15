@@ -470,6 +470,18 @@ contents:
     mode: 0005
     owner: root
     group: root
+- src: dc-mgmt/socket/cmd/delete_brigade/delete_brigade.sh
+  dst: /opt/vg-dc-socket/delete_brigade.sh
+  file_info:
+    mode: 0005
+    owner: root
+    group: root
+- src: bin/delete_brigade
+  dst: /opt/vg-dc-socket/delete_brigade
+  file_info:
+    mode: 0005
+    owner: root
+    group: root
 
 overrides:
   deb:
