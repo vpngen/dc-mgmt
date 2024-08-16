@@ -159,11 +159,6 @@ func (c *Config) delegationSync() error {
 		return fmt.Errorf("delegation sync connect: %w", err)
 	}
 
-	ns := os.Getenv("DOMAIN_NAMESERVERS")
-	if ns == "" {
-		return errors.New("empty domain nameservers")
-	}
-
 	c.DelegationSyncUser = user
 	c.DelegationSyncHost = server
 

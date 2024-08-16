@@ -482,6 +482,29 @@ contents:
     mode: 0005
     owner: root
     group: root
+- src: bin/vgsocket_service
+  dst: /opt/vg-dc-socket/vgsocket_service
+  file_info:
+    mode: 0005
+    owner: root
+    group: root
+
+- src: dc-mgmt/systemd/vg-dc-vgsocket.service
+  dst: /etc/systemd/system/vg-dc-vgsocket.service
+  file_info:
+    mode: 0644
+    owner: root
+    group: root
+
+- dst: /etc/vg-dc-socket-user
+  type: dir
+  file_info:
+    mode: 0110
+    owner: root
+    group: vgs_user
+
+- dst: /etc/vg-dc-socket-user/vgsocket.env
+  type: ghost
 
 overrides:
   deb:

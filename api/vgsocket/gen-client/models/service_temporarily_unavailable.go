@@ -8,8 +8,10 @@ package models
 import (
 	"context"
 
+	"github.com/go-openapi/errors"
 	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/swag"
+	"github.com/go-openapi/validate"
 )
 
 // ServiceTemporarilyUnavailable service temporarily unavailable
@@ -17,15 +19,53 @@ import (
 // swagger:model ServiceTemporarilyUnavailable
 type ServiceTemporarilyUnavailable struct {
 
-	// Error code
-	Code int64 `json:"code,omitempty"`
+	// message
+	// Required: true
+	Message *string `json:"message"`
 
-	// Error message
-	Message string `json:"message,omitempty"`
+	// retry after
+	// Required: true
+	// Format: date-time
+	RetryAfter *strfmt.DateTime `json:"retry_after"`
 }
 
 // Validate validates this service temporarily unavailable
 func (m *ServiceTemporarilyUnavailable) Validate(formats strfmt.Registry) error {
+	var res []error
+
+	if err := m.validateMessage(formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.validateRetryAfter(formats); err != nil {
+		res = append(res, err)
+	}
+
+	if len(res) > 0 {
+		return errors.CompositeValidationError(res...)
+	}
+	return nil
+}
+
+func (m *ServiceTemporarilyUnavailable) validateMessage(formats strfmt.Registry) error {
+
+	if err := validate.Required("message", "body", m.Message); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (m *ServiceTemporarilyUnavailable) validateRetryAfter(formats strfmt.Registry) error {
+
+	if err := validate.Required("retry_after", "body", m.RetryAfter); err != nil {
+		return err
+	}
+
+	if err := validate.FormatOf("retry_after", "body", "date-time", m.RetryAfter.String(), formats); err != nil {
+		return err
+	}
+
 	return nil
 }
 

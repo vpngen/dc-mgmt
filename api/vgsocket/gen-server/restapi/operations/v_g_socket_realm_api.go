@@ -46,23 +46,11 @@ func NewVGSocketRealmAPI(spec *loads.Document) *VGSocketRealmAPI {
 		JSONProducer: runtime.JSONProducer(),
 		XMLProducer:  runtime.XMLProducer(),
 
-		CheckOrderStatusHandler: CheckOrderStatusHandlerFunc(func(params CheckOrderStatusParams, principal *models.Principal) middleware.Responder {
-			return middleware.NotImplemented("operation CheckOrderStatus has not yet been implemented")
+		CreateConfigHandler: CreateConfigHandlerFunc(func(params CreateConfigParams, principal *models.Principal) middleware.Responder {
+			return middleware.NotImplemented("operation CreateConfig has not yet been implemented")
 		}),
-		CreateBrigadeHandler: CreateBrigadeHandlerFunc(func(params CreateBrigadeParams, principal *models.Principal) middleware.Responder {
-			return middleware.NotImplemented("operation CreateBrigade has not yet been implemented")
-		}),
-		CreateUserHandler: CreateUserHandlerFunc(func(params CreateUserParams, principal *models.Principal) middleware.Responder {
-			return middleware.NotImplemented("operation CreateUser has not yet been implemented")
-		}),
-		DeleteBrigadeHandler: DeleteBrigadeHandlerFunc(func(params DeleteBrigadeParams, principal *models.Principal) middleware.Responder {
-			return middleware.NotImplemented("operation DeleteBrigade has not yet been implemented")
-		}),
-		DeleteUserHandler: DeleteUserHandlerFunc(func(params DeleteUserParams, principal *models.Principal) middleware.Responder {
-			return middleware.NotImplemented("operation DeleteUser has not yet been implemented")
-		}),
-		GetBrigadeHandler: GetBrigadeHandlerFunc(func(params GetBrigadeParams, principal *models.Principal) middleware.Responder {
-			return middleware.NotImplemented("operation GetBrigade has not yet been implemented")
+		DeleteConfigHandler: DeleteConfigHandlerFunc(func(params DeleteConfigParams, principal *models.Principal) middleware.Responder {
+			return middleware.NotImplemented("operation DeleteConfig has not yet been implemented")
 		}),
 
 		JWTAuth: func(token string, scopes []string) (*models.Principal, error) {
@@ -119,18 +107,10 @@ type VGSocketRealmAPI struct {
 	// APIAuthorizer provides access control (ACL/RBAC/ABAC) by providing access to the request and authenticated principal
 	APIAuthorizer runtime.Authorizer
 
-	// CheckOrderStatusHandler sets the operation handler for the check order status operation
-	CheckOrderStatusHandler CheckOrderStatusHandler
-	// CreateBrigadeHandler sets the operation handler for the create brigade operation
-	CreateBrigadeHandler CreateBrigadeHandler
-	// CreateUserHandler sets the operation handler for the create user operation
-	CreateUserHandler CreateUserHandler
-	// DeleteBrigadeHandler sets the operation handler for the delete brigade operation
-	DeleteBrigadeHandler DeleteBrigadeHandler
-	// DeleteUserHandler sets the operation handler for the delete user operation
-	DeleteUserHandler DeleteUserHandler
-	// GetBrigadeHandler sets the operation handler for the get brigade operation
-	GetBrigadeHandler GetBrigadeHandler
+	// CreateConfigHandler sets the operation handler for the create config operation
+	CreateConfigHandler CreateConfigHandler
+	// DeleteConfigHandler sets the operation handler for the delete config operation
+	DeleteConfigHandler DeleteConfigHandler
 
 	// ServeError is called when an error is received, there is a default handler
 	// but you can set your own with this
@@ -218,23 +198,11 @@ func (o *VGSocketRealmAPI) Validate() error {
 		unregistered = append(unregistered, "JWTAuth")
 	}
 
-	if o.CheckOrderStatusHandler == nil {
-		unregistered = append(unregistered, "CheckOrderStatusHandler")
+	if o.CreateConfigHandler == nil {
+		unregistered = append(unregistered, "CreateConfigHandler")
 	}
-	if o.CreateBrigadeHandler == nil {
-		unregistered = append(unregistered, "CreateBrigadeHandler")
-	}
-	if o.CreateUserHandler == nil {
-		unregistered = append(unregistered, "CreateUserHandler")
-	}
-	if o.DeleteBrigadeHandler == nil {
-		unregistered = append(unregistered, "DeleteBrigadeHandler")
-	}
-	if o.DeleteUserHandler == nil {
-		unregistered = append(unregistered, "DeleteUserHandler")
-	}
-	if o.GetBrigadeHandler == nil {
-		unregistered = append(unregistered, "GetBrigadeHandler")
+	if o.DeleteConfigHandler == nil {
+		unregistered = append(unregistered, "DeleteConfigHandler")
 	}
 
 	if len(unregistered) > 0 {
@@ -338,30 +306,14 @@ func (o *VGSocketRealmAPI) initHandlerCache() {
 		o.handlers = make(map[string]map[string]http.Handler)
 	}
 
-	if o.handlers["GET"] == nil {
-		o.handlers["GET"] = make(map[string]http.Handler)
-	}
-	o.handlers["GET"]["/brigade/status/{orderId}"] = NewCheckOrderStatus(o.context, o.CheckOrderStatusHandler)
 	if o.handlers["POST"] == nil {
 		o.handlers["POST"] = make(map[string]http.Handler)
 	}
-	o.handlers["POST"]["/brigade"] = NewCreateBrigade(o.context, o.CreateBrigadeHandler)
-	if o.handlers["POST"] == nil {
-		o.handlers["POST"] = make(map[string]http.Handler)
-	}
-	o.handlers["POST"]["/user"] = NewCreateUser(o.context, o.CreateUserHandler)
+	o.handlers["POST"]["/config"] = NewCreateConfig(o.context, o.CreateConfigHandler)
 	if o.handlers["DELETE"] == nil {
 		o.handlers["DELETE"] = make(map[string]http.Handler)
 	}
-	o.handlers["DELETE"]["/brigade/{brigade_id}"] = NewDeleteBrigade(o.context, o.DeleteBrigadeHandler)
-	if o.handlers["DELETE"] == nil {
-		o.handlers["DELETE"] = make(map[string]http.Handler)
-	}
-	o.handlers["DELETE"]["/user/{user_id}"] = NewDeleteUser(o.context, o.DeleteUserHandler)
-	if o.handlers["GET"] == nil {
-		o.handlers["GET"] = make(map[string]http.Handler)
-	}
-	o.handlers["GET"]["/brigade/{brigade_id}"] = NewGetBrigade(o.context, o.GetBrigadeHandler)
+	o.handlers["DELETE"]["/config/{config_id}"] = NewDeleteConfig(o.context, o.DeleteConfigHandler)
 }
 
 // Serve creates a http handler to serve the API over HTTP

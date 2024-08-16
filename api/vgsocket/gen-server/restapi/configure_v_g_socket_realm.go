@@ -52,34 +52,14 @@ func configureAPI(api *operations.VGSocketRealmAPI) http.Handler {
 	// Example:
 	// api.APIAuthorizer = security.Authorized()
 
-	if api.CheckOrderStatusHandler == nil {
-		api.CheckOrderStatusHandler = operations.CheckOrderStatusHandlerFunc(func(params operations.CheckOrderStatusParams, principal *models.Principal) middleware.Responder {
-			return middleware.NotImplemented("operation operations.CheckOrderStatus has not yet been implemented")
+	if api.CreateConfigHandler == nil {
+		api.CreateConfigHandler = operations.CreateConfigHandlerFunc(func(params operations.CreateConfigParams, principal *models.Principal) middleware.Responder {
+			return middleware.NotImplemented("operation operations.CreateConfig has not yet been implemented")
 		})
 	}
-	if api.CreateBrigadeHandler == nil {
-		api.CreateBrigadeHandler = operations.CreateBrigadeHandlerFunc(func(params operations.CreateBrigadeParams, principal *models.Principal) middleware.Responder {
-			return middleware.NotImplemented("operation operations.CreateBrigade has not yet been implemented")
-		})
-	}
-	if api.CreateUserHandler == nil {
-		api.CreateUserHandler = operations.CreateUserHandlerFunc(func(params operations.CreateUserParams, principal *models.Principal) middleware.Responder {
-			return middleware.NotImplemented("operation operations.CreateUser has not yet been implemented")
-		})
-	}
-	if api.DeleteBrigadeHandler == nil {
-		api.DeleteBrigadeHandler = operations.DeleteBrigadeHandlerFunc(func(params operations.DeleteBrigadeParams, principal *models.Principal) middleware.Responder {
-			return middleware.NotImplemented("operation operations.DeleteBrigade has not yet been implemented")
-		})
-	}
-	if api.DeleteUserHandler == nil {
-		api.DeleteUserHandler = operations.DeleteUserHandlerFunc(func(params operations.DeleteUserParams, principal *models.Principal) middleware.Responder {
-			return middleware.NotImplemented("operation operations.DeleteUser has not yet been implemented")
-		})
-	}
-	if api.GetBrigadeHandler == nil {
-		api.GetBrigadeHandler = operations.GetBrigadeHandlerFunc(func(params operations.GetBrigadeParams, principal *models.Principal) middleware.Responder {
-			return middleware.NotImplemented("operation operations.GetBrigade has not yet been implemented")
+	if api.DeleteConfigHandler == nil {
+		api.DeleteConfigHandler = operations.DeleteConfigHandlerFunc(func(params operations.DeleteConfigParams, principal *models.Principal) middleware.Responder {
+			return middleware.NotImplemented("operation operations.DeleteConfig has not yet been implemented")
 		})
 	}
 

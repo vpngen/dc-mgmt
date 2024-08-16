@@ -100,77 +100,30 @@ func WithAcceptApplicationXML(r *runtime.ClientOperation) {
 
 // ClientService is the interface for Client methods
 type ClientService interface {
-	CheckOrderStatus(params *CheckOrderStatusParams, authInfo runtime.ClientAuthInfoWriter, opts ...ClientOption) (*CheckOrderStatusOK, error)
+	CreateConfig(params *CreateConfigParams, authInfo runtime.ClientAuthInfoWriter, opts ...ClientOption) (*CreateConfigCreated, error)
 
-	CreateBrigade(params *CreateBrigadeParams, authInfo runtime.ClientAuthInfoWriter, opts ...ClientOption) (*CreateBrigadeAccepted, error)
-
-	CreateUser(params *CreateUserParams, authInfo runtime.ClientAuthInfoWriter, opts ...ClientOption) (*CreateUserCreated, error)
-
-	DeleteBrigade(params *DeleteBrigadeParams, authInfo runtime.ClientAuthInfoWriter, opts ...ClientOption) (*DeleteBrigadeAccepted, error)
-
-	DeleteUser(params *DeleteUserParams, authInfo runtime.ClientAuthInfoWriter, opts ...ClientOption) (*DeleteUserNoContent, error)
-
-	GetBrigade(params *GetBrigadeParams, authInfo runtime.ClientAuthInfoWriter, opts ...ClientOption) (*GetBrigadeOK, error)
+	DeleteConfig(params *DeleteConfigParams, authInfo runtime.ClientAuthInfoWriter, opts ...ClientOption) (*DeleteConfigNoContent, error)
 
 	SetTransport(transport runtime.ClientTransport)
 }
 
 /*
-CheckOrderStatus checks order status
+CreateConfig creates v p n config
 */
-func (a *Client) CheckOrderStatus(params *CheckOrderStatusParams, authInfo runtime.ClientAuthInfoWriter, opts ...ClientOption) (*CheckOrderStatusOK, error) {
+func (a *Client) CreateConfig(params *CreateConfigParams, authInfo runtime.ClientAuthInfoWriter, opts ...ClientOption) (*CreateConfigCreated, error) {
 	// TODO: Validate the params before sending
 	if params == nil {
-		params = NewCheckOrderStatusParams()
+		params = NewCreateConfigParams()
 	}
 	op := &runtime.ClientOperation{
-		ID:                 "checkOrderStatus",
-		Method:             "GET",
-		PathPattern:        "/brigade/status/{orderId}",
-		ProducesMediaTypes: []string{"application/json"},
-		ConsumesMediaTypes: []string{"application/json"},
-		Schemes:            []string{"http"},
-		Params:             params,
-		Reader:             &CheckOrderStatusReader{formats: a.formats},
-		AuthInfo:           authInfo,
-		Context:            params.Context,
-		Client:             params.HTTPClient,
-	}
-	for _, opt := range opts {
-		opt(op)
-	}
-
-	result, err := a.transport.Submit(op)
-	if err != nil {
-		return nil, err
-	}
-	success, ok := result.(*CheckOrderStatusOK)
-	if ok {
-		return success, nil
-	}
-	// unexpected success response
-	// safeguard: normally, absent a default response, unknown success responses return an error above: so this is a codegen issue
-	msg := fmt.Sprintf("unexpected success response for checkOrderStatus: API contract not enforced by server. Client expected to get an error, but got: %T", result)
-	panic(msg)
-}
-
-/*
-CreateBrigade creates v p n brigade
-*/
-func (a *Client) CreateBrigade(params *CreateBrigadeParams, authInfo runtime.ClientAuthInfoWriter, opts ...ClientOption) (*CreateBrigadeAccepted, error) {
-	// TODO: Validate the params before sending
-	if params == nil {
-		params = NewCreateBrigadeParams()
-	}
-	op := &runtime.ClientOperation{
-		ID:                 "createBrigade",
+		ID:                 "createConfig",
 		Method:             "POST",
-		PathPattern:        "/brigade",
+		PathPattern:        "/config",
 		ProducesMediaTypes: []string{"application/json"},
 		ConsumesMediaTypes: []string{"application/json"},
 		Schemes:            []string{"http"},
 		Params:             params,
-		Reader:             &CreateBrigadeReader{formats: a.formats},
+		Reader:             &CreateConfigReader{formats: a.formats},
 		AuthInfo:           authInfo,
 		Context:            params.Context,
 		Client:             params.HTTPClient,
@@ -183,111 +136,33 @@ func (a *Client) CreateBrigade(params *CreateBrigadeParams, authInfo runtime.Cli
 	if err != nil {
 		return nil, err
 	}
-	success, ok := result.(*CreateBrigadeAccepted)
+	success, ok := result.(*CreateConfigCreated)
 	if ok {
 		return success, nil
 	}
 	// unexpected success response
 	// safeguard: normally, absent a default response, unknown success responses return an error above: so this is a codegen issue
-	msg := fmt.Sprintf("unexpected success response for createBrigade: API contract not enforced by server. Client expected to get an error, but got: %T", result)
+	msg := fmt.Sprintf("unexpected success response for createConfig: API contract not enforced by server. Client expected to get an error, but got: %T", result)
 	panic(msg)
 }
 
 /*
-CreateUser creates v p n user
+DeleteConfig deletes v p n config
 */
-func (a *Client) CreateUser(params *CreateUserParams, authInfo runtime.ClientAuthInfoWriter, opts ...ClientOption) (*CreateUserCreated, error) {
+func (a *Client) DeleteConfig(params *DeleteConfigParams, authInfo runtime.ClientAuthInfoWriter, opts ...ClientOption) (*DeleteConfigNoContent, error) {
 	// TODO: Validate the params before sending
 	if params == nil {
-		params = NewCreateUserParams()
+		params = NewDeleteConfigParams()
 	}
 	op := &runtime.ClientOperation{
-		ID:                 "createUser",
-		Method:             "POST",
-		PathPattern:        "/user",
-		ProducesMediaTypes: []string{"application/json"},
-		ConsumesMediaTypes: []string{"application/json"},
-		Schemes:            []string{"http"},
-		Params:             params,
-		Reader:             &CreateUserReader{formats: a.formats},
-		AuthInfo:           authInfo,
-		Context:            params.Context,
-		Client:             params.HTTPClient,
-	}
-	for _, opt := range opts {
-		opt(op)
-	}
-
-	result, err := a.transport.Submit(op)
-	if err != nil {
-		return nil, err
-	}
-	success, ok := result.(*CreateUserCreated)
-	if ok {
-		return success, nil
-	}
-	// unexpected success response
-	// safeguard: normally, absent a default response, unknown success responses return an error above: so this is a codegen issue
-	msg := fmt.Sprintf("unexpected success response for createUser: API contract not enforced by server. Client expected to get an error, but got: %T", result)
-	panic(msg)
-}
-
-/*
-DeleteBrigade deletes v p n brigade
-*/
-func (a *Client) DeleteBrigade(params *DeleteBrigadeParams, authInfo runtime.ClientAuthInfoWriter, opts ...ClientOption) (*DeleteBrigadeAccepted, error) {
-	// TODO: Validate the params before sending
-	if params == nil {
-		params = NewDeleteBrigadeParams()
-	}
-	op := &runtime.ClientOperation{
-		ID:                 "deleteBrigade",
+		ID:                 "deleteConfig",
 		Method:             "DELETE",
-		PathPattern:        "/brigade/{brigade_id}",
-		ProducesMediaTypes: []string{"application/json"},
-		ConsumesMediaTypes: []string{"application/json"},
-		Schemes:            []string{"http"},
-		Params:             params,
-		Reader:             &DeleteBrigadeReader{formats: a.formats},
-		AuthInfo:           authInfo,
-		Context:            params.Context,
-		Client:             params.HTTPClient,
-	}
-	for _, opt := range opts {
-		opt(op)
-	}
-
-	result, err := a.transport.Submit(op)
-	if err != nil {
-		return nil, err
-	}
-	success, ok := result.(*DeleteBrigadeAccepted)
-	if ok {
-		return success, nil
-	}
-	// unexpected success response
-	// safeguard: normally, absent a default response, unknown success responses return an error above: so this is a codegen issue
-	msg := fmt.Sprintf("unexpected success response for deleteBrigade: API contract not enforced by server. Client expected to get an error, but got: %T", result)
-	panic(msg)
-}
-
-/*
-DeleteUser deletes v p n user
-*/
-func (a *Client) DeleteUser(params *DeleteUserParams, authInfo runtime.ClientAuthInfoWriter, opts ...ClientOption) (*DeleteUserNoContent, error) {
-	// TODO: Validate the params before sending
-	if params == nil {
-		params = NewDeleteUserParams()
-	}
-	op := &runtime.ClientOperation{
-		ID:                 "deleteUser",
-		Method:             "DELETE",
-		PathPattern:        "/user/{user_id}",
+		PathPattern:        "/config/{config_id}",
 		ProducesMediaTypes: []string{"application/json", "application/xml"},
 		ConsumesMediaTypes: []string{"application/json", "application/xml"},
 		Schemes:            []string{"http"},
 		Params:             params,
-		Reader:             &DeleteUserReader{formats: a.formats},
+		Reader:             &DeleteConfigReader{formats: a.formats},
 		AuthInfo:           authInfo,
 		Context:            params.Context,
 		Client:             params.HTTPClient,
@@ -300,52 +175,13 @@ func (a *Client) DeleteUser(params *DeleteUserParams, authInfo runtime.ClientAut
 	if err != nil {
 		return nil, err
 	}
-	success, ok := result.(*DeleteUserNoContent)
+	success, ok := result.(*DeleteConfigNoContent)
 	if ok {
 		return success, nil
 	}
 	// unexpected success response
 	// safeguard: normally, absent a default response, unknown success responses return an error above: so this is a codegen issue
-	msg := fmt.Sprintf("unexpected success response for deleteUser: API contract not enforced by server. Client expected to get an error, but got: %T", result)
-	panic(msg)
-}
-
-/*
-GetBrigade gets v p n brigade
-*/
-func (a *Client) GetBrigade(params *GetBrigadeParams, authInfo runtime.ClientAuthInfoWriter, opts ...ClientOption) (*GetBrigadeOK, error) {
-	// TODO: Validate the params before sending
-	if params == nil {
-		params = NewGetBrigadeParams()
-	}
-	op := &runtime.ClientOperation{
-		ID:                 "getBrigade",
-		Method:             "GET",
-		PathPattern:        "/brigade/{brigade_id}",
-		ProducesMediaTypes: []string{"application/json"},
-		ConsumesMediaTypes: []string{"application/json"},
-		Schemes:            []string{"http"},
-		Params:             params,
-		Reader:             &GetBrigadeReader{formats: a.formats},
-		AuthInfo:           authInfo,
-		Context:            params.Context,
-		Client:             params.HTTPClient,
-	}
-	for _, opt := range opts {
-		opt(op)
-	}
-
-	result, err := a.transport.Submit(op)
-	if err != nil {
-		return nil, err
-	}
-	success, ok := result.(*GetBrigadeOK)
-	if ok {
-		return success, nil
-	}
-	// unexpected success response
-	// safeguard: normally, absent a default response, unknown success responses return an error above: so this is a codegen issue
-	msg := fmt.Sprintf("unexpected success response for getBrigade: API contract not enforced by server. Client expected to get an error, but got: %T", result)
+	msg := fmt.Sprintf("unexpected success response for deleteConfig: API contract not enforced by server. Client expected to get an error, but got: %T", result)
 	panic(msg)
 }
 

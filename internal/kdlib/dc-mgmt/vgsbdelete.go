@@ -9,7 +9,6 @@ import (
 	"net/netip"
 	"strings"
 
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"golang.org/x/crypto/ssh"
@@ -71,10 +70,10 @@ func vgsRevokeBrigade(_ context.Context, logger *slog.Logger, sshconf *ssh.Clien
 	return fmt.Errorf("%w: %d", ErrDeleteAttemptsCountExceeded, deleteAttempts)
 }
 
-func vgsRemoveBrigade(
+func vgsRemoveBrigadeFull(
 	ctx context.Context, db *pgxpool.Pool, _ *slog.Logger,
 	ident string,
-	brigadeID string, instanceID uuid.UUID,
+	brigadeID string,
 	delegationSyncServer string, delegationSyncSSHconf *ssh.ClientConfig,
 	subdomAPIHost, subdomAPIToken string,
 ) error {
@@ -90,29 +89,23 @@ func vgsRemoveBrigade(
 		FROM stats.brigades_stats
 	WHERE 
 		brigade_id=$1
-	AND
-		instance_id=$2
 	`
 
-	if _, err := tx.Exec(ctx,
-		sqlDelBrigadesStats,
-		brigadeID, instanceID); err != nil {
+	if _, err := tx.Exec(ctx, sqlDelBrigadesStats, brigadeID); err != nil {
 		return fmt.Errorf("brigades stats delete: %w", err)
 	}
 
 	var domain_name pgtype.Text
 
-	sqlDelBrigade := `
-	DELETE 
-		FROM brigades.brigades
-	WHERE 
-		brigade_id=$1
-	AND
-		instance_id=$2
-	RETURNING domain_name
-	`
+	getDomainName := `SELECT domain_name FROM brigades.brigades WHERE brigade_id=$1 AND is_main=true`
 
-	if err := tx.QueryRow(ctx, sqlDelBrigade, brigadeID, instanceID).Scan(&domain_name); err != nil {
+	if err := tx.QueryRow(ctx, getDomainName, brigadeID).Scan(&domain_name); err != nil {
+		return fmt.Errorf("get domain name: %w", err)
+	}
+
+	sqlDelBrigade := `DELETE FROM brigades.brigades	WHERE brigade_id=$1`
+
+	if _, err := tx.Exec(ctx, sqlDelBrigade, brigadeID); err != nil {
 		return fmt.Errorf("brigade delete: %w", err)
 	}
 

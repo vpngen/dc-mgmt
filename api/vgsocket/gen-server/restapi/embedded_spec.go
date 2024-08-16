@@ -26,284 +26,7 @@ func init() {
   },
   "basePath": "/v1",
   "paths": {
-    "/brigade": {
-      "post": {
-        "security": [
-          {
-            "JWT": [
-              "admin"
-            ]
-          }
-        ],
-        "consumes": [
-          "application/json"
-        ],
-        "produces": [
-          "application/json"
-        ],
-        "summary": "Create VPN brigade",
-        "operationId": "createBrigade",
-        "parameters": [
-          {
-            "description": "Brigade data",
-            "name": "body",
-            "in": "body",
-            "required": true,
-            "schema": {
-              "$ref": "#/definitions/CreateBirgadeRequest"
-            }
-          }
-        ],
-        "responses": {
-          "202": {
-            "description": "Accepted",
-            "schema": {
-              "$ref": "#/definitions/OrderStatus"
-            },
-            "headers": {
-              "Location": {
-                "type": "string",
-                "format": "uri",
-                "description": "Location"
-              },
-              "Retry-After": {
-                "type": "string",
-                "format": "int32",
-                "description": "Retry after seconds"
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "schema": {
-              "$ref": "#/definitions/Error"
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "schema": {
-              "$ref": "#/definitions/Error"
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "schema": {
-              "$ref": "#/definitions/Error"
-            }
-          },
-          "503": {
-            "description": "Service Temporarily Unavailable",
-            "schema": {
-              "$ref": "#/definitions/ServiceTemporarilyUnavailable"
-            }
-          }
-        }
-      }
-    },
-    "/brigade/status/{orderId}": {
-      "get": {
-        "security": [
-          {
-            "JWT": [
-              "admin"
-            ]
-          }
-        ],
-        "consumes": [
-          "application/json"
-        ],
-        "produces": [
-          "application/json"
-        ],
-        "summary": "Check order status",
-        "operationId": "checkOrderStatus",
-        "parameters": [
-          {
-            "type": "string",
-            "description": "Order ID",
-            "name": "orderId",
-            "in": "path",
-            "required": true
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "schema": {
-              "$ref": "#/definitions/OrderStatus"
-            },
-            "headers": {
-              "Retry-After": {
-                "type": "string",
-                "format": "int32",
-                "description": "Retry after seconds"
-              }
-            }
-          },
-          "302": {
-            "description": "Found",
-            "schema": {
-              "$ref": "#/definitions/OrderStatus"
-            },
-            "headers": {
-              "Location": {
-                "type": "string",
-                "description": "Location"
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "schema": {
-              "$ref": "#/definitions/Error"
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "schema": {
-              "$ref": "#/definitions/Error"
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "schema": {
-              "$ref": "#/definitions/Error"
-            }
-          },
-          "503": {
-            "description": "Service Temporarily Unavailable",
-            "schema": {
-              "$ref": "#/definitions/ServiceTemporarilyUnavailable"
-            }
-          }
-        }
-      }
-    },
-    "/brigade/{brigade_id}": {
-      "get": {
-        "security": [
-          {
-            "JWT": [
-              "admin"
-            ]
-          }
-        ],
-        "consumes": [
-          "application/json"
-        ],
-        "produces": [
-          "application/json"
-        ],
-        "summary": "Get VPN brigade",
-        "operationId": "getBrigade",
-        "parameters": [
-          {
-            "type": "string",
-            "description": "Brigade ID",
-            "name": "brigade_id",
-            "in": "path",
-            "required": true
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "schema": {
-              "$ref": "#/definitions/Brigade"
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "schema": {
-              "$ref": "#/definitions/Error"
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "schema": {
-              "$ref": "#/definitions/Error"
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "schema": {
-              "$ref": "#/definitions/Error"
-            }
-          },
-          "503": {
-            "description": "Service Temporarily Unavailable"
-          }
-        }
-      },
-      "delete": {
-        "security": [
-          {
-            "JWT": [
-              "admin"
-            ]
-          }
-        ],
-        "consumes": [
-          "application/json"
-        ],
-        "produces": [
-          "application/json"
-        ],
-        "summary": "Delete VPN brigade",
-        "operationId": "deleteBrigade",
-        "parameters": [
-          {
-            "type": "string",
-            "description": "Brigade ID",
-            "name": "brigade_id",
-            "in": "path",
-            "required": true
-          }
-        ],
-        "responses": {
-          "202": {
-            "description": "Accepted",
-            "schema": {
-              "$ref": "#/definitions/OrderStatus"
-            },
-            "headers": {
-              "Location": {
-                "type": "string",
-                "format": "uri",
-                "description": "Location"
-              },
-              "Retry-After": {
-                "type": "string",
-                "format": "int32",
-                "description": "Retry after seconds"
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "schema": {
-              "$ref": "#/definitions/Error"
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "schema": {
-              "$ref": "#/definitions/Error"
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "schema": {
-              "$ref": "#/definitions/Error"
-            }
-          },
-          "503": {
-            "description": "Service Temporarily Unavailable"
-          }
-        }
-      }
-    },
-    "/user": {
+    "/config": {
       "post": {
         "security": [
           {
@@ -318,16 +41,16 @@ func init() {
         "produces": [
           "application/json"
         ],
-        "summary": "Create VPN user",
-        "operationId": "createUser",
+        "summary": "Create VPN config",
+        "operationId": "createConfig",
         "parameters": [
           {
-            "description": "User data",
+            "description": "Config data",
             "name": "body",
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/CreateUserRequest"
+              "$ref": "#/definitions/CreateConfigRequest"
             }
           }
         ],
@@ -357,12 +80,15 @@ func init() {
             }
           },
           "503": {
-            "description": "Service Temporarily Unavailable"
+            "description": "Service Temporarily Unavailable",
+            "schema": {
+              "$ref": "#/definitions/ServiceTemporarilyUnavailable"
+            }
           }
         }
       }
     },
-    "/user/{user_id}": {
+    "/config/{config_id}": {
       "delete": {
         "security": [
           {
@@ -379,15 +105,34 @@ func init() {
           "application/json",
           "application/xml"
         ],
-        "summary": "Delete VPN user",
-        "operationId": "deleteUser",
+        "summary": "Delete VPN config",
+        "operationId": "deleteConfig",
         "parameters": [
           {
             "type": "string",
-            "description": "User ID",
-            "name": "user_id",
+            "description": "Config ID",
+            "name": "config_id",
             "in": "path",
             "required": true
+          },
+          {
+            "description": "Brigade ID",
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": [
+                "brigadeID"
+              ],
+              "properties": {
+                "brigadeID": {
+                  "description": "Brigade ID",
+                  "type": "string",
+                  "format": "uuid"
+                }
+              }
+            }
           }
         ],
         "responses": {
@@ -413,7 +158,10 @@ func init() {
             }
           },
           "503": {
-            "description": "Service Temporarily Unavailable"
+            "description": "Service Temporarily Unavailable",
+            "schema": {
+              "$ref": "#/definitions/ServiceTemporarilyUnavailable"
+            }
           }
         }
       }
@@ -439,34 +187,6 @@ func init() {
         }
       }
     },
-    "Brigade": {
-      "type": "object",
-      "required": [
-        "brigadeID",
-        "brigadeName",
-        "maxUsers",
-        "deleted"
-      ],
-      "properties": {
-        "brigadeID": {
-          "description": "Brigade ID",
-          "type": "string",
-          "format": "uuid"
-        },
-        "brigadeName": {
-          "description": "Brigade name",
-          "type": "string"
-        },
-        "deleted": {
-          "description": "Deleted",
-          "type": "boolean"
-        },
-        "maxUsers": {
-          "description": "Max users",
-          "type": "integer"
-        }
-      }
-    },
     "ConfigType": {
       "description": "VPN config type",
       "type": "string",
@@ -477,25 +197,7 @@ func init() {
         "vgc"
       ]
     },
-    "CreateBirgadeRequest": {
-      "type": "object",
-      "required": [
-        "brigadeName",
-        "brigadeID"
-      ],
-      "properties": {
-        "brigadeID": {
-          "description": "Brigade ID",
-          "type": "string",
-          "format": "uuid"
-        },
-        "brigadeName": {
-          "description": "Brigade name",
-          "type": "string"
-        }
-      }
-    },
-    "CreateUserRequest": {
+    "CreateConfigRequest": {
       "type": "object",
       "required": [
         "brigadeID",
@@ -522,39 +224,6 @@ func init() {
         "message": {
           "description": "Error message",
           "type": "string"
-        }
-      }
-    },
-    "OrderStatus": {
-      "type": "object",
-      "required": [
-        "status",
-        "message"
-      ],
-      "properties": {
-        "brigadeID": {
-          "description": "Brigade ID",
-          "type": "string",
-          "format": "uuid",
-          "x-omitempty": true
-        },
-        "message": {
-          "description": "Message",
-          "type": "string"
-        },
-        "retryAfter": {
-          "description": "Retry after seconds",
-          "type": "integer",
-          "x-omitempty": true
-        },
-        "status": {
-          "description": "Order status",
-          "type": "string",
-          "enum": [
-            "processing",
-            "completed",
-            "failed"
-          ]
         }
       }
     },
@@ -585,14 +254,17 @@ func init() {
     },
     "ServiceTemporarilyUnavailable": {
       "type": "object",
+      "required": [
+        "message",
+        "retry_after"
+      ],
       "properties": {
-        "code": {
-          "description": "Error code",
-          "type": "integer"
-        },
         "message": {
-          "description": "Error message",
           "type": "string"
+        },
+        "retry_after": {
+          "type": "string",
+          "format": "date-time"
         }
       }
     },
@@ -656,15 +328,11 @@ func init() {
     }
   },
   "securityDefinitions": {
-    "Basic": {
-      "type": "basic"
-    },
     "JWT": {
       "type": "oauth2",
       "flow": "application",
       "tokenUrl": "/v1/token",
       "scopes": {
-        "admin": "Admin scope",
         "manager": "Manager scope"
       }
     }
@@ -679,284 +347,7 @@ func init() {
   },
   "basePath": "/v1",
   "paths": {
-    "/brigade": {
-      "post": {
-        "security": [
-          {
-            "JWT": [
-              "admin"
-            ]
-          }
-        ],
-        "consumes": [
-          "application/json"
-        ],
-        "produces": [
-          "application/json"
-        ],
-        "summary": "Create VPN brigade",
-        "operationId": "createBrigade",
-        "parameters": [
-          {
-            "description": "Brigade data",
-            "name": "body",
-            "in": "body",
-            "required": true,
-            "schema": {
-              "$ref": "#/definitions/CreateBirgadeRequest"
-            }
-          }
-        ],
-        "responses": {
-          "202": {
-            "description": "Accepted",
-            "schema": {
-              "$ref": "#/definitions/OrderStatus"
-            },
-            "headers": {
-              "Location": {
-                "type": "string",
-                "format": "uri",
-                "description": "Location"
-              },
-              "Retry-After": {
-                "type": "string",
-                "format": "int32",
-                "description": "Retry after seconds"
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "schema": {
-              "$ref": "#/definitions/Error"
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "schema": {
-              "$ref": "#/definitions/Error"
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "schema": {
-              "$ref": "#/definitions/Error"
-            }
-          },
-          "503": {
-            "description": "Service Temporarily Unavailable",
-            "schema": {
-              "$ref": "#/definitions/ServiceTemporarilyUnavailable"
-            }
-          }
-        }
-      }
-    },
-    "/brigade/status/{orderId}": {
-      "get": {
-        "security": [
-          {
-            "JWT": [
-              "admin"
-            ]
-          }
-        ],
-        "consumes": [
-          "application/json"
-        ],
-        "produces": [
-          "application/json"
-        ],
-        "summary": "Check order status",
-        "operationId": "checkOrderStatus",
-        "parameters": [
-          {
-            "type": "string",
-            "description": "Order ID",
-            "name": "orderId",
-            "in": "path",
-            "required": true
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "schema": {
-              "$ref": "#/definitions/OrderStatus"
-            },
-            "headers": {
-              "Retry-After": {
-                "type": "string",
-                "format": "int32",
-                "description": "Retry after seconds"
-              }
-            }
-          },
-          "302": {
-            "description": "Found",
-            "schema": {
-              "$ref": "#/definitions/OrderStatus"
-            },
-            "headers": {
-              "Location": {
-                "type": "string",
-                "description": "Location"
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "schema": {
-              "$ref": "#/definitions/Error"
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "schema": {
-              "$ref": "#/definitions/Error"
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "schema": {
-              "$ref": "#/definitions/Error"
-            }
-          },
-          "503": {
-            "description": "Service Temporarily Unavailable",
-            "schema": {
-              "$ref": "#/definitions/ServiceTemporarilyUnavailable"
-            }
-          }
-        }
-      }
-    },
-    "/brigade/{brigade_id}": {
-      "get": {
-        "security": [
-          {
-            "JWT": [
-              "admin"
-            ]
-          }
-        ],
-        "consumes": [
-          "application/json"
-        ],
-        "produces": [
-          "application/json"
-        ],
-        "summary": "Get VPN brigade",
-        "operationId": "getBrigade",
-        "parameters": [
-          {
-            "type": "string",
-            "description": "Brigade ID",
-            "name": "brigade_id",
-            "in": "path",
-            "required": true
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "schema": {
-              "$ref": "#/definitions/Brigade"
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "schema": {
-              "$ref": "#/definitions/Error"
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "schema": {
-              "$ref": "#/definitions/Error"
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "schema": {
-              "$ref": "#/definitions/Error"
-            }
-          },
-          "503": {
-            "description": "Service Temporarily Unavailable"
-          }
-        }
-      },
-      "delete": {
-        "security": [
-          {
-            "JWT": [
-              "admin"
-            ]
-          }
-        ],
-        "consumes": [
-          "application/json"
-        ],
-        "produces": [
-          "application/json"
-        ],
-        "summary": "Delete VPN brigade",
-        "operationId": "deleteBrigade",
-        "parameters": [
-          {
-            "type": "string",
-            "description": "Brigade ID",
-            "name": "brigade_id",
-            "in": "path",
-            "required": true
-          }
-        ],
-        "responses": {
-          "202": {
-            "description": "Accepted",
-            "schema": {
-              "$ref": "#/definitions/OrderStatus"
-            },
-            "headers": {
-              "Location": {
-                "type": "string",
-                "format": "uri",
-                "description": "Location"
-              },
-              "Retry-After": {
-                "type": "string",
-                "format": "int32",
-                "description": "Retry after seconds"
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "schema": {
-              "$ref": "#/definitions/Error"
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "schema": {
-              "$ref": "#/definitions/Error"
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "schema": {
-              "$ref": "#/definitions/Error"
-            }
-          },
-          "503": {
-            "description": "Service Temporarily Unavailable"
-          }
-        }
-      }
-    },
-    "/user": {
+    "/config": {
       "post": {
         "security": [
           {
@@ -971,16 +362,16 @@ func init() {
         "produces": [
           "application/json"
         ],
-        "summary": "Create VPN user",
-        "operationId": "createUser",
+        "summary": "Create VPN config",
+        "operationId": "createConfig",
         "parameters": [
           {
-            "description": "User data",
+            "description": "Config data",
             "name": "body",
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/CreateUserRequest"
+              "$ref": "#/definitions/CreateConfigRequest"
             }
           }
         ],
@@ -1010,12 +401,15 @@ func init() {
             }
           },
           "503": {
-            "description": "Service Temporarily Unavailable"
+            "description": "Service Temporarily Unavailable",
+            "schema": {
+              "$ref": "#/definitions/ServiceTemporarilyUnavailable"
+            }
           }
         }
       }
     },
-    "/user/{user_id}": {
+    "/config/{config_id}": {
       "delete": {
         "security": [
           {
@@ -1032,15 +426,34 @@ func init() {
           "application/json",
           "application/xml"
         ],
-        "summary": "Delete VPN user",
-        "operationId": "deleteUser",
+        "summary": "Delete VPN config",
+        "operationId": "deleteConfig",
         "parameters": [
           {
             "type": "string",
-            "description": "User ID",
-            "name": "user_id",
+            "description": "Config ID",
+            "name": "config_id",
             "in": "path",
             "required": true
+          },
+          {
+            "description": "Brigade ID",
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": [
+                "brigadeID"
+              ],
+              "properties": {
+                "brigadeID": {
+                  "description": "Brigade ID",
+                  "type": "string",
+                  "format": "uuid"
+                }
+              }
+            }
           }
         ],
         "responses": {
@@ -1066,7 +479,10 @@ func init() {
             }
           },
           "503": {
-            "description": "Service Temporarily Unavailable"
+            "description": "Service Temporarily Unavailable",
+            "schema": {
+              "$ref": "#/definitions/ServiceTemporarilyUnavailable"
+            }
           }
         }
       }
@@ -1092,34 +508,6 @@ func init() {
         }
       }
     },
-    "Brigade": {
-      "type": "object",
-      "required": [
-        "brigadeID",
-        "brigadeName",
-        "maxUsers",
-        "deleted"
-      ],
-      "properties": {
-        "brigadeID": {
-          "description": "Brigade ID",
-          "type": "string",
-          "format": "uuid"
-        },
-        "brigadeName": {
-          "description": "Brigade name",
-          "type": "string"
-        },
-        "deleted": {
-          "description": "Deleted",
-          "type": "boolean"
-        },
-        "maxUsers": {
-          "description": "Max users",
-          "type": "integer"
-        }
-      }
-    },
     "ConfigType": {
       "description": "VPN config type",
       "type": "string",
@@ -1130,25 +518,7 @@ func init() {
         "vgc"
       ]
     },
-    "CreateBirgadeRequest": {
-      "type": "object",
-      "required": [
-        "brigadeName",
-        "brigadeID"
-      ],
-      "properties": {
-        "brigadeID": {
-          "description": "Brigade ID",
-          "type": "string",
-          "format": "uuid"
-        },
-        "brigadeName": {
-          "description": "Brigade name",
-          "type": "string"
-        }
-      }
-    },
-    "CreateUserRequest": {
+    "CreateConfigRequest": {
       "type": "object",
       "required": [
         "brigadeID",
@@ -1175,39 +545,6 @@ func init() {
         "message": {
           "description": "Error message",
           "type": "string"
-        }
-      }
-    },
-    "OrderStatus": {
-      "type": "object",
-      "required": [
-        "status",
-        "message"
-      ],
-      "properties": {
-        "brigadeID": {
-          "description": "Brigade ID",
-          "type": "string",
-          "format": "uuid",
-          "x-omitempty": true
-        },
-        "message": {
-          "description": "Message",
-          "type": "string"
-        },
-        "retryAfter": {
-          "description": "Retry after seconds",
-          "type": "integer",
-          "x-omitempty": true
-        },
-        "status": {
-          "description": "Order status",
-          "type": "string",
-          "enum": [
-            "processing",
-            "completed",
-            "failed"
-          ]
         }
       }
     },
@@ -1238,14 +575,17 @@ func init() {
     },
     "ServiceTemporarilyUnavailable": {
       "type": "object",
+      "required": [
+        "message",
+        "retry_after"
+      ],
       "properties": {
-        "code": {
-          "description": "Error code",
-          "type": "integer"
-        },
         "message": {
-          "description": "Error message",
           "type": "string"
+        },
+        "retry_after": {
+          "type": "string",
+          "format": "date-time"
         }
       }
     },
@@ -1309,15 +649,11 @@ func init() {
     }
   },
   "securityDefinitions": {
-    "Basic": {
-      "type": "basic"
-    },
     "JWT": {
       "type": "oauth2",
       "flow": "application",
       "tokenUrl": "/v1/token",
       "scopes": {
-        "admin": "Admin scope",
         "manager": "Manager scope"
       }
     }

@@ -78,7 +78,7 @@ ULALOOP:
 			continue
 		}
 
-		ulaNet = netip.PrefixFrom(addr, BrigadeUlaPrefix).Masked()
+		ulaNet = netip.PrefixFrom(addr, BrigadeUlaPrefix)
 
 		masked := ulaNet.Masked()
 		if masked.Addr() == addr || kdlib.LastPrefixIPv6(masked) == addr {

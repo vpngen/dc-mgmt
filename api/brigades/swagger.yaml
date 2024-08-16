@@ -1,0 +1,466 @@
+---
+swagger: '2.0'
+info:
+  title: VPN Generator socket datacenter  API
+  description: VPN Generator socket datacenter  API
+  version: 1.0.0
+
+basePath: /v1
+
+paths:
+
+  /brigade/status/{orderId}:
+
+    get:
+      security:
+        - JWT:
+          - admin
+      summary: Check order status
+      operationId: checkOrderStatus
+      consumes:
+        - application/json
+      produces:
+        - application/json
+      parameters:
+        - in: path
+          name: orderId
+          required: true
+          type: string
+          description: Order ID
+      responses:
+        "200":
+          description: OK
+          headers:
+            Retry-After:
+              type: string
+              format: int32
+              description: Retry after seconds
+          schema:
+            $ref: "#/definitions/OrderStatus"
+        "302":
+          description: Found
+          headers:
+            Location:
+              type: string
+              description: Location
+          schema:
+            $ref: "#/definitions/OrderStatus"
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/Error'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/Error'
+        "503":
+          description: Service Temporarily Unavailable
+          schema:
+            $ref: '#/definitions/ServiceTemporarilyUnavailable'
+
+  /brigade:
+
+    post:
+      security:
+        - JWT:
+          - admin
+      summary: Create VPN brigade
+      operationId: createBrigade
+      consumes:
+        - application/json
+      produces:
+        - application/json
+      parameters:
+        - in: body
+          name: body
+          required: true
+          description: Brigade data
+          schema:
+            $ref: '#/definitions/CreateBirgadeRequest'
+      responses:
+        "202":
+          description: Accepted
+          headers:
+            Location:
+              type: string
+              format: uri
+              description: Location
+            Retry-After:
+              type: string
+              format: int32
+              description: Retry after seconds
+          schema:
+            $ref: "#/definitions/OrderStatus"
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/Error'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/Error'
+        "503":
+          description: Service Temporarily Unavailable
+          schema:
+            $ref: '#/definitions/ServiceTemporarilyUnavailable'
+
+
+  /brigade/{brigade_id}:
+
+    get:
+      security:
+        - JWT:
+          - admin
+      summary: Get VPN brigade
+      operationId: getBrigade
+      consumes:
+        - application/json
+      produces:
+        - application/json
+      parameters:
+        - in: path
+          name: brigade_id
+          required: true
+          type: string
+          description: Brigade ID
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: "#/definitions/Brigade"
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/Error'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/Error'
+        "503":
+          description: Service Temporarily Unavailable
+
+    delete:
+      security:
+        - JWT:
+          - admin
+      summary: Delete VPN brigade
+      operationId: deleteBrigade
+      consumes:
+        - application/json
+      produces:
+        - application/json
+      parameters:
+        - in: path
+          name: brigade_id
+          required: true
+          type: string
+          description: Brigade ID
+      responses:
+        "202":
+          description: Accepted
+          headers:
+            Location:
+              type: string
+              format: uri
+              description: Location
+            Retry-After:
+              type: string
+              format: int32
+              description: Retry after seconds
+          schema:
+            $ref: "#/definitions/OrderStatus"
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/Error'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/Error'
+        "503":
+          description: Service Temporarily Unavailable
+
+  /user:
+
+    post:
+      security:
+        - JWT:
+          - manager
+      summary: Create VPN user
+      operationId: createUser
+      consumes:
+        - application/json
+      produces:
+        - application/json
+      parameters:
+        - in: body
+          name: body
+          required: true
+          description: User data
+          schema:
+            $ref: '#/definitions/CreateUserRequest'
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: "#/definitions/VPNConfig"
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/Error'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/Error'
+        "503":
+          description: Service Temporarily Unavailable
+
+  /user/{user_id}:
+
+    delete:
+      security:
+        - JWT:
+          - manager
+      summary: Delete VPN user
+      operationId: deleteUser
+      consumes:
+        - application/json
+        - application/xml
+      produces:
+        - application/json
+        - application/xml
+      parameters:
+        - in: path
+          name: user_id
+          required: true
+          type: string
+          description: User ID
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/Error'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/Error'
+        "503":
+          description: Service Temporarily Unavailable
+
+definitions:
+  
+  OrderStatus:
+    type: object
+    required:
+      - status
+      - message
+    properties:
+      status:
+        type: string
+        description: Order status
+        enum:
+          - processing
+          - completed
+          - failed
+      message:
+        type: string
+        description: Message
+      retryAfter:
+        type: integer
+        description: Retry after seconds
+        x-omitempty: true
+      brigadeID:
+        type: string
+        format: uuid
+        description: Brigade ID
+        x-omitempty: true
+
+  CreateBirgadeRequest:
+    type: object
+    required:
+      - brigadeName
+      - brigadeID
+    properties:
+      brigadeName:
+        type: string
+        description: Brigade name
+      brigadeID:
+        type: string
+        format: uuid
+        description: Brigade ID
+
+  Brigade:
+    type: object
+    required:
+      - brigadeID
+      - brigadeName
+      - maxUsers
+      - deleted
+    properties:
+      deleted:
+        type: boolean
+        description: Deleted
+      brigadeID:
+        type: string
+        format: uuid
+        description: Brigade ID
+      brigadeName:
+        type: string
+        description: Brigade name
+      maxUsers:
+        type: integer
+        description: Max users
+
+  Error:
+    type: object
+    properties:
+      code:
+        type: integer
+        description: Error code
+      message:
+        type: string
+        description: Error message
+
+  ServiceTemporarilyUnavailable:
+    type: object
+    properties:
+      code:
+        type: integer
+        description: Error code
+      message:
+        type: string
+        description: Error message
+
+  ConfigType:
+    description: VPN config type
+    type: string
+    enum:
+      - wireguard
+      - amneziavpn
+      - outline
+      - vgc
+
+  OutlineConfig:
+    type: object
+    required:
+      - access_key
+    properties:
+      access_key:
+        type: string
+  
+  AmneziaOVCConfig:
+    type: object
+    required:
+      - tunnel_name
+      - file_name
+      - file_content
+    properties:
+      tunnel_name:
+        type: string
+      file_name:
+        type: string
+      file_content:
+        type: string
+
+  WireGuardConfig:
+    type: object
+    required:
+      - tunnel_name
+      - file_name
+      - file_content
+    properties:
+      tunnel_name:
+        type: string
+      file_name:
+        type: string
+      file_content:
+        type: string
+
+  VPNGenConfig:
+    type: object
+    required:
+      - access_key
+    properties:
+      access_key:
+        type: string
+
+  VPNConfig:
+    type: object
+    required:
+      - user_id
+    properties:
+      user_id:
+        type: string
+        format: uuid4
+      OutlineConfig:
+        $ref: '#/definitions/OutlineConfig'
+        x-omitempty: true
+      AmneziaOVCConfig:
+        $ref: '#/definitions/AmneziaOVCConfig'
+        x-omitempty: true
+      WireGuardConfig:
+        $ref: '#/definitions/WireGuardConfig'
+        x-omitempty: true
+      VPNGenConfig:
+        $ref: '#/definitions/VPNGenConfig'
+        x-omitempty: true
+
+  CreateUserRequest:
+    type: object
+    required:
+      - brigadeID
+      - configType
+    properties:
+      brigadeID:
+        type: string
+        format: uuid
+        description: Brigade ID
+      configType:
+        $ref: '#/definitions/ConfigType'
+
+  Principal:
+    type: object
+    required:
+      - scope
+    properties:
+      scope:
+        type: array
+        items:
+          type: string
+
+securityDefinitions:
+  JWT:
+    type: oauth2
+    tokenUrl: /v1/token
+    flow: application
+    scopes:
+      admin: Admin scope
+      manager: Manager scope
+  Basic:
+    type: basic

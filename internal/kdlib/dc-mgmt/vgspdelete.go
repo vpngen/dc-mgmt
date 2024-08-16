@@ -3,6 +3,7 @@ package dcmgmt
 import (
 	"bytes"
 	"context"
+	"encoding/base32"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -49,7 +50,9 @@ func VgsDeleteBrigade(ctx context.Context, logger *slog.Logger, db *pgxpool.Pool
 			return fmt.Errorf("error creating ssh configs: %w", err)
 		}
 
-		if err := vgsRevokeBrigade(ctx, logger, sshconf, brigadeID.String(), controlIP); err != nil {
+		bid := base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(brigadeID[:])
+
+		if err := vgsRevokeBrigade(ctx, logger, sshconf, bid, controlIP); err != nil {
 			if err := vgsSetOrderError(ctx, logger, db, sqfmt, orderID, err.Error()); err != nil {
 				return fmt.Errorf("error setting order error: %w", err)
 			}
@@ -67,8 +70,8 @@ func VgsDeleteBrigade(ctx context.Context, logger *slog.Logger, db *pgxpool.Pool
 		return fmt.Errorf("error creating ssh configs: %w", err)
 	}
 
-	if err := vgsRemoveBrigade(ctx, db, logger, dcident,
-		brigadeID.String(), brigadeID,
+	if err := vgsRemoveBrigadeFull(ctx, db, logger, dcident,
+		brigadeID.String(),
 		server, sshconf, host, token,
 	); err != nil {
 		if err := vgsSetOrderError(ctx, logger, db, sqfmt, orderID, err.Error()); err != nil {

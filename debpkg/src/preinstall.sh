@@ -71,6 +71,8 @@ upgrade() {
         # Create new users
         create_users
 
+        systemctl stop vg-dc-vgsocket.service ||:
+
         systemctl stop vg-dc-stats.timer ||:
         systemctl stop vg-dc-stats.service ||:
 
