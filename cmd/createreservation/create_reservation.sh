@@ -429,13 +429,13 @@ delete () {
 BEGIN;
 
 DELETE FROM 
-        :"brigades_schema".reserved_endpoints_ipv4 
+        :"brigades_schema".reserved_endpoints_ipv4 a
 USING 
         :"brigades_schema".reserved_endpoints_ipv4 e
         LEFT JOIN :"brigades_schema".brigades b ON e.endpoint_ipv4 = b.endpoint_ipv4
 WHERE
         e.reservation_id = :'reservation_uuid'
-        AND reserved_endpoints_ipv4.endpoint_ipv4 = e.endpoint_ipv4
+        AND a.endpoint_ipv4 = e.endpoint_ipv4
         AND b.endpoint_ipv4 IS NULL;
 
 DELETE FROM :"brigades_schema".reservations WHERE reservation_id = :'reservation_uuid';
@@ -450,13 +450,12 @@ EOF
 BEGIN;
 
 DELETE FROM 
-        :"brigades_schema".reserved_endpoints_ipv4 
+        :"brigades_schema".reserved_endpoints_ipv4 b
 USING 
         :"brigades_schema".reserved_endpoints_ipv4 e
-        LEFT JOIN :"brigades_schema".brigades b ON e.endpoint_ipv4 = b.endpoint_ipv4
 WHERE
         e.reservation_id = :'reservation_uuid'
-        AND reserved_endpoints_ipv4.endpoint_ipv4 = e.endpoint_ipv4;
+        AND b.endpoint_ipv4 = e.endpoint_ipv4;
 
 DELETE FROM :"brigades_schema".reservations WHERE reservation_id = :'reservation_uuid';
 

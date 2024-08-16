@@ -71,6 +71,10 @@ cleanInstall() {
 
     	printf "Reload the service unit from disk\n"
     	systemctl daemon-reload ||:
+ 
+        systemctl enable vg-dc-vgsocket.service ||:
+        systemctl start vg-dc-vgsocket.service ||:
+ 
         systemctl enable vg-dc-stats.timer ||:
 	systemctl start vg-dc-stats.timer ||:
 
