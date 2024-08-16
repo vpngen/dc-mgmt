@@ -506,6 +506,13 @@ contents:
 - dst: /etc/vg-dc-socket-user/vgsocket.env
   type: ghost
 
+- src: dc-mgmt/debpkg/src/vgsocket.env-sample
+  dst: /etc/vg-dc-socket-user/vgsocket.env-sample
+  file_info:
+    mode: 0444
+    owner: root
+    group: root
+
 overrides:
   deb:
     scripts:
