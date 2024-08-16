@@ -61,7 +61,7 @@ const (
 
 const (
 	// DefaultListenPort - the default listen port for the HTTP server.
-	DefaultListenPort = "9081"
+	DefaultListenPort = "9082"
 	// DefaultDatabaseURL - the default database URL.
 	DefaultDatabaseURL = "postgres://postgres:postgres@postgres:5432/postgres"
 	// DefaultJWTAlgorithm - the default JWT algorithm.
