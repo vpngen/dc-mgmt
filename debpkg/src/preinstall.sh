@@ -5,6 +5,8 @@ VPNAPI_USER="vgvpnapi"
 STATS_USER="vgstats"
 SNAPSHOTS_USER="vgsnaps"
 MIGRATIONS_USER="vgmigr"
+VGSOCKET_ADMIN_USER="vgs_admin"
+VGSOCKET_COMMON_USER="vgs_user"
 
 SNAPSHOT_SHARE_GROUP="vgsnaps"
 
@@ -38,6 +40,18 @@ create_users () {
         else
                 useradd -p "*" -m "${MIGRATIONS_USER}" -s /bin/bash -G "${SNAPSHOT_SHARE_GROUP}"
         fi
+
+        if id "${VGSOCKET_ADMIN_USER}" >/dev/null 2>&1; then
+                echo "user ${VGSOCKET_ADMIN_USER} already exists"
+        else
+                useradd -p "*" -m "${VGSOCKET_ADMIN_USER}" -s /bin/bash -G "${VPNAPI_USER}"
+        fi
+
+        if id "${VGSOCKET_COMMON_USER}" >/dev/null 2>&1; then
+                echo "user ${VGSOCKET_COMMON_USER} already exists"
+        else
+                useradd -p "*" -m "${VGSOCKET_COMMON_USER}" -s /bin/bash 
+        fi
 }
 
 cleanInstall() {
@@ -56,6 +70,8 @@ upgrade() {
 
         # Create new users
         create_users
+
+        systemctl stop vg-dc-vgsocket.service ||:
 
         systemctl stop vg-dc-stats.timer ||:
         systemctl stop vg-dc-stats.service ||:

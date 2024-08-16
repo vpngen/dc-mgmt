@@ -2,9 +2,12 @@ package dcmgmt
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/netip"
+	"os"
 	"strings"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -16,6 +19,13 @@ const (
 	DelegationSyncFilename       = "domain-generate-%s.csv"
 	DelegationSyncReloadFilename = "domain-generate.reload"
 )
+
+const (
+	DomainCheckPause         = 5 * time.Second
+	DomainDelegationWaitTime = 120 * time.Second
+)
+
+var ErrCheckAttemptExceeded = errors.New("check attempt exceeded")
 
 func SyncDelegationList(sshconf *ssh.ClientConfig, delegationSyncServer, ident, kdAddrList string) (func(string), error) {
 	// fmt.Fprintf(os.Stderr, "%s: %s@%s\n", logtag, sshconf.User, delegationSyncServer)
@@ -87,4 +97,27 @@ FROM
 	}
 
 	return list, nil
+}
+
+func WaitForDelegation(fqdn string, ip netip.Addr, ns ...string) (bool, error) {
+	timer := time.NewTimer(time.Second)
+	defer timer.Stop()
+
+	finish := time.Now().Add(DomainDelegationWaitTime)
+
+	fmt.Fprintf(os.Stderr, "waiting for delegation: %s -> %s %v\n", fqdn, ip, ns)
+
+	for ts := range timer.C {
+		if ok, err := CheckForPresence(fqdn, ip, ns...); ok && err == nil {
+			return ok, nil
+		}
+
+		if ts.After(finish) {
+			return false, ErrCheckAttemptExceeded
+		}
+
+		timer.Reset(DomainCheckPause)
+	}
+
+	return false, nil
 }

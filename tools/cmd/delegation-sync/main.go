@@ -48,12 +48,14 @@ func main() {
 		log.Fatalf("Can't create delegation sync ssh config: %s\n", err)
 	}
 
-	db, err := kdlib.CreateDBPool(dbname)
+	ctx := context.Background()
+
+	db, err := kdlib.CreateDBPool(ctx, dbname)
 	if err != nil {
 		log.Fatalf("%s: Can't create db pool: %s\n", LogTag, err)
 	}
 
-	delegationList, err := dcmgmt.NewDelegationList(context.Background(), db, schema)
+	delegationList, err := dcmgmt.NewDelegationList(ctx, db, schema)
 	if err != nil {
 		log.Fatalf("%s: Can't get delegation list: %s\n", LogTag, err)
 	}

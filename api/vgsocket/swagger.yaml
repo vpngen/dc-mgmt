@@ -1,0 +1,233 @@
+---
+swagger: '2.0'
+info:
+  title: VPN Generator socket datacenter  API
+  description: VPN Generator socket datacenter  API
+  version: 1.0.0
+
+basePath: /v1
+
+paths:
+
+  /config:
+
+    post:
+      security:
+        - JWT:
+          - manager
+      summary: Create VPN config
+      operationId: createConfig
+      consumes:
+        - application/json
+      produces:
+        - application/json
+      parameters:
+        - in: body
+          name: body
+          required: true
+          description: Config data
+          schema:
+            $ref: '#/definitions/CreateConfigRequest'
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: "#/definitions/VPNConfig"
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/Error'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/Error'
+        "503":
+          description: Service Temporarily Unavailable
+          schema:
+            $ref: '#/definitions/ServiceTemporarilyUnavailable'
+
+  /config/{config_id}:
+
+    delete:
+      security:
+        - JWT:
+          - manager
+      summary: Delete VPN config
+      operationId: deleteConfig
+      consumes:
+        - application/json
+        - application/xml
+      produces:
+        - application/json
+        - application/xml
+      parameters:
+        - in: path
+          name: config_id
+          required: true
+          type: string
+          description: Config ID
+        - in: body
+          name: body
+          required: true
+          description: Brigade ID
+          schema:
+            type: object
+            required:
+              - brigadeID
+            properties:
+              brigadeID:
+                type: string
+                format: uuid
+                description: Brigade ID
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/Error'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/Error'
+        "503":
+          description: Service Temporarily Unavailable
+          schema:
+            $ref: '#/definitions/ServiceTemporarilyUnavailable'
+
+definitions:
+  
+  Error:
+    type: object
+    properties:
+      code:
+        type: integer
+        description: Error code
+      message:
+        type: string
+        description: Error message
+
+  ServiceTemporarilyUnavailable:
+    type: object
+    required:
+      - message
+      - retry_after
+    properties:
+      message:
+        type: string
+      retry_after:
+        type: string
+        format: date-time
+
+  ConfigType:
+    description: VPN config type
+    type: string
+    enum:
+      - wireguard
+      - amneziavpn
+      - outline
+      - vgc
+
+  OutlineConfig:
+    type: object
+    required:
+      - access_key
+    properties:
+      access_key:
+        type: string
+  
+  AmneziaOVCConfig:
+    type: object
+    required:
+      - tunnel_name
+      - file_name
+      - file_content
+    properties:
+      tunnel_name:
+        type: string
+      file_name:
+        type: string
+      file_content:
+        type: string
+
+  WireGuardConfig:
+    type: object
+    required:
+      - tunnel_name
+      - file_name
+      - file_content
+    properties:
+      tunnel_name:
+        type: string
+      file_name:
+        type: string
+      file_content:
+        type: string
+
+  VPNGenConfig:
+    type: object
+    required:
+      - access_key
+    properties:
+      access_key:
+        type: string
+
+  VPNConfig:
+    type: object
+    required:
+      - user_id
+    properties:
+      user_id:
+        type: string
+        format: uuid4
+      OutlineConfig:
+        $ref: '#/definitions/OutlineConfig'
+        x-omitempty: true
+      AmneziaOVCConfig:
+        $ref: '#/definitions/AmneziaOVCConfig'
+        x-omitempty: true
+      WireGuardConfig:
+        $ref: '#/definitions/WireGuardConfig'
+        x-omitempty: true
+      VPNGenConfig:
+        $ref: '#/definitions/VPNGenConfig'
+        x-omitempty: true
+
+  CreateConfigRequest:
+    type: object
+    required:
+      - brigade_id
+      - config_type
+    properties:
+      brigade_id:
+        type: string
+        format: uuid
+        description: Brigade ID
+      config_type:
+        $ref: '#/definitions/ConfigType'
+
+  Principal:
+    type: object
+    required:
+      - scope
+    properties:
+      scope:
+        type: array
+        items:
+          type: string
+
+securityDefinitions:
+  JWT:
+    type: oauth2
+    tokenUrl: /v1/token
+    flow: application
+    scopes:
+      manager: Manager scope

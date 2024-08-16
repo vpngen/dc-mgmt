@@ -432,6 +432,12 @@ contents:
     mode: 0005
     owner: root
     group: root
+- src: dc-mgmt/cmd/releaseremotemigr/subdomain_reservation.sh
+  dst: /opt/vg-dc-snaps/subdomain_reservation.sh
+  file_info:
+    mode: 0005
+    owner: root
+    group: root
 
 - src: dc-mgmt/systemd/vg-dc-snaps.timer
   dst: /etc/systemd/system/vg-dc-snaps.timer
@@ -443,6 +449,67 @@ contents:
   dst: /etc/systemd/system/vg-dc-snaps.service
   file_info:
     mode: 0644
+    owner: root
+    group: root
+
+- dst: /opt/vg-dc-socket
+  type: dir
+  file_info:
+    mode: 0111
+    owner: root
+    group: root
+- src: dc-mgmt/socket/cmd/create_brigade/create_brigade.sh
+  dst: /opt/vg-dc-socket/create_brigade.sh
+  file_info:
+    mode: 0005
+    owner: root
+    group: root
+- src: bin/create_brigade
+  dst: /opt/vg-dc-socket/create_brigade
+  file_info:
+    mode: 0005
+    owner: root
+    group: root
+- src: dc-mgmt/socket/cmd/delete_brigade/delete_brigade.sh
+  dst: /opt/vg-dc-socket/delete_brigade.sh
+  file_info:
+    mode: 0005
+    owner: root
+    group: root
+- src: bin/delete_brigade
+  dst: /opt/vg-dc-socket/delete_brigade
+  file_info:
+    mode: 0005
+    owner: root
+    group: root
+- src: bin/vgsocket_service
+  dst: /opt/vg-dc-socket/vgsocket_service
+  file_info:
+    mode: 0005
+    owner: root
+    group: root
+
+- src: dc-mgmt/systemd/vg-dc-vgsocket.service
+  dst: /etc/systemd/system/vg-dc-vgsocket.service
+  file_info:
+    mode: 0644
+    owner: root
+    group: root
+
+- dst: /etc/vg-dc-socket-user
+  type: dir
+  file_info:
+    mode: 0110
+    owner: root
+    group: vgs_user
+
+- dst: /etc/vg-dc-socket-user/vgsocket.env
+  type: ghost
+
+- src: dc-mgmt/debpkg/src/vgsocket.env-sample
+  dst: /etc/vg-dc-socket-user/vgsocket.env-sample
+  file_info:
+    mode: 0444
     owner: root
     group: root
 

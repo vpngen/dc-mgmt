@@ -1,0 +1,13 @@
+[Unit]
+Description = VG Socket Service (config management)
+ConditionPathExists=/etc/vg-dc-socket-user/vgsocket.env
+
+[Service]
+EnvironmentFile=/etc/vg-dc-socket-user/vgsocket.env
+User=vgs_user
+Group=vgs_user
+WorkingDirectory=/home/vgs_user
+ExecStart = /opt/vg-dc-socket/vgsocket_service
+
+[Install]
+WantedBy=multi-user.target
