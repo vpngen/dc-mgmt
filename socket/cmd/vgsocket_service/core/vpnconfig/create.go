@@ -147,6 +147,7 @@ func callForConfig(ctx context.Context, logger *slog.Logger, token string,
 func kmodelToModel(nu *SocketNewUser) (*models.VPNConfig, string, error) {
 	m := &models.VPNConfig{
 		UserID: conv.UUID4(strfmt.UUID4(nu.ID.String())),
+		Name:   nu.Name,
 	}
 
 	if nu.Configs.Wireguard != nil {

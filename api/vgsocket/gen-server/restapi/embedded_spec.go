@@ -200,16 +200,16 @@ func init() {
     "CreateConfigRequest": {
       "type": "object",
       "required": [
-        "brigadeID",
-        "configType"
+        "brigade_id",
+        "config_type"
       ],
       "properties": {
-        "brigadeID": {
+        "brigade_id": {
           "description": "Brigade ID",
           "type": "string",
           "format": "uuid"
         },
-        "configType": {
+        "config_type": {
           "$ref": "#/definitions/ConfigType"
         }
       }
@@ -289,6 +289,9 @@ func init() {
         "WireGuardConfig": {
           "x-omitempty": true,
           "$ref": "#/definitions/WireGuardConfig"
+        },
+        "name": {
+          "type": "string"
         },
         "user_id": {
           "type": "string",
@@ -521,16 +524,16 @@ func init() {
     "CreateConfigRequest": {
       "type": "object",
       "required": [
-        "brigadeID",
-        "configType"
+        "brigade_id",
+        "config_type"
       ],
       "properties": {
-        "brigadeID": {
+        "brigade_id": {
           "description": "Brigade ID",
           "type": "string",
           "format": "uuid"
         },
-        "configType": {
+        "config_type": {
           "$ref": "#/definitions/ConfigType"
         }
       }
@@ -610,6 +613,9 @@ func init() {
         "WireGuardConfig": {
           "x-omitempty": true,
           "$ref": "#/definitions/WireGuardConfig"
+        },
+        "name": {
+          "type": "string"
         },
         "user_id": {
           "type": "string",

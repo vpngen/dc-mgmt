@@ -509,9 +509,9 @@ contents:
 - src: dc-mgmt/debpkg/src/vgsocket.env-sample
   dst: /etc/vg-dc-socket-user/vgsocket.env-sample
   file_info:
-    mode: 0444
+    mode: 0440
     owner: root
-    group: root
+    group: vgs_user
 
 overrides:
   deb:
