@@ -5,6 +5,8 @@ VPNAPI_USER="vgvpnapi"
 STATS_USER="vgstats"
 SNAPSHOTS_USER="vgsnaps"
 MIGRATIONS_USER="vgmigr"
+VGSOCKET_ADMIN_USER="vgs_admin"
+VGSOCKET_COMMON_USER="vgs_user"
 
 remove_users () {
         if id "${ADMIN_USER}" >/dev/null 2>&1; then
@@ -35,6 +37,18 @@ remove_users () {
                 userdel -r "${MIGRATIONS_USER}"
         else
                 echo "user ${MIGRATIONS_USER} does not exists"
+        fi
+
+        if id "${VGSOCKET_ADMIN_USER}" >/dev/null 2>&1; then
+                userdel -r "${VGSOCKET_ADMIN_USER}"
+        else
+                echo "user ${VGSOCKET_ADMIN_USER} does not exists"
+        fi
+
+        if id "${VGSOCKET_COMMON_USER}" >/dev/null 2>&1; then
+                userdel -r "${VGSOCKET_COMMON_USER}"
+        else
+                echo "user ${VGSOCKET_COMMON_USER} does not exists"
         fi
 }
 

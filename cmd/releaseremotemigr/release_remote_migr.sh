@@ -120,7 +120,6 @@ EOF
                 UPDATE 
                         :"BRIGADES_SCHEMA".brigades 
                 SET  
-                        main = false, 
                         domain_name = NULL 
                 WHERE 
                         brigade_id = :'BRIGADE_ID' 
