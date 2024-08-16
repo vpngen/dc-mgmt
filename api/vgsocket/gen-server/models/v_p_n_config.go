@@ -31,6 +31,9 @@ type VPNConfig struct {
 	// wire guard config
 	WireGuardConfig *WireGuardConfig `json:"WireGuardConfig,omitempty"`
 
+	// name
+	Name string `json:"name,omitempty"`
+
 	// user id
 	// Required: true
 	// Format: uuid4

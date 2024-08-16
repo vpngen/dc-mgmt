@@ -188,6 +188,8 @@ definitions:
       user_id:
         type: string
         format: uuid4
+      name:
+        type: string
       OutlineConfig:
         $ref: '#/definitions/OutlineConfig'
         x-omitempty: true
