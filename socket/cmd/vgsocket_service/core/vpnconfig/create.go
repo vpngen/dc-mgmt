@@ -136,6 +136,8 @@ func callForConfig(ctx context.Context, logger *slog.Logger, token string,
 			continue
 		}
 
+		logger.Debug("config created", "config_id", m.UserID.String(), "config_name", name)
+
 		return m, name, nil
 	}
 

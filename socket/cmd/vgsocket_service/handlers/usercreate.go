@@ -47,7 +47,7 @@ func PostConfigHandler(ctx context.Context, logger *slog.Logger, opts *Options,
 		return operations.NewCreateConfigInternalServerError()
 	}
 
-	logger.Info("config created", "user_id", conf.UserID.String())
+	logger.Info("config created", "user_id", conf.UserID.String(), "config_name", conf.Name)
 
 	return operations.NewCreateConfigCreated().WithPayload(conf)
 }
