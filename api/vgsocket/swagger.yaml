@@ -77,9 +77,9 @@ paths:
           schema:
             type: object
             required:
-              - brigadeID
+              - brigade_id
             properties:
-              brigadeID:
+              brigade_id:
                 type: string
                 format: uuid
                 description: Brigade ID

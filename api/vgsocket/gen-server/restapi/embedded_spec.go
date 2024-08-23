@@ -123,10 +123,10 @@ func init() {
             "schema": {
               "type": "object",
               "required": [
-                "brigadeID"
+                "brigade_id"
               ],
               "properties": {
-                "brigadeID": {
+                "brigade_id": {
                   "description": "Brigade ID",
                   "type": "string",
                   "format": "uuid"
@@ -447,10 +447,10 @@ func init() {
             "schema": {
               "type": "object",
               "required": [
-                "brigadeID"
+                "brigade_id"
               ],
               "properties": {
-                "brigadeID": {
+                "brigade_id": {
                   "description": "Brigade ID",
                   "type": "string",
                   "format": "uuid"
