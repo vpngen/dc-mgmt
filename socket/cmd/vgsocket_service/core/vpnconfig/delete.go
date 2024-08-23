@@ -66,7 +66,7 @@ func callForDel(ctx context.Context, logger *slog.Logger, token string,
 
 		defer resp.Body.Close()
 
-		if resp.StatusCode != http.StatusCreated {
+		if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNoContent {
 			return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 		}
 
