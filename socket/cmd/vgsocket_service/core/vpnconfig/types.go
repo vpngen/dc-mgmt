@@ -7,6 +7,6 @@ import (
 
 type SocketNewUser struct {
 	ID      uuid.UUID          `json:"id"`
-	Name    string             `json:"username,omitempty"`
+	Name    string             `json:"name,omitempty"`
 	Configs shuffler.VPNConfig `json:"configs"`
 }

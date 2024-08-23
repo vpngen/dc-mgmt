@@ -129,8 +129,6 @@ func callForConfig(ctx context.Context, logger *slog.Logger, token string,
 			continue
 		}
 
-		logger.Debug("config unmarshaled", "config_id", user.ID.String(), "payload", user)
-
 		m, name, err := kmodelToModel(user)
 		if err != nil {
 			logger.Debug("failed to convert model", "error", err)
