@@ -61,15 +61,20 @@ func callForDel(ctx context.Context, logger *slog.Logger, token string,
 	for i := 0; i < core.MaxKdCallAttempts; i++ {
 		resp, err := c.Do(req)
 		if nil != err {
-			return fmt.Errorf("failed to do request: %w", err)
+			logger.Error("failed to do request", "error", err)
+
+			continue
 		}
 
 		defer resp.Body.Close()
 
 		if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNoContent {
-			return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+			logger.Error("unexpected status code", "status_code", resp.StatusCode)
+
+			continue
 		}
 
+		return nil
 	}
 
 	logger.Error("max attempts reached", "attempts", core.MaxKdCallAttempts)
