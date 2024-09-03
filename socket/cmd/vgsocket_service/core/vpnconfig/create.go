@@ -13,6 +13,7 @@ import (
 
 	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/strfmt/conv"
+	"github.com/go-openapi/swag"
 	"github.com/google/uuid"
 	"github.com/vpngen/dc-mgmt/api/vgsocket/gen-server/models"
 	"github.com/vpngen/dc-mgmt/socket/cmd/vgsocket_service/core"
@@ -136,6 +137,8 @@ func callForConfig(ctx context.Context, logger *slog.Logger, token string,
 			continue
 		}
 
+		logger.Debug("config created", "config_id", m.UserID.String(), "config_name", name)
+
 		return m, name, nil
 	}
 
@@ -147,7 +150,8 @@ func callForConfig(ctx context.Context, logger *slog.Logger, token string,
 func kmodelToModel(nu *SocketNewUser) (*models.VPNConfig, string, error) {
 	m := &models.VPNConfig{
 		UserID: conv.UUID4(strfmt.UUID4(nu.ID.String())),
-		Name:   nu.Name,
+		Name:   swag.String(nu.Name),
+		Domain: swag.String(nu.Domain),
 	}
 
 	if nu.Configs.Wireguard != nil {

@@ -30,7 +30,7 @@ func DeleteUser(ctx context.Context, logger *slog.Logger, opts *core.Options, br
 		return nil
 	}
 
-	if err := callForDel(ctx, logger, opts.AccessKey, brigadeID, controlIP); err != nil {
+	if err := callForDel(ctx, logger, opts.AccessKey, brigadeID, controlIP, userID); err != nil {
 		return fmt.Errorf("calling for config: %w", err)
 	}
 
@@ -38,15 +38,16 @@ func DeleteUser(ctx context.Context, logger *slog.Logger, opts *core.Options, br
 }
 
 func callForDel(ctx context.Context, logger *slog.Logger, token string,
-	brigadeID uuid.UUID, controlIP netip.Addr,
+	brigadeID uuid.UUID, controlIP netip.Addr, userID uuid.UUID,
 ) error {
 	c := &http.Client{
 		Timeout: 120 * time.Second,
 	}
 
-	apiurl := fmt.Sprintf("http://%s/shuffler/%s/configs",
+	apiurl := fmt.Sprintf("http://%s/shuffler/%s/configs/%s",
 		controlIP.String(),
 		base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(brigadeID[:]),
+		userID.String(),
 	)
 
 	req, err := http.NewRequestWithContext(ctx, "DELETE", apiurl, nil)
@@ -60,15 +61,20 @@ func callForDel(ctx context.Context, logger *slog.Logger, token string,
 	for i := 0; i < core.MaxKdCallAttempts; i++ {
 		resp, err := c.Do(req)
 		if nil != err {
-			return fmt.Errorf("failed to do request: %w", err)
+			logger.Error("failed to do request", "error", err)
+
+			continue
 		}
 
 		defer resp.Body.Close()
 
-		if resp.StatusCode != http.StatusCreated {
-			return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+		if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNoContent {
+			logger.Error("unexpected status code", "status_code", resp.StatusCode)
+
+			continue
 		}
 
+		return nil
 	}
 
 	logger.Error("max attempts reached", "attempts", core.MaxKdCallAttempts)

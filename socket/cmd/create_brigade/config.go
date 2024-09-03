@@ -45,7 +45,7 @@ const (
 
 const (
 	sshkeyDefaultPath       = "/etc/vg-dc-vpnapi"
-	defaultMaxUsers         = 100
+	defaultMaxUsers         = 150
 	defaultWireguardConfigs = "native"
 )
 

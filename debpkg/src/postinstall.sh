@@ -93,6 +93,9 @@ upgrade() {
     	printf "Reload the service unit from disk\n"
     	systemctl daemon-reload ||:
 
+        systemctl enable vg-dc-vgsocket.service ||:
+        systemctl start vg-dc-vgsocket.service ||:
+
         systemctl enable vg-dc-stats.timer ||:
         systemctl enable vg-dc-stats.service ||:
 	systemctl restart vg-dc-stats.timer ||:

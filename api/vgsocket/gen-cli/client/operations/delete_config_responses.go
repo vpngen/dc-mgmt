@@ -17,7 +17,7 @@ import (
 	"github.com/go-openapi/swag"
 	"github.com/go-openapi/validate"
 
-	"github.com/vpngen/dc-mgmt/api/vgsocket/gen-client/models"
+	"github.com/vpngen/dc-mgmt/api/vgsocket/gen-cli/models"
 )
 
 // DeleteConfigReader is a Reader for the DeleteConfig structure.
@@ -408,7 +408,7 @@ type DeleteConfigBody struct {
 	// Brigade ID
 	// Required: true
 	// Format: uuid
-	BrigadeID *strfmt.UUID `json:"brigade_id"`
+	BrigadeID *strfmt.UUID `json:"brigadeID"`
 }
 
 // Validate validates this delete config body
@@ -427,11 +427,11 @@ func (o *DeleteConfigBody) Validate(formats strfmt.Registry) error {
 
 func (o *DeleteConfigBody) validateBrigadeID(formats strfmt.Registry) error {
 
-	if err := validate.Required("body"+"."+"brigade_id", "body", o.BrigadeID); err != nil {
+	if err := validate.Required("body"+"."+"brigadeID", "body", o.BrigadeID); err != nil {
 		return err
 	}
 
-	if err := validate.FormatOf("body"+"."+"brigade_id", "body", "uuid", o.BrigadeID.String(), formats); err != nil {
+	if err := validate.FormatOf("body"+"."+"brigadeID", "body", "uuid", o.BrigadeID.String(), formats); err != nil {
 		return err
 	}
 

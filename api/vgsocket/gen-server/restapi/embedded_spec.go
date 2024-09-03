@@ -123,10 +123,10 @@ func init() {
             "schema": {
               "type": "object",
               "required": [
-                "brigadeID"
+                "brigade_id"
               ],
               "properties": {
-                "brigadeID": {
+                "brigade_id": {
                   "description": "Brigade ID",
                   "type": "string",
                   "format": "uuid"
@@ -194,7 +194,7 @@ func init() {
         "wireguard",
         "amneziavpn",
         "outline",
-        "vgc"
+        "universal"
       ]
     },
     "CreateConfigRequest": {
@@ -271,7 +271,9 @@ func init() {
     "VPNConfig": {
       "type": "object",
       "required": [
-        "user_id"
+        "user_id",
+        "name",
+        "domain"
       ],
       "properties": {
         "AmneziaOVCConfig": {
@@ -289,6 +291,9 @@ func init() {
         "WireGuardConfig": {
           "x-omitempty": true,
           "$ref": "#/definitions/WireGuardConfig"
+        },
+        "domain": {
+          "type": "string"
         },
         "name": {
           "type": "string"
@@ -447,10 +452,10 @@ func init() {
             "schema": {
               "type": "object",
               "required": [
-                "brigadeID"
+                "brigade_id"
               ],
               "properties": {
-                "brigadeID": {
+                "brigade_id": {
                   "description": "Brigade ID",
                   "type": "string",
                   "format": "uuid"
@@ -518,7 +523,7 @@ func init() {
         "wireguard",
         "amneziavpn",
         "outline",
-        "vgc"
+        "universal"
       ]
     },
     "CreateConfigRequest": {
@@ -595,7 +600,9 @@ func init() {
     "VPNConfig": {
       "type": "object",
       "required": [
-        "user_id"
+        "user_id",
+        "name",
+        "domain"
       ],
       "properties": {
         "AmneziaOVCConfig": {
@@ -613,6 +620,9 @@ func init() {
         "WireGuardConfig": {
           "x-omitempty": true,
           "$ref": "#/definitions/WireGuardConfig"
+        },
+        "domain": {
+          "type": "string"
         },
         "name": {
           "type": "string"
