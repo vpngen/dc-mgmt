@@ -134,7 +134,7 @@ definitions:
       - wireguard
       - amneziavpn
       - outline
-      - vgc
+      - universal
 
   OutlineConfig:
     type: object
@@ -184,11 +184,15 @@ definitions:
     type: object
     required:
       - user_id
+      - name
+      - domain
     properties:
       user_id:
         type: string
         format: uuid4
       name:
+        type: string
+      domain:
         type: string
       OutlineConfig:
         $ref: '#/definitions/OutlineConfig'

@@ -39,8 +39,8 @@ const (
 	// ConfigTypeOutline captures enum value "outline"
 	ConfigTypeOutline ConfigType = "outline"
 
-	// ConfigTypeVgc captures enum value "vgc"
-	ConfigTypeVgc ConfigType = "vgc"
+	// ConfigTypeUniversal captures enum value "universal"
+	ConfigTypeUniversal ConfigType = "universal"
 )
 
 // for schema
@@ -48,7 +48,7 @@ var configTypeEnum []interface{}
 
 func init() {
 	var res []ConfigType
-	if err := json.Unmarshal([]byte(`["wireguard","amneziavpn","outline","vgc"]`), &res); err != nil {
+	if err := json.Unmarshal([]byte(`["wireguard","amneziavpn","outline","universal"]`), &res); err != nil {
 		panic(err)
 	}
 	for _, v := range res {
