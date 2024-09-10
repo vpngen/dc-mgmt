@@ -34,6 +34,10 @@ func registerModelVPNConfigFlags(depth int, cmdPrefix string, cmd *cobra.Command
 		return err
 	}
 
+	if err := registerVPNConfigPropDomain(depth, cmdPrefix, cmd); err != nil {
+		return err
+	}
+
 	if err := registerVPNConfigPropName(depth, cmdPrefix, cmd); err != nil {
 		return err
 	}
@@ -121,12 +125,33 @@ func registerVPNConfigPropWireGuardConfig(depth int, cmdPrefix string, cmd *cobr
 	return nil
 }
 
+func registerVPNConfigPropDomain(depth int, cmdPrefix string, cmd *cobra.Command) error {
+	if depth > maxDepth {
+		return nil
+	}
+
+	flagDomainDescription := `Required. `
+
+	var flagDomainName string
+	if cmdPrefix == "" {
+		flagDomainName = "domain"
+	} else {
+		flagDomainName = fmt.Sprintf("%v.domain", cmdPrefix)
+	}
+
+	var flagDomainDefault string
+
+	_ = cmd.PersistentFlags().String(flagDomainName, flagDomainDefault, flagDomainDescription)
+
+	return nil
+}
+
 func registerVPNConfigPropName(depth int, cmdPrefix string, cmd *cobra.Command) error {
 	if depth > maxDepth {
 		return nil
 	}
 
-	flagNameDescription := ``
+	flagNameDescription := `Required. `
 
 	var flagNameName string
 	if cmdPrefix == "" {
@@ -179,6 +204,12 @@ func retrieveModelVPNConfigFlags(depth int, m *models.VPNConfig, cmdPrefix strin
 		return err, false
 	}
 	retAdded = retAdded || WireGuardConfigAdded
+
+	err, DomainAdded := retrieveVPNConfigPropDomainFlags(depth, m, cmdPrefix, cmd)
+	if err != nil {
+		return err, false
+	}
+	retAdded = retAdded || DomainAdded
 
 	err, NameAdded := retrieveVPNConfigPropNameFlags(depth, m, cmdPrefix, cmd)
 	if err != nil {
@@ -303,6 +334,34 @@ func retrieveVPNConfigPropWireGuardConfigFlags(depth int, m *models.VPNConfig, c
 	return nil, retAdded
 }
 
+func retrieveVPNConfigPropDomainFlags(depth int, m *models.VPNConfig, cmdPrefix string, cmd *cobra.Command) (error, bool) {
+	if depth > maxDepth {
+		return nil, false
+	}
+	retAdded := false
+
+	flagDomainName := fmt.Sprintf("%v.domain", cmdPrefix)
+	if cmd.Flags().Changed(flagDomainName) {
+
+		var flagDomainName string
+		if cmdPrefix == "" {
+			flagDomainName = "domain"
+		} else {
+			flagDomainName = fmt.Sprintf("%v.domain", cmdPrefix)
+		}
+
+		flagDomainValue, err := cmd.Flags().GetString(flagDomainName)
+		if err != nil {
+			return err, false
+		}
+		m.Domain = &flagDomainValue
+
+		retAdded = true
+	}
+
+	return nil, retAdded
+}
+
 func retrieveVPNConfigPropNameFlags(depth int, m *models.VPNConfig, cmdPrefix string, cmd *cobra.Command) (error, bool) {
 	if depth > maxDepth {
 		return nil, false
@@ -323,7 +382,7 @@ func retrieveVPNConfigPropNameFlags(depth int, m *models.VPNConfig, cmdPrefix st
 		if err != nil {
 			return err, false
 		}
-		m.Name = flagNameValue
+		m.Name = &flagNameValue
 
 		retAdded = true
 	}

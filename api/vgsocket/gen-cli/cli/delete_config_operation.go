@@ -252,9 +252,9 @@ func registerDeleteConfigBodyPropBrigadeID(depth int, cmdPrefix string, cmd *cob
 
 	var flagBrigadeIDName string
 	if cmdPrefix == "" {
-		flagBrigadeIDName = "brigadeID"
+		flagBrigadeIDName = "brigade_id"
 	} else {
-		flagBrigadeIDName = fmt.Sprintf("%v.brigadeID", cmdPrefix)
+		flagBrigadeIDName = fmt.Sprintf("%v.brigade_id", cmdPrefix)
 	}
 
 	_ = cmd.PersistentFlags().String(flagBrigadeIDName, "", flagBrigadeIDDescription)
@@ -281,14 +281,14 @@ func retrieveDeleteConfigBodyPropBrigadeIDFlags(depth int, m *operations.DeleteC
 	}
 	retAdded := false
 
-	flagBrigadeIDName := fmt.Sprintf("%v.brigadeID", cmdPrefix)
+	flagBrigadeIDName := fmt.Sprintf("%v.brigade_id", cmdPrefix)
 	if cmd.Flags().Changed(flagBrigadeIDName) {
 
 		var flagBrigadeIDName string
 		if cmdPrefix == "" {
-			flagBrigadeIDName = "brigadeID"
+			flagBrigadeIDName = "brigade_id"
 		} else {
-			flagBrigadeIDName = fmt.Sprintf("%v.brigadeID", cmdPrefix)
+			flagBrigadeIDName = fmt.Sprintf("%v.brigade_id", cmdPrefix)
 		}
 
 		flagBrigadeIDValueStr, err := cmd.Flags().GetString(flagBrigadeIDName)
