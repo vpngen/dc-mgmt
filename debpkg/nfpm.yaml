@@ -537,7 +537,7 @@ contents:
   type: ghost
 
 - src: dc-mgmt/debpkg/src/vgsbrigades.env-sample
-  dst: /etc/vg-dc-socket-user/vgsbrigades.env-sample
+  dst: /etc/vg-dc-socket-admin/vgsbrigades.env-sample
   file_info:
     mode: 0440
     owner: root
