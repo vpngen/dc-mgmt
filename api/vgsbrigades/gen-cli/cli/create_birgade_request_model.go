@@ -42,9 +42,9 @@ func registerCreateBirgadeRequestPropBrigadeID(depth int, cmdPrefix string, cmd 
 
 	var flagBrigadeIDName string
 	if cmdPrefix == "" {
-		flagBrigadeIDName = "brigadeID"
+		flagBrigadeIDName = "brigade_id"
 	} else {
-		flagBrigadeIDName = fmt.Sprintf("%v.brigadeID", cmdPrefix)
+		flagBrigadeIDName = fmt.Sprintf("%v.brigade_id", cmdPrefix)
 	}
 
 	_ = cmd.PersistentFlags().String(flagBrigadeIDName, "", flagBrigadeIDDescription)
@@ -61,9 +61,9 @@ func registerCreateBirgadeRequestPropBrigadeName(depth int, cmdPrefix string, cm
 
 	var flagBrigadeNameName string
 	if cmdPrefix == "" {
-		flagBrigadeNameName = "brigadeName"
+		flagBrigadeNameName = "brigade_name"
 	} else {
-		flagBrigadeNameName = fmt.Sprintf("%v.brigadeName", cmdPrefix)
+		flagBrigadeNameName = fmt.Sprintf("%v.brigade_name", cmdPrefix)
 	}
 
 	var flagBrigadeNameDefault string
@@ -125,14 +125,14 @@ func retrieveCreateBirgadeRequestPropBrigadeIDFlags(depth int, m *models.CreateB
 	}
 	retAdded := false
 
-	flagBrigadeIDName := fmt.Sprintf("%v.brigadeID", cmdPrefix)
+	flagBrigadeIDName := fmt.Sprintf("%v.brigade_id", cmdPrefix)
 	if cmd.Flags().Changed(flagBrigadeIDName) {
 
 		var flagBrigadeIDName string
 		if cmdPrefix == "" {
-			flagBrigadeIDName = "brigadeID"
+			flagBrigadeIDName = "brigade_id"
 		} else {
-			flagBrigadeIDName = fmt.Sprintf("%v.brigadeID", cmdPrefix)
+			flagBrigadeIDName = fmt.Sprintf("%v.brigade_id", cmdPrefix)
 		}
 
 		flagBrigadeIDValueStr, err := cmd.Flags().GetString(flagBrigadeIDName)
@@ -157,14 +157,14 @@ func retrieveCreateBirgadeRequestPropBrigadeNameFlags(depth int, m *models.Creat
 	}
 	retAdded := false
 
-	flagBrigadeNameName := fmt.Sprintf("%v.brigadeName", cmdPrefix)
+	flagBrigadeNameName := fmt.Sprintf("%v.brigade_name", cmdPrefix)
 	if cmd.Flags().Changed(flagBrigadeNameName) {
 
 		var flagBrigadeNameName string
 		if cmdPrefix == "" {
-			flagBrigadeNameName = "brigadeName"
+			flagBrigadeNameName = "brigade_name"
 		} else {
-			flagBrigadeNameName = fmt.Sprintf("%v.brigadeName", cmdPrefix)
+			flagBrigadeNameName = fmt.Sprintf("%v.brigade_name", cmdPrefix)
 		}
 
 		flagBrigadeNameValue, err := cmd.Flags().GetString(flagBrigadeNameName)

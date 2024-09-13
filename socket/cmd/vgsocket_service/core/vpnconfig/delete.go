@@ -17,7 +17,7 @@ func DeleteUser(ctx context.Context, logger *slog.Logger, opts *core.Options, br
 	// 1. get control ip from brigade
 	// 2. delete user (update active flag to false)
 
-	controlIP, err := getControlAddr(ctx, logger, opts, brigadeID)
+	controlIP, err := core.GetControlAddr(ctx, logger, opts.Db, opts.SqFmt, brigadeID)
 	if err != nil {
 		return fmt.Errorf("getting control addr: %w", err)
 	}

@@ -100,7 +100,7 @@ func init() {
         }
       }
     },
-    "/brigade/status/{orderId}": {
+    "/brigade/status/{order_id}": {
       "get": {
         "security": [
           {
@@ -121,7 +121,7 @@ func init() {
           {
             "type": "string",
             "description": "Order ID",
-            "name": "orderId",
+            "name": "order_id",
             "in": "path",
             "required": true
           }
@@ -308,19 +308,19 @@ func init() {
     "Brigade": {
       "type": "object",
       "required": [
-        "brigadeID",
-        "brigadeName",
-        "maxUsers",
+        "brigade_id",
+        "brigade_name",
+        "max_users",
         "deleted",
         "zone"
       ],
       "properties": {
-        "brigadeID": {
+        "brigade_id": {
           "description": "Brigade ID",
           "type": "string",
           "format": "uuid"
         },
-        "brigadeName": {
+        "brigade_name": {
           "description": "Brigade name",
           "type": "string"
         },
@@ -328,7 +328,7 @@ func init() {
           "description": "Deleted",
           "type": "boolean"
         },
-        "maxUsers": {
+        "max_users": {
           "description": "Max users",
           "type": "integer"
         },
@@ -341,17 +341,17 @@ func init() {
     "CreateBirgadeRequest": {
       "type": "object",
       "required": [
-        "brigadeName",
-        "brigadeID",
+        "brigade_name",
+        "brigade_id",
         "zone"
       ],
       "properties": {
-        "brigadeID": {
+        "brigade_id": {
           "description": "Brigade ID",
           "type": "string",
           "format": "uuid"
         },
-        "brigadeName": {
+        "brigade_name": {
           "description": "Brigade name",
           "type": "string"
         },
@@ -381,15 +381,15 @@ func init() {
         "message"
       ],
       "properties": {
-        "brigadeID": {
-          "description": "Brigade ID",
-          "type": "string",
-          "format": "uuid",
-          "x-omitempty": true
-        },
         "message": {
           "description": "Message",
           "type": "string"
+        },
+        "order_id": {
+          "description": "Order ID",
+          "type": "string",
+          "format": "uuid",
+          "x-omitempty": true
         },
         "retryAfter": {
           "description": "Retry after seconds",
@@ -400,6 +400,7 @@ func init() {
           "description": "Order status",
           "type": "string",
           "enum": [
+            "created",
             "processing",
             "completed",
             "failed"
@@ -436,9 +437,6 @@ func init() {
     }
   },
   "securityDefinitions": {
-    "Basic": {
-      "type": "basic"
-    },
     "JWT": {
       "type": "oauth2",
       "flow": "application",
@@ -533,7 +531,7 @@ func init() {
         }
       }
     },
-    "/brigade/status/{orderId}": {
+    "/brigade/status/{order_id}": {
       "get": {
         "security": [
           {
@@ -554,7 +552,7 @@ func init() {
           {
             "type": "string",
             "description": "Order ID",
-            "name": "orderId",
+            "name": "order_id",
             "in": "path",
             "required": true
           }
@@ -741,19 +739,19 @@ func init() {
     "Brigade": {
       "type": "object",
       "required": [
-        "brigadeID",
-        "brigadeName",
-        "maxUsers",
+        "brigade_id",
+        "brigade_name",
+        "max_users",
         "deleted",
         "zone"
       ],
       "properties": {
-        "brigadeID": {
+        "brigade_id": {
           "description": "Brigade ID",
           "type": "string",
           "format": "uuid"
         },
-        "brigadeName": {
+        "brigade_name": {
           "description": "Brigade name",
           "type": "string"
         },
@@ -761,7 +759,7 @@ func init() {
           "description": "Deleted",
           "type": "boolean"
         },
-        "maxUsers": {
+        "max_users": {
           "description": "Max users",
           "type": "integer"
         },
@@ -774,17 +772,17 @@ func init() {
     "CreateBirgadeRequest": {
       "type": "object",
       "required": [
-        "brigadeName",
-        "brigadeID",
+        "brigade_name",
+        "brigade_id",
         "zone"
       ],
       "properties": {
-        "brigadeID": {
+        "brigade_id": {
           "description": "Brigade ID",
           "type": "string",
           "format": "uuid"
         },
-        "brigadeName": {
+        "brigade_name": {
           "description": "Brigade name",
           "type": "string"
         },
@@ -814,15 +812,15 @@ func init() {
         "message"
       ],
       "properties": {
-        "brigadeID": {
-          "description": "Brigade ID",
-          "type": "string",
-          "format": "uuid",
-          "x-omitempty": true
-        },
         "message": {
           "description": "Message",
           "type": "string"
+        },
+        "order_id": {
+          "description": "Order ID",
+          "type": "string",
+          "format": "uuid",
+          "x-omitempty": true
         },
         "retryAfter": {
           "description": "Retry after seconds",
@@ -833,6 +831,7 @@ func init() {
           "description": "Order status",
           "type": "string",
           "enum": [
+            "created",
             "processing",
             "completed",
             "failed"
@@ -869,9 +868,6 @@ func init() {
     }
   },
   "securityDefinitions": {
-    "Basic": {
-      "type": "basic"
-    },
     "JWT": {
       "type": "oauth2",
       "flow": "application",

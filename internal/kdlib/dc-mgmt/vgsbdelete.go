@@ -3,14 +3,19 @@ package dcmgmt
 import (
 	"bytes"
 	"context"
+	"encoding/base32"
 	"errors"
 	"fmt"
 	"log/slog"
 	"net/netip"
 	"strings"
+	"time"
 
+	sq "github.com/Masterminds/squirrel"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/vpngen/dc-mgmt/internal/kdlib"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -19,6 +24,68 @@ const (
 )
 
 var ErrDeleteAttemptsCountExceeded = errors.New("delete attempts count exceeded")
+
+func VgsDeleteBrigade(ctx context.Context, logger *slog.Logger, db *pgxpool.Pool, sqfmt sq.StatementBuilderType,
+	orderID uuid.UUID,
+	dcident string,
+	host, token string,
+	sshkey, sshuser, server string,
+	doNotCreatePhy bool,
+) error {
+	logger.Info("deleting brigade", "order_id", orderID)
+
+	_, _, _, controlIP, _, brigadeID, _, err := vgsGetOrderMeta(ctx, logger, db, sqfmt, orderID, false)
+	if err != nil {
+		return fmt.Errorf("error getting order brigade meta: %w", err)
+	}
+
+	logger.Info("deleting brigade", "brigade_id", brigadeID, "order_id", orderID, "control_ip", controlIP)
+
+	if !doNotCreatePhy {
+		sshconf, err := kdlib.CreateSSHConfig(sshkey, sshkeyRemoteUsername, kdlib.SSHDefaultTimeOut)
+		if err != nil {
+			if err := vgsSetOrderError(ctx, logger, db, sqfmt, orderID, err.Error()); err != nil {
+				return fmt.Errorf("error setting order error: %w", err)
+			}
+
+			return fmt.Errorf("error creating ssh configs: %w", err)
+		}
+
+		bid := base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(brigadeID[:])
+
+		if err := vgsRevokeBrigade(ctx, logger, sshconf, bid, controlIP); err != nil {
+			if err := vgsSetOrderError(ctx, logger, db, sqfmt, orderID, err.Error()); err != nil {
+				return fmt.Errorf("error setting order error: %w", err)
+			}
+
+			return fmt.Errorf("error revoking brigade: %w", err)
+		}
+	}
+
+	sshconf, err := kdlib.CreateSSHConfig(sshkey, sshuser, kdlib.SSHDefaultTimeOut)
+	if err != nil {
+		if err := vgsSetOrderError(ctx, logger, db, sqfmt, orderID, err.Error()); err != nil {
+			return fmt.Errorf("error setting order error: %w", err)
+		}
+
+		return fmt.Errorf("error creating ssh configs: %w", err)
+	}
+
+	if err := vgsRemoveBrigade(ctx, logger, db, sqfmt, dcident,
+		brigadeID.String(),
+		server, sshconf, host, token,
+	); err != nil {
+		if err := vgsSetOrderError(ctx, logger, db, sqfmt, orderID, err.Error()); err != nil {
+			return fmt.Errorf("error setting order error: %w", err)
+		}
+
+		return fmt.Errorf("error deleting brigade: %w", err)
+	}
+
+	logger.Info("brigade deleted", "brigade_id", brigadeID, "order_id", orderID)
+
+	return nil
+}
 
 func vgsRevokeBrigade(_ context.Context, logger *slog.Logger, sshconf *ssh.ClientConfig, brigadeID string, controlIP netip.Addr) error {
 	cmd := fmt.Sprintf("destroy -id %s -ch", brigadeID)
@@ -70,8 +137,8 @@ func vgsRevokeBrigade(_ context.Context, logger *slog.Logger, sshconf *ssh.Clien
 	return fmt.Errorf("%w: %d", ErrDeleteAttemptsCountExceeded, deleteAttempts)
 }
 
-func vgsRemoveBrigadeFull(
-	ctx context.Context, db *pgxpool.Pool, _ *slog.Logger,
+func vgsRemoveBrigade(
+	ctx context.Context, _ *slog.Logger, db *pgxpool.Pool, sqfmt sq.StatementBuilderType,
 	ident string,
 	brigadeID string,
 	delegationSyncServer string, delegationSyncSSHconf *ssh.ClientConfig,
@@ -84,29 +151,56 @@ func vgsRemoveBrigadeFull(
 
 	defer tx.Rollback(ctx)
 
-	sqlDelBrigadesStats := `
-	DELETE
-		FROM stats.brigades_stats
-	WHERE 
-		brigade_id=$1
-	`
+	queryDelStats := sqfmt.Delete("stats.brigades_stats").
+		Where(sq.Eq{"brigade_id": brigadeID})
 
-	if _, err := tx.Exec(ctx, sqlDelBrigadesStats, brigadeID); err != nil {
+	sql, args, err := queryDelStats.ToSql()
+	if err != nil {
+		return fmt.Errorf("error building SQL: %w", err)
+	}
+
+	if _, err := tx.Exec(ctx, sql, args...); err != nil {
 		return fmt.Errorf("brigades stats delete: %w", err)
 	}
 
 	var domain_name pgtype.Text
 
-	getDomainName := `SELECT domain_name FROM brigades.brigades WHERE brigade_id=$1 AND is_main=true`
+	queryGetDomain := sqfmt.Select("domain_name").
+		From("brigades.brigades").
+		Where(sq.Eq{"brigade_id": brigadeID, "main": true})
 
-	if err := tx.QueryRow(ctx, getDomainName, brigadeID).Scan(&domain_name); err != nil {
+	sql, args, err = queryGetDomain.ToSql()
+	if err != nil {
+		return fmt.Errorf("error building SQL: %w", err)
+	}
+
+	if err := tx.QueryRow(ctx, sql, args...).Scan(&domain_name); err != nil {
 		return fmt.Errorf("get domain name: %w", err)
 	}
 
-	sqlDelBrigade := `DELETE FROM brigades.brigades	WHERE brigade_id=$1`
+	queryDel := sqfmt.Delete("brigades.brigades").
+		Where(sq.Eq{"brigade_id": brigadeID})
 
-	if _, err := tx.Exec(ctx, sqlDelBrigade, brigadeID); err != nil {
+	sql, args, err = queryDel.ToSql()
+	if err != nil {
+		return fmt.Errorf("error building SQL: %w", err)
+	}
+
+	if _, err := tx.Exec(ctx, sql, args...); err != nil {
 		return fmt.Errorf("brigade delete: %w", err)
+	}
+
+	queryComplete := sqfmt.Update("pairs.pair_orders").
+		Set("brigade_completed_at", time.Now().UTC()).
+		Where(sq.Eq{"brigade_id": brigadeID, "action": VgsActionDeleteBrigade})
+
+	sql, args, err = queryComplete.ToSql()
+	if err != nil {
+		return fmt.Errorf("error building SQL: %w", err)
+	}
+
+	if _, err := tx.Exec(ctx, sql, args...); err != nil {
+		return fmt.Errorf("brigade complete: %w", err)
 	}
 
 	if err := tx.Commit(ctx); err != nil {

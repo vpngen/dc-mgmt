@@ -61,7 +61,7 @@ func (o *CheckOrderStatusReader) ReadResponse(response runtime.ClientResponse, c
 		}
 		return nil, result
 	default:
-		return nil, runtime.NewAPIError("[GET /brigade/status/{orderId}] checkOrderStatus", response, response.Code())
+		return nil, runtime.NewAPIError("[GET /brigade/status/{order_id}] checkOrderStatus", response, response.Code())
 	}
 }
 
@@ -118,12 +118,12 @@ func (o *CheckOrderStatusOK) Code() int {
 
 func (o *CheckOrderStatusOK) Error() string {
 	payload, _ := json.Marshal(o.Payload)
-	return fmt.Sprintf("[GET /brigade/status/{orderId}][%d] checkOrderStatusOK %s", 200, payload)
+	return fmt.Sprintf("[GET /brigade/status/{order_id}][%d] checkOrderStatusOK %s", 200, payload)
 }
 
 func (o *CheckOrderStatusOK) String() string {
 	payload, _ := json.Marshal(o.Payload)
-	return fmt.Sprintf("[GET /brigade/status/{orderId}][%d] checkOrderStatusOK %s", 200, payload)
+	return fmt.Sprintf("[GET /brigade/status/{order_id}][%d] checkOrderStatusOK %s", 200, payload)
 }
 
 func (o *CheckOrderStatusOK) GetPayload() *models.OrderStatus {
@@ -200,12 +200,12 @@ func (o *CheckOrderStatusFound) Code() int {
 
 func (o *CheckOrderStatusFound) Error() string {
 	payload, _ := json.Marshal(o.Payload)
-	return fmt.Sprintf("[GET /brigade/status/{orderId}][%d] checkOrderStatusFound %s", 302, payload)
+	return fmt.Sprintf("[GET /brigade/status/{order_id}][%d] checkOrderStatusFound %s", 302, payload)
 }
 
 func (o *CheckOrderStatusFound) String() string {
 	payload, _ := json.Marshal(o.Payload)
-	return fmt.Sprintf("[GET /brigade/status/{orderId}][%d] checkOrderStatusFound %s", 302, payload)
+	return fmt.Sprintf("[GET /brigade/status/{order_id}][%d] checkOrderStatusFound %s", 302, payload)
 }
 
 func (o *CheckOrderStatusFound) GetPayload() *models.OrderStatus {
@@ -277,12 +277,12 @@ func (o *CheckOrderStatusBadRequest) Code() int {
 
 func (o *CheckOrderStatusBadRequest) Error() string {
 	payload, _ := json.Marshal(o.Payload)
-	return fmt.Sprintf("[GET /brigade/status/{orderId}][%d] checkOrderStatusBadRequest %s", 400, payload)
+	return fmt.Sprintf("[GET /brigade/status/{order_id}][%d] checkOrderStatusBadRequest %s", 400, payload)
 }
 
 func (o *CheckOrderStatusBadRequest) String() string {
 	payload, _ := json.Marshal(o.Payload)
-	return fmt.Sprintf("[GET /brigade/status/{orderId}][%d] checkOrderStatusBadRequest %s", 400, payload)
+	return fmt.Sprintf("[GET /brigade/status/{order_id}][%d] checkOrderStatusBadRequest %s", 400, payload)
 }
 
 func (o *CheckOrderStatusBadRequest) GetPayload() *models.Error {
@@ -347,12 +347,12 @@ func (o *CheckOrderStatusUnauthorized) Code() int {
 
 func (o *CheckOrderStatusUnauthorized) Error() string {
 	payload, _ := json.Marshal(o.Payload)
-	return fmt.Sprintf("[GET /brigade/status/{orderId}][%d] checkOrderStatusUnauthorized %s", 401, payload)
+	return fmt.Sprintf("[GET /brigade/status/{order_id}][%d] checkOrderStatusUnauthorized %s", 401, payload)
 }
 
 func (o *CheckOrderStatusUnauthorized) String() string {
 	payload, _ := json.Marshal(o.Payload)
-	return fmt.Sprintf("[GET /brigade/status/{orderId}][%d] checkOrderStatusUnauthorized %s", 401, payload)
+	return fmt.Sprintf("[GET /brigade/status/{order_id}][%d] checkOrderStatusUnauthorized %s", 401, payload)
 }
 
 func (o *CheckOrderStatusUnauthorized) GetPayload() *models.Error {
@@ -417,12 +417,12 @@ func (o *CheckOrderStatusInternalServerError) Code() int {
 
 func (o *CheckOrderStatusInternalServerError) Error() string {
 	payload, _ := json.Marshal(o.Payload)
-	return fmt.Sprintf("[GET /brigade/status/{orderId}][%d] checkOrderStatusInternalServerError %s", 500, payload)
+	return fmt.Sprintf("[GET /brigade/status/{order_id}][%d] checkOrderStatusInternalServerError %s", 500, payload)
 }
 
 func (o *CheckOrderStatusInternalServerError) String() string {
 	payload, _ := json.Marshal(o.Payload)
-	return fmt.Sprintf("[GET /brigade/status/{orderId}][%d] checkOrderStatusInternalServerError %s", 500, payload)
+	return fmt.Sprintf("[GET /brigade/status/{order_id}][%d] checkOrderStatusInternalServerError %s", 500, payload)
 }
 
 func (o *CheckOrderStatusInternalServerError) GetPayload() *models.Error {
@@ -487,12 +487,12 @@ func (o *CheckOrderStatusServiceUnavailable) Code() int {
 
 func (o *CheckOrderStatusServiceUnavailable) Error() string {
 	payload, _ := json.Marshal(o.Payload)
-	return fmt.Sprintf("[GET /brigade/status/{orderId}][%d] checkOrderStatusServiceUnavailable %s", 503, payload)
+	return fmt.Sprintf("[GET /brigade/status/{order_id}][%d] checkOrderStatusServiceUnavailable %s", 503, payload)
 }
 
 func (o *CheckOrderStatusServiceUnavailable) String() string {
 	payload, _ := json.Marshal(o.Payload)
-	return fmt.Sprintf("[GET /brigade/status/{orderId}][%d] checkOrderStatusServiceUnavailable %s", 503, payload)
+	return fmt.Sprintf("[GET /brigade/status/{order_id}][%d] checkOrderStatusServiceUnavailable %s", 503, payload)
 }
 
 func (o *CheckOrderStatusServiceUnavailable) GetPayload() *models.ServiceTemporarilyUnavailable {

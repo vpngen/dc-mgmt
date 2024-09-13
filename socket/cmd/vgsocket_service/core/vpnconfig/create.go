@@ -17,8 +17,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/vpngen/dc-mgmt/api/vgsocket/gen-server/models"
 	"github.com/vpngen/dc-mgmt/socket/cmd/vgsocket_service/core"
-
-	sq "github.com/Masterminds/squirrel"
 )
 
 func GreateUser(ctx context.Context, logger *slog.Logger, opts *core.Options,
@@ -28,7 +26,7 @@ func GreateUser(ctx context.Context, logger *slog.Logger, opts *core.Options,
 	// 2. call control node for config
 	// 3. return vpn config
 
-	controlIP, err := getControlAddr(ctx, logger, opts, brigadeID)
+	controlIP, err := core.GetControlAddr(ctx, logger, opts.Db, opts.SqFmt, brigadeID)
 	if err != nil {
 		return nil, fmt.Errorf("getting control addr: %w", err)
 	}
@@ -48,36 +46,6 @@ func GreateUser(ctx context.Context, logger *slog.Logger, opts *core.Options,
 	}
 
 	return conf, nil
-}
-
-func getControlAddr(ctx context.Context, _ *slog.Logger, opts *core.Options, brigadeID uuid.UUID) (netip.Addr, error) {
-	// 1. get control ip from brigade
-	// 2. return control ip
-
-	tx, err := opts.Db.Begin(ctx)
-	if err != nil {
-		return netip.Addr{}, fmt.Errorf("beginning transaction: %w", err)
-	}
-
-	defer tx.Rollback(ctx)
-
-	query := opts.SqFmt.Select("p.control_ip").
-		From("brigades.brigades b").
-		Join("pairs.pairs p ON b.pair_id = p.pair_id").
-		Where(sq.Eq{"b.brigade_id": brigadeID})
-
-	sql, args, err := query.ToSql()
-	if err != nil {
-		return netip.Addr{}, fmt.Errorf("building query: %w", err)
-	}
-
-	var controlIP netip.Addr
-
-	if err := tx.QueryRow(ctx, sql, args...).Scan(&controlIP); err != nil {
-		return netip.Addr{}, fmt.Errorf("querying control ip: %w", err)
-	}
-
-	return controlIP, nil
 }
 
 type ConfigRequest struct {

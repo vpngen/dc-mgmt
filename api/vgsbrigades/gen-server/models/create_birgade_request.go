@@ -22,11 +22,11 @@ type CreateBirgadeRequest struct {
 	// Brigade ID
 	// Required: true
 	// Format: uuid
-	BrigadeID *strfmt.UUID `json:"brigadeID"`
+	BrigadeID *strfmt.UUID `json:"brigade_id"`
 
 	// Brigade name
 	// Required: true
-	BrigadeName *string `json:"brigadeName"`
+	BrigadeName *string `json:"brigade_name"`
 
 	// Virtual machine zone
 	// Required: true
@@ -57,11 +57,11 @@ func (m *CreateBirgadeRequest) Validate(formats strfmt.Registry) error {
 
 func (m *CreateBirgadeRequest) validateBrigadeID(formats strfmt.Registry) error {
 
-	if err := validate.Required("brigadeID", "body", m.BrigadeID); err != nil {
+	if err := validate.Required("brigade_id", "body", m.BrigadeID); err != nil {
 		return err
 	}
 
-	if err := validate.FormatOf("brigadeID", "body", "uuid", m.BrigadeID.String(), formats); err != nil {
+	if err := validate.FormatOf("brigade_id", "body", "uuid", m.BrigadeID.String(), formats); err != nil {
 		return err
 	}
 
@@ -70,7 +70,7 @@ func (m *CreateBirgadeRequest) validateBrigadeID(formats strfmt.Registry) error 
 
 func (m *CreateBirgadeRequest) validateBrigadeName(formats strfmt.Registry) error {
 
-	if err := validate.Required("brigadeName", "body", m.BrigadeName); err != nil {
+	if err := validate.Required("brigade_name", "body", m.BrigadeName); err != nil {
 		return err
 	}
 

@@ -46,7 +46,7 @@ func (o *CheckOrderStatusParams) BindRequest(r *http.Request, route *middleware.
 
 	o.HTTPRequest = r
 
-	rOrderID, rhkOrderID, _ := route.Params.GetOK("orderId")
+	rOrderID, rhkOrderID, _ := route.Params.GetOK("order_id")
 	if err := o.bindOrderID(rOrderID, rhkOrderID, route.Formats); err != nil {
 		res = append(res, err)
 	}

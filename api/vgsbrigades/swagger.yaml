@@ -9,7 +9,7 @@ basePath: /v1
 
 paths:
 
-  /brigade/status/{orderId}:
+  /brigade/status/{order_id}:
 
     get:
       security:
@@ -23,7 +23,7 @@ paths:
         - application/json
       parameters:
         - in: path
-          name: orderId
+          name: order_id
           required: true
           type: string
           description: Order ID
@@ -208,6 +208,7 @@ definitions:
         type: string
         description: Order status
         enum:
+          - created
           - processing
           - completed
           - failed
@@ -218,23 +219,23 @@ definitions:
         type: integer
         description: Retry after seconds
         x-omitempty: true
-      brigadeID:
+      order_id:
         type: string
         format: uuid
-        description: Brigade ID
+        description: Order ID
         x-omitempty: true
 
   CreateBirgadeRequest:
     type: object
     required:
-      - brigadeName
-      - brigadeID
+      - brigade_name
+      - brigade_id
       - zone
     properties:
-      brigadeName:
+      brigade_name:
         type: string
         description: Brigade name
-      brigadeID:
+      brigade_id:
         type: string
         format: uuid
         description: Brigade ID
@@ -245,23 +246,23 @@ definitions:
   Brigade:
     type: object
     required:
-      - brigadeID
-      - brigadeName
-      - maxUsers
+      - brigade_id
+      - brigade_name
+      - max_users
       - deleted
       - zone
     properties:
       deleted:
         type: boolean
         description: Deleted
-      brigadeID:
+      brigade_id:
         type: string
         format: uuid
         description: Brigade ID
-      brigadeName:
+      brigade_name:
         type: string
         description: Brigade name
-      maxUsers:
+      max_users:
         type: integer
         description: Max users
       zone:
@@ -306,5 +307,3 @@ securityDefinitions:
     scopes:
       admin: Admin scope
       manager: Manager scope
-  Basic:
-    type: basic

@@ -26,6 +26,120 @@ func init() {
   },
   "basePath": "/v1",
   "paths": {
+    "/brigade/{brigade_id}/activity": {
+      "get": {
+        "security": [
+          {
+            "JWT": [
+              "manager"
+            ]
+          }
+        ],
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "summary": "Get VPN socket brigade activity stats",
+        "operationId": "getBrigadeActivity",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "Brigade ID",
+            "name": "brigade_id",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/BrigadeActivity"
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            }
+          },
+          "503": {
+            "description": "Service Temporarily Unavailable"
+          }
+        }
+      }
+    },
+    "/brigade/{brigade_id}/slots": {
+      "get": {
+        "security": [
+          {
+            "JWT": [
+              "manager"
+            ]
+          }
+        ],
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "summary": "Get VPN socket brigade slots stats",
+        "operationId": "getBrigadeSlots",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "Brigade ID",
+            "name": "brigade_id",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/BrigadeSlots"
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            }
+          },
+          "503": {
+            "description": "Service Temporarily Unavailable"
+          }
+        }
+      }
+    },
     "/config": {
       "post": {
         "security": [
@@ -168,6 +282,23 @@ func init() {
     }
   },
   "definitions": {
+    "AcitivityData": {
+      "type": "object",
+      "required": [
+        "last_seen",
+        "updated"
+      ],
+      "properties": {
+        "last_seen": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updated": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
     "AmneziaOVCConfig": {
       "type": "object",
       "required": [
@@ -184,6 +315,27 @@ func init() {
         },
         "tunnel_name": {
           "type": "string"
+        }
+      }
+    },
+    "BrigadeActivity": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/definitions/AcitivityData"
+      }
+    },
+    "BrigadeSlots": {
+      "type": "object",
+      "required": [
+        "free_slots",
+        "total_slots"
+      ],
+      "properties": {
+        "free_slots": {
+          "type": "integer"
+        },
+        "total_slots": {
+          "type": "integer"
         }
       }
     },
@@ -355,6 +507,120 @@ func init() {
   },
   "basePath": "/v1",
   "paths": {
+    "/brigade/{brigade_id}/activity": {
+      "get": {
+        "security": [
+          {
+            "JWT": [
+              "manager"
+            ]
+          }
+        ],
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "summary": "Get VPN socket brigade activity stats",
+        "operationId": "getBrigadeActivity",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "Brigade ID",
+            "name": "brigade_id",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/BrigadeActivity"
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            }
+          },
+          "503": {
+            "description": "Service Temporarily Unavailable"
+          }
+        }
+      }
+    },
+    "/brigade/{brigade_id}/slots": {
+      "get": {
+        "security": [
+          {
+            "JWT": [
+              "manager"
+            ]
+          }
+        ],
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "summary": "Get VPN socket brigade slots stats",
+        "operationId": "getBrigadeSlots",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "Brigade ID",
+            "name": "brigade_id",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/BrigadeSlots"
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            }
+          },
+          "503": {
+            "description": "Service Temporarily Unavailable"
+          }
+        }
+      }
+    },
     "/config": {
       "post": {
         "security": [
@@ -497,6 +763,23 @@ func init() {
     }
   },
   "definitions": {
+    "AcitivityData": {
+      "type": "object",
+      "required": [
+        "last_seen",
+        "updated"
+      ],
+      "properties": {
+        "last_seen": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updated": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
     "AmneziaOVCConfig": {
       "type": "object",
       "required": [
@@ -513,6 +796,27 @@ func init() {
         },
         "tunnel_name": {
           "type": "string"
+        }
+      }
+    },
+    "BrigadeActivity": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/definitions/AcitivityData"
+      }
+    },
+    "BrigadeSlots": {
+      "type": "object",
+      "required": [
+        "free_slots",
+        "total_slots"
+      ],
+      "properties": {
+        "free_slots": {
+          "type": "integer"
+        },
+        "total_slots": {
+          "type": "integer"
         }
       }
     },

@@ -50,9 +50,9 @@ func registerBrigadePropBrigadeID(depth int, cmdPrefix string, cmd *cobra.Comman
 
 	var flagBrigadeIDName string
 	if cmdPrefix == "" {
-		flagBrigadeIDName = "brigadeID"
+		flagBrigadeIDName = "brigade_id"
 	} else {
-		flagBrigadeIDName = fmt.Sprintf("%v.brigadeID", cmdPrefix)
+		flagBrigadeIDName = fmt.Sprintf("%v.brigade_id", cmdPrefix)
 	}
 
 	_ = cmd.PersistentFlags().String(flagBrigadeIDName, "", flagBrigadeIDDescription)
@@ -69,9 +69,9 @@ func registerBrigadePropBrigadeName(depth int, cmdPrefix string, cmd *cobra.Comm
 
 	var flagBrigadeNameName string
 	if cmdPrefix == "" {
-		flagBrigadeNameName = "brigadeName"
+		flagBrigadeNameName = "brigade_name"
 	} else {
-		flagBrigadeNameName = fmt.Sprintf("%v.brigadeName", cmdPrefix)
+		flagBrigadeNameName = fmt.Sprintf("%v.brigade_name", cmdPrefix)
 	}
 
 	var flagBrigadeNameDefault string
@@ -111,9 +111,9 @@ func registerBrigadePropMaxUsers(depth int, cmdPrefix string, cmd *cobra.Command
 
 	var flagMaxUsersName string
 	if cmdPrefix == "" {
-		flagMaxUsersName = "maxUsers"
+		flagMaxUsersName = "max_users"
 	} else {
-		flagMaxUsersName = fmt.Sprintf("%v.maxUsers", cmdPrefix)
+		flagMaxUsersName = fmt.Sprintf("%v.max_users", cmdPrefix)
 	}
 
 	var flagMaxUsersDefault int64
@@ -187,14 +187,14 @@ func retrieveBrigadePropBrigadeIDFlags(depth int, m *models.Brigade, cmdPrefix s
 	}
 	retAdded := false
 
-	flagBrigadeIDName := fmt.Sprintf("%v.brigadeID", cmdPrefix)
+	flagBrigadeIDName := fmt.Sprintf("%v.brigade_id", cmdPrefix)
 	if cmd.Flags().Changed(flagBrigadeIDName) {
 
 		var flagBrigadeIDName string
 		if cmdPrefix == "" {
-			flagBrigadeIDName = "brigadeID"
+			flagBrigadeIDName = "brigade_id"
 		} else {
-			flagBrigadeIDName = fmt.Sprintf("%v.brigadeID", cmdPrefix)
+			flagBrigadeIDName = fmt.Sprintf("%v.brigade_id", cmdPrefix)
 		}
 
 		flagBrigadeIDValueStr, err := cmd.Flags().GetString(flagBrigadeIDName)
@@ -219,14 +219,14 @@ func retrieveBrigadePropBrigadeNameFlags(depth int, m *models.Brigade, cmdPrefix
 	}
 	retAdded := false
 
-	flagBrigadeNameName := fmt.Sprintf("%v.brigadeName", cmdPrefix)
+	flagBrigadeNameName := fmt.Sprintf("%v.brigade_name", cmdPrefix)
 	if cmd.Flags().Changed(flagBrigadeNameName) {
 
 		var flagBrigadeNameName string
 		if cmdPrefix == "" {
-			flagBrigadeNameName = "brigadeName"
+			flagBrigadeNameName = "brigade_name"
 		} else {
-			flagBrigadeNameName = fmt.Sprintf("%v.brigadeName", cmdPrefix)
+			flagBrigadeNameName = fmt.Sprintf("%v.brigade_name", cmdPrefix)
 		}
 
 		flagBrigadeNameValue, err := cmd.Flags().GetString(flagBrigadeNameName)
@@ -275,14 +275,14 @@ func retrieveBrigadePropMaxUsersFlags(depth int, m *models.Brigade, cmdPrefix st
 	}
 	retAdded := false
 
-	flagMaxUsersName := fmt.Sprintf("%v.maxUsers", cmdPrefix)
+	flagMaxUsersName := fmt.Sprintf("%v.max_users", cmdPrefix)
 	if cmd.Flags().Changed(flagMaxUsersName) {
 
 		var flagMaxUsersName string
 		if cmdPrefix == "" {
-			flagMaxUsersName = "maxUsers"
+			flagMaxUsersName = "max_users"
 		} else {
-			flagMaxUsersName = fmt.Sprintf("%v.maxUsers", cmdPrefix)
+			flagMaxUsersName = fmt.Sprintf("%v.max_users", cmdPrefix)
 		}
 
 		flagMaxUsersValue, err := cmd.Flags().GetInt64(flagMaxUsersName)

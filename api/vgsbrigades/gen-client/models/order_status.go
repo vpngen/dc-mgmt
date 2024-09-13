@@ -20,20 +20,20 @@ import (
 // swagger:model OrderStatus
 type OrderStatus struct {
 
-	// Brigade ID
-	// Format: uuid
-	BrigadeID strfmt.UUID `json:"brigadeID,omitempty"`
-
 	// Message
 	// Required: true
 	Message *string `json:"message"`
+
+	// Order ID
+	// Format: uuid
+	OrderID strfmt.UUID `json:"order_id,omitempty"`
 
 	// Retry after seconds
 	RetryAfter int64 `json:"retryAfter,omitempty"`
 
 	// Order status
 	// Required: true
-	// Enum: ["processing","completed","failed"]
+	// Enum: ["created","processing","completed","failed"]
 	Status *string `json:"status"`
 }
 
@@ -41,11 +41,11 @@ type OrderStatus struct {
 func (m *OrderStatus) Validate(formats strfmt.Registry) error {
 	var res []error
 
-	if err := m.validateBrigadeID(formats); err != nil {
+	if err := m.validateMessage(formats); err != nil {
 		res = append(res, err)
 	}
 
-	if err := m.validateMessage(formats); err != nil {
+	if err := m.validateOrderID(formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -59,21 +59,21 @@ func (m *OrderStatus) Validate(formats strfmt.Registry) error {
 	return nil
 }
 
-func (m *OrderStatus) validateBrigadeID(formats strfmt.Registry) error {
-	if swag.IsZero(m.BrigadeID) { // not required
-		return nil
-	}
+func (m *OrderStatus) validateMessage(formats strfmt.Registry) error {
 
-	if err := validate.FormatOf("brigadeID", "body", "uuid", m.BrigadeID.String(), formats); err != nil {
+	if err := validate.Required("message", "body", m.Message); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (m *OrderStatus) validateMessage(formats strfmt.Registry) error {
+func (m *OrderStatus) validateOrderID(formats strfmt.Registry) error {
+	if swag.IsZero(m.OrderID) { // not required
+		return nil
+	}
 
-	if err := validate.Required("message", "body", m.Message); err != nil {
+	if err := validate.FormatOf("order_id", "body", "uuid", m.OrderID.String(), formats); err != nil {
 		return err
 	}
 
@@ -84,7 +84,7 @@ var orderStatusTypeStatusPropEnum []interface{}
 
 func init() {
 	var res []string
-	if err := json.Unmarshal([]byte(`["processing","completed","failed"]`), &res); err != nil {
+	if err := json.Unmarshal([]byte(`["created","processing","completed","failed"]`), &res); err != nil {
 		panic(err)
 	}
 	for _, v := range res {
@@ -93,6 +93,9 @@ func init() {
 }
 
 const (
+
+	// OrderStatusStatusCreated captures enum value "created"
+	OrderStatusStatusCreated string = "created"
 
 	// OrderStatusStatusProcessing captures enum value "processing"
 	OrderStatusStatusProcessing string = "processing"

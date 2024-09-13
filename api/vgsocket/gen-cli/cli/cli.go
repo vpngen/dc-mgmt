@@ -208,5 +208,17 @@ func makeGroupOfOperationsOperationsCmd() (*cobra.Command, error) {
 	}
 	parent.AddCommand(sub1)
 
+	sub2, err := makeOperationOperationsGetBrigadeActivityCmd()
+	if err != nil {
+		return nil, err
+	}
+	parent.AddCommand(sub2)
+
+	sub3, err := makeOperationOperationsGetBrigadeSlotsCmd()
+	if err != nil {
+		return nil, err
+	}
+	parent.AddCommand(sub3)
+
 	return parent, nil
 }

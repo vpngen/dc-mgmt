@@ -62,6 +62,16 @@ func configureAPI(api *operations.VGSocketRealmAPI) http.Handler {
 			return middleware.NotImplemented("operation operations.DeleteConfig has not yet been implemented")
 		})
 	}
+	if api.GetBrigadeActivityHandler == nil {
+		api.GetBrigadeActivityHandler = operations.GetBrigadeActivityHandlerFunc(func(params operations.GetBrigadeActivityParams, principal *models.Principal) middleware.Responder {
+			return middleware.NotImplemented("operation operations.GetBrigadeActivity has not yet been implemented")
+		})
+	}
+	if api.GetBrigadeSlotsHandler == nil {
+		api.GetBrigadeSlotsHandler = operations.GetBrigadeSlotsHandlerFunc(func(params operations.GetBrigadeSlotsParams, principal *models.Principal) middleware.Responder {
+			return middleware.NotImplemented("operation operations.GetBrigadeSlots has not yet been implemented")
+		})
+	}
 
 	api.PreServerShutdown = func() {}
 

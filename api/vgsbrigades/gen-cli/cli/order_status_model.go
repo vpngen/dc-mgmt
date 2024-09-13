@@ -19,11 +19,11 @@ import (
 // register flags to command
 func registerModelOrderStatusFlags(depth int, cmdPrefix string, cmd *cobra.Command) error {
 
-	if err := registerOrderStatusPropBrigadeID(depth, cmdPrefix, cmd); err != nil {
+	if err := registerOrderStatusPropMessage(depth, cmdPrefix, cmd); err != nil {
 		return err
 	}
 
-	if err := registerOrderStatusPropMessage(depth, cmdPrefix, cmd); err != nil {
+	if err := registerOrderStatusPropOrderID(depth, cmdPrefix, cmd); err != nil {
 		return err
 	}
 
@@ -34,25 +34,6 @@ func registerModelOrderStatusFlags(depth int, cmdPrefix string, cmd *cobra.Comma
 	if err := registerOrderStatusPropStatus(depth, cmdPrefix, cmd); err != nil {
 		return err
 	}
-
-	return nil
-}
-
-func registerOrderStatusPropBrigadeID(depth int, cmdPrefix string, cmd *cobra.Command) error {
-	if depth > maxDepth {
-		return nil
-	}
-
-	flagBrigadeIDDescription := `Brigade ID`
-
-	var flagBrigadeIDName string
-	if cmdPrefix == "" {
-		flagBrigadeIDName = "brigadeID"
-	} else {
-		flagBrigadeIDName = fmt.Sprintf("%v.brigadeID", cmdPrefix)
-	}
-
-	_ = cmd.PersistentFlags().String(flagBrigadeIDName, "", flagBrigadeIDDescription)
 
 	return nil
 }
@@ -74,6 +55,25 @@ func registerOrderStatusPropMessage(depth int, cmdPrefix string, cmd *cobra.Comm
 	var flagMessageDefault string
 
 	_ = cmd.PersistentFlags().String(flagMessageName, flagMessageDefault, flagMessageDescription)
+
+	return nil
+}
+
+func registerOrderStatusPropOrderID(depth int, cmdPrefix string, cmd *cobra.Command) error {
+	if depth > maxDepth {
+		return nil
+	}
+
+	flagOrderIDDescription := `Order ID`
+
+	var flagOrderIDName string
+	if cmdPrefix == "" {
+		flagOrderIDName = "order_id"
+	} else {
+		flagOrderIDName = fmt.Sprintf("%v.order_id", cmdPrefix)
+	}
+
+	_ = cmd.PersistentFlags().String(flagOrderIDName, "", flagOrderIDDescription)
 
 	return nil
 }
@@ -104,7 +104,7 @@ func registerOrderStatusPropStatus(depth int, cmdPrefix string, cmd *cobra.Comma
 		return nil
 	}
 
-	flagStatusDescription := `Enum: ["processing","completed","failed"]. Required. Order status`
+	flagStatusDescription := `Enum: ["created","processing","completed","failed"]. Required. Order status`
 
 	var flagStatusName string
 	if cmdPrefix == "" {
@@ -120,7 +120,7 @@ func registerOrderStatusPropStatus(depth int, cmdPrefix string, cmd *cobra.Comma
 	if err := cmd.RegisterFlagCompletionFunc(flagStatusName,
 		func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 			var res []string
-			if err := json.Unmarshal([]byte(`["processing","completed","failed"]`), &res); err != nil {
+			if err := json.Unmarshal([]byte(`["created","processing","completed","failed"]`), &res); err != nil {
 				panic(err)
 			}
 			return res, cobra.ShellCompDirectiveDefault
@@ -135,17 +135,17 @@ func registerOrderStatusPropStatus(depth int, cmdPrefix string, cmd *cobra.Comma
 func retrieveModelOrderStatusFlags(depth int, m *models.OrderStatus, cmdPrefix string, cmd *cobra.Command) (error, bool) {
 	retAdded := false
 
-	err, BrigadeIDAdded := retrieveOrderStatusPropBrigadeIDFlags(depth, m, cmdPrefix, cmd)
-	if err != nil {
-		return err, false
-	}
-	retAdded = retAdded || BrigadeIDAdded
-
 	err, MessageAdded := retrieveOrderStatusPropMessageFlags(depth, m, cmdPrefix, cmd)
 	if err != nil {
 		return err, false
 	}
 	retAdded = retAdded || MessageAdded
+
+	err, OrderIDAdded := retrieveOrderStatusPropOrderIDFlags(depth, m, cmdPrefix, cmd)
+	if err != nil {
+		return err, false
+	}
+	retAdded = retAdded || OrderIDAdded
 
 	err, RetryAfterAdded := retrieveOrderStatusPropRetryAfterFlags(depth, m, cmdPrefix, cmd)
 	if err != nil {
@@ -158,38 +158,6 @@ func retrieveModelOrderStatusFlags(depth int, m *models.OrderStatus, cmdPrefix s
 		return err, false
 	}
 	retAdded = retAdded || StatusAdded
-
-	return nil, retAdded
-}
-
-func retrieveOrderStatusPropBrigadeIDFlags(depth int, m *models.OrderStatus, cmdPrefix string, cmd *cobra.Command) (error, bool) {
-	if depth > maxDepth {
-		return nil, false
-	}
-	retAdded := false
-
-	flagBrigadeIDName := fmt.Sprintf("%v.brigadeID", cmdPrefix)
-	if cmd.Flags().Changed(flagBrigadeIDName) {
-
-		var flagBrigadeIDName string
-		if cmdPrefix == "" {
-			flagBrigadeIDName = "brigadeID"
-		} else {
-			flagBrigadeIDName = fmt.Sprintf("%v.brigadeID", cmdPrefix)
-		}
-
-		flagBrigadeIDValueStr, err := cmd.Flags().GetString(flagBrigadeIDName)
-		if err != nil {
-			return err, false
-		}
-		var flagBrigadeIDValue strfmt.UUID
-		if err := flagBrigadeIDValue.UnmarshalText([]byte(flagBrigadeIDValueStr)); err != nil {
-			return err, false
-		}
-		m.BrigadeID = flagBrigadeIDValue
-
-		retAdded = true
-	}
 
 	return nil, retAdded
 }
@@ -215,6 +183,38 @@ func retrieveOrderStatusPropMessageFlags(depth int, m *models.OrderStatus, cmdPr
 			return err, false
 		}
 		m.Message = &flagMessageValue
+
+		retAdded = true
+	}
+
+	return nil, retAdded
+}
+
+func retrieveOrderStatusPropOrderIDFlags(depth int, m *models.OrderStatus, cmdPrefix string, cmd *cobra.Command) (error, bool) {
+	if depth > maxDepth {
+		return nil, false
+	}
+	retAdded := false
+
+	flagOrderIDName := fmt.Sprintf("%v.order_id", cmdPrefix)
+	if cmd.Flags().Changed(flagOrderIDName) {
+
+		var flagOrderIDName string
+		if cmdPrefix == "" {
+			flagOrderIDName = "order_id"
+		} else {
+			flagOrderIDName = fmt.Sprintf("%v.order_id", cmdPrefix)
+		}
+
+		flagOrderIDValueStr, err := cmd.Flags().GetString(flagOrderIDName)
+		if err != nil {
+			return err, false
+		}
+		var flagOrderIDValue strfmt.UUID
+		if err := flagOrderIDValue.UnmarshalText([]byte(flagOrderIDValueStr)); err != nil {
+			return err, false
+		}
+		m.OrderID = flagOrderIDValue
 
 		retAdded = true
 	}

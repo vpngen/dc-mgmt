@@ -12,10 +12,12 @@ import (
 	"strings"
 	"sync"
 
+	sq "github.com/Masterminds/squirrel"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgtype/zeronull"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/vpngen/dc-mgmt/internal/kdlib"
 	"github.com/vpngen/wordsgens/namesgenerator"
 	"golang.org/x/crypto/ssh"
 )
@@ -54,6 +56,87 @@ type pairOpts struct {
 	controlIP    netip.Addr
 	endpointIPv4 netip.Addr
 	domain       string
+}
+
+func VgsCreateBrigade(ctx context.Context, logger *slog.Logger, db *pgxpool.Pool, sqfmt sq.StatementBuilderType,
+	orderID uuid.UUID,
+	dcident string,
+	host, token string,
+	sshkey, sshuser, server string,
+	ns []string, vpnCfgs *VpnCfgs,
+	maxusers int,
+	doNotCreatePhy bool,
+) error {
+	logger.Info("creating brigade", "order_id", orderID)
+
+	_, _, pairID, controlIP, endpointIP, brigadeID, brigadeName, err := vgsGetOrderMeta(ctx, logger, db, sqfmt, orderID, false)
+	if err != nil {
+		return fmt.Errorf("error getting order brigade meta: %w", err)
+	}
+
+	logger.Info("fetch order", "brigade_id", brigadeID, "brigade_name", brigadeName, "order_id", orderID, "control_ip", controlIP, "endpoint_ipv4", endpointIP)
+
+	sshconf, err := kdlib.CreateSSHConfig(sshkey, sshuser, kdlib.SSHDefaultTimeOut)
+	if err != nil {
+		if err := vgsSetOrderError(ctx, logger, db, sqfmt, orderID, err.Error()); err != nil {
+			return fmt.Errorf("error setting order error: %w", err)
+		}
+
+		return fmt.Errorf("error creating ssh configs: %w", err)
+	}
+
+	if err := vgsCreateBrigade(ctx, db, logger, dcident,
+		&brigadeOpts{
+			id:   brigadeID.String(),
+			name: brigadeName,
+		},
+		&pairOpts{
+			pairID:       pairID,
+			endpointIPv4: endpointIP,
+			controlIP:    controlIP,
+		},
+		&delegationSync{
+			sshconf: sshconf,
+			server:  server,
+		},
+		&subdomAPI{
+			host:  host,
+			token: token,
+		},
+	); err != nil {
+		if err := vgsSetOrderError(ctx, logger, db, sqfmt, orderID, err.Error()); err != nil {
+			return fmt.Errorf("error setting order error: %w", err)
+		}
+
+		return fmt.Errorf("error creating brigade: %w", err)
+	}
+
+	if !doNotCreatePhy {
+		sshconf, err := kdlib.CreateSSHConfig(sshkey, sshkeyRemoteUsername, kdlib.SSHDefaultTimeOut)
+		if err != nil {
+			if err := vgsSetOrderError(ctx, logger, db, sqfmt, orderID, err.Error()); err != nil {
+				return fmt.Errorf("error setting order error: %w", err)
+			}
+
+			return fmt.Errorf("error creating ssh configs: %w", err)
+		}
+
+		if err := vgsRequestBrigade(ctx, db, logger, sshconf, brigadeID.String(), ns, vpnCfgs, maxusers); err != nil {
+			if err := vgsSetOrderError(ctx, logger, db, sqfmt, orderID, err.Error()); err != nil {
+				return fmt.Errorf("error setting order error: %w", err)
+			}
+
+			return fmt.Errorf("error requesting brigade: %w", err)
+		}
+	}
+
+	if err := vgsSetOrderComplete(ctx, logger, db, sqfmt, orderID); err != nil {
+		return fmt.Errorf("error setting order completed: %w", err)
+	}
+
+	logger.Info("brigade created", "brigade_id", brigadeID, "brigade_name", brigadeName, "order_id", orderID)
+
+	return nil
 }
 
 func vgsCreateBrigade(

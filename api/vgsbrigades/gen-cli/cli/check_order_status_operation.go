@@ -71,9 +71,9 @@ func registerOperationOperationsCheckOrderStatusOrderIDParamFlags(cmdPrefix stri
 
 	var flagOrderIDName string
 	if cmdPrefix == "" {
-		flagOrderIDName = "orderId"
+		flagOrderIDName = "order_id"
 	} else {
-		flagOrderIDName = fmt.Sprintf("%v.orderId", cmdPrefix)
+		flagOrderIDName = fmt.Sprintf("%v.order_id", cmdPrefix)
 	}
 
 	var flagOrderIDDefault string
@@ -85,13 +85,13 @@ func registerOperationOperationsCheckOrderStatusOrderIDParamFlags(cmdPrefix stri
 
 func retrieveOperationOperationsCheckOrderStatusOrderIDFlag(m *operations.CheckOrderStatusParams, cmdPrefix string, cmd *cobra.Command) (error, bool) {
 	retAdded := false
-	if cmd.Flags().Changed("orderId") {
+	if cmd.Flags().Changed("order_id") {
 
 		var flagOrderIDName string
 		if cmdPrefix == "" {
-			flagOrderIDName = "orderId"
+			flagOrderIDName = "order_id"
 		} else {
-			flagOrderIDName = fmt.Sprintf("%v.orderId", cmdPrefix)
+			flagOrderIDName = fmt.Sprintf("%v.order_id", cmdPrefix)
 		}
 
 		flagOrderIDValue, err := cmd.Flags().GetString(flagOrderIDName)

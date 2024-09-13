@@ -52,6 +52,12 @@ func NewVGSocketRealmAPI(spec *loads.Document) *VGSocketRealmAPI {
 		DeleteConfigHandler: DeleteConfigHandlerFunc(func(params DeleteConfigParams, principal *models.Principal) middleware.Responder {
 			return middleware.NotImplemented("operation DeleteConfig has not yet been implemented")
 		}),
+		GetBrigadeActivityHandler: GetBrigadeActivityHandlerFunc(func(params GetBrigadeActivityParams, principal *models.Principal) middleware.Responder {
+			return middleware.NotImplemented("operation GetBrigadeActivity has not yet been implemented")
+		}),
+		GetBrigadeSlotsHandler: GetBrigadeSlotsHandlerFunc(func(params GetBrigadeSlotsParams, principal *models.Principal) middleware.Responder {
+			return middleware.NotImplemented("operation GetBrigadeSlots has not yet been implemented")
+		}),
 
 		JWTAuth: func(token string, scopes []string) (*models.Principal, error) {
 			return nil, errors.NotImplemented("oauth2 bearer auth (JWT) has not yet been implemented")
@@ -111,6 +117,10 @@ type VGSocketRealmAPI struct {
 	CreateConfigHandler CreateConfigHandler
 	// DeleteConfigHandler sets the operation handler for the delete config operation
 	DeleteConfigHandler DeleteConfigHandler
+	// GetBrigadeActivityHandler sets the operation handler for the get brigade activity operation
+	GetBrigadeActivityHandler GetBrigadeActivityHandler
+	// GetBrigadeSlotsHandler sets the operation handler for the get brigade slots operation
+	GetBrigadeSlotsHandler GetBrigadeSlotsHandler
 
 	// ServeError is called when an error is received, there is a default handler
 	// but you can set your own with this
@@ -203,6 +213,12 @@ func (o *VGSocketRealmAPI) Validate() error {
 	}
 	if o.DeleteConfigHandler == nil {
 		unregistered = append(unregistered, "DeleteConfigHandler")
+	}
+	if o.GetBrigadeActivityHandler == nil {
+		unregistered = append(unregistered, "GetBrigadeActivityHandler")
+	}
+	if o.GetBrigadeSlotsHandler == nil {
+		unregistered = append(unregistered, "GetBrigadeSlotsHandler")
 	}
 
 	if len(unregistered) > 0 {
@@ -314,6 +330,14 @@ func (o *VGSocketRealmAPI) initHandlerCache() {
 		o.handlers["DELETE"] = make(map[string]http.Handler)
 	}
 	o.handlers["DELETE"]["/config/{config_id}"] = NewDeleteConfig(o.context, o.DeleteConfigHandler)
+	if o.handlers["GET"] == nil {
+		o.handlers["GET"] = make(map[string]http.Handler)
+	}
+	o.handlers["GET"]["/brigade/{brigade_id}/activity"] = NewGetBrigadeActivity(o.context, o.GetBrigadeActivityHandler)
+	if o.handlers["GET"] == nil {
+		o.handlers["GET"] = make(map[string]http.Handler)
+	}
+	o.handlers["GET"]["/brigade/{brigade_id}/slots"] = NewGetBrigadeSlots(o.context, o.GetBrigadeSlotsHandler)
 }
 
 // Serve creates a http handler to serve the API over HTTP

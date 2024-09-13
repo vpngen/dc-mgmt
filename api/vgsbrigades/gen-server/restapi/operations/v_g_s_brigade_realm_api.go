@@ -307,7 +307,7 @@ func (o *VGSBrigadeRealmAPI) initHandlerCache() {
 	if o.handlers["GET"] == nil {
 		o.handlers["GET"] = make(map[string]http.Handler)
 	}
-	o.handlers["GET"]["/brigade/status/{orderId}"] = NewCheckOrderStatus(o.context, o.CheckOrderStatusHandler)
+	o.handlers["GET"]["/brigade/status/{order_id}"] = NewCheckOrderStatus(o.context, o.CheckOrderStatusHandler)
 	if o.handlers["POST"] == nil {
 		o.handlers["POST"] = make(map[string]http.Handler)
 	}

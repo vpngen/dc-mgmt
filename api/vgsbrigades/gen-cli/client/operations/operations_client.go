@@ -78,7 +78,7 @@ func (a *Client) CheckOrderStatus(params *CheckOrderStatusParams, authInfo runti
 	op := &runtime.ClientOperation{
 		ID:                 "checkOrderStatus",
 		Method:             "GET",
-		PathPattern:        "/brigade/status/{orderId}",
+		PathPattern:        "/brigade/status/{order_id}",
 		ProducesMediaTypes: []string{"application/json"},
 		ConsumesMediaTypes: []string{"application/json"},
 		Schemes:            []string{"http"},

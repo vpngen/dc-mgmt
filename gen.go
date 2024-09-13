@@ -6,7 +6,6 @@ package realmadmin
 //go:generate go run github.com/go-swagger/go-swagger/cmd/swagger@latest generate client -t api/vgsocket/gen-client -f api/vgsocket/swagger.yaml -A VGSocketRealm
 //go:generate go run github.com/go-swagger/go-swagger/cmd/swagger@latest generate cli -t api/vgsocket/gen-cli -f api/vgsocket/swagger.yaml -A VGSocketRealm
 //go:generate go mod tidy
-
 //go:generate api/vgsbrigades/cleanup.sh ||:
 //go:generate go run github.com/go-swagger/go-swagger/cmd/swagger@latest validate api/vgsbrigades/swagger.yaml
 //go:generate go run github.com/go-swagger/go-swagger/cmd/swagger@latest generate server --regenerate-configureapi -P models.Principal -t api/vgsbrigades/gen-server -f api/vgsbrigades/swagger.yaml --exclude-main -A VGSBrigadeRealm

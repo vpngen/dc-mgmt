@@ -139,8 +139,8 @@ func (o *CheckOrderStatusParams) WriteToRequest(r runtime.ClientRequest, reg str
 	}
 	var res []error
 
-	// path param orderId
-	if err := r.SetPathParam("orderId", o.OrderID); err != nil {
+	// path param order_id
+	if err := r.SetPathParam("order_id", o.OrderID); err != nil {
 		return err
 	}
 

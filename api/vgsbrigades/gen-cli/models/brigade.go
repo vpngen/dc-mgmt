@@ -22,11 +22,11 @@ type Brigade struct {
 	// Brigade ID
 	// Required: true
 	// Format: uuid
-	BrigadeID *strfmt.UUID `json:"brigadeID"`
+	BrigadeID *strfmt.UUID `json:"brigade_id"`
 
 	// Brigade name
 	// Required: true
-	BrigadeName *string `json:"brigadeName"`
+	BrigadeName *string `json:"brigade_name"`
 
 	// Deleted
 	// Required: true
@@ -34,7 +34,7 @@ type Brigade struct {
 
 	// Max users
 	// Required: true
-	MaxUsers *int64 `json:"maxUsers"`
+	MaxUsers *int64 `json:"max_users"`
 
 	// Virtual machine zone
 	// Required: true
@@ -73,11 +73,11 @@ func (m *Brigade) Validate(formats strfmt.Registry) error {
 
 func (m *Brigade) validateBrigadeID(formats strfmt.Registry) error {
 
-	if err := validate.Required("brigadeID", "body", m.BrigadeID); err != nil {
+	if err := validate.Required("brigade_id", "body", m.BrigadeID); err != nil {
 		return err
 	}
 
-	if err := validate.FormatOf("brigadeID", "body", "uuid", m.BrigadeID.String(), formats); err != nil {
+	if err := validate.FormatOf("brigade_id", "body", "uuid", m.BrigadeID.String(), formats); err != nil {
 		return err
 	}
 
@@ -86,7 +86,7 @@ func (m *Brigade) validateBrigadeID(formats strfmt.Registry) error {
 
 func (m *Brigade) validateBrigadeName(formats strfmt.Registry) error {
 
-	if err := validate.Required("brigadeName", "body", m.BrigadeName); err != nil {
+	if err := validate.Required("brigade_name", "body", m.BrigadeName); err != nil {
 		return err
 	}
 
@@ -104,7 +104,7 @@ func (m *Brigade) validateDeleted(formats strfmt.Registry) error {
 
 func (m *Brigade) validateMaxUsers(formats strfmt.Registry) error {
 
-	if err := validate.Required("maxUsers", "body", m.MaxUsers); err != nil {
+	if err := validate.Required("max_users", "body", m.MaxUsers); err != nil {
 		return err
 	}
 

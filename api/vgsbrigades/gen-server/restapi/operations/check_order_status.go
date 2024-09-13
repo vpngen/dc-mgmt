@@ -32,7 +32,7 @@ func NewCheckOrderStatus(ctx *middleware.Context, handler CheckOrderStatusHandle
 }
 
 /*
-	CheckOrderStatus swagger:route GET /brigade/status/{orderId} checkOrderStatus
+	CheckOrderStatus swagger:route GET /brigade/status/{order_id} checkOrderStatus
 
 Check order status
 */
