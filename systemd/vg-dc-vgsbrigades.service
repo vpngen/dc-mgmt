@@ -1,12 +1,12 @@
 [Unit]
 Description = VG Socket Brigades Service (brigades management)
-ConditionPathExists=/etc/vg-dc-socket-admin/vgsocket.env
+ConditionPathExists=/etc/vg-dc-socket-admin/vgsbrigades.env
 
 [Service]
 EnvironmentFile=/etc/vg-dc-mgmt/dc-name.env
 EnvironmentFile=/etc/vg-dc-vpnapi/modbrigade.env
 EnvironmentFile=/etc/vg-dc-vpnapi/creation.env
-EnvironmentFile=/etc/vg-dc-socket-admin/vgsocket.env
+EnvironmentFile=/etc/vg-dc-socket-admin/vgsbrigades.env
 User=vgs_admin
 Group=vgs_admin
 WorkingDirectory=/home/vgs_admin
