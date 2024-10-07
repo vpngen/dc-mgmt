@@ -24,7 +24,7 @@ require (
 	github.com/spf13/cobra v1.8.1
 	github.com/spf13/viper v1.19.0
 	github.com/vpngen/domain-commander v0.3.2
-	github.com/vpngen/keydesk v1.7.18
+	github.com/vpngen/keydesk v1.9.9
 	github.com/vpngen/keydesk-snap v0.0.18
 	github.com/vpngen/vpngine v0.1.1
 	github.com/vpngen/wordsgens v1.0.4

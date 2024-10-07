@@ -74,6 +74,7 @@ DeleteConfigNoContent describes a response with status code 204, with default he
 No Content
 */
 type DeleteConfigNoContent struct {
+	Payload *models.FreeSlots
 }
 
 // IsSuccess returns true when this delete config no content response has a 2xx status code
@@ -107,14 +108,27 @@ func (o *DeleteConfigNoContent) Code() int {
 }
 
 func (o *DeleteConfigNoContent) Error() string {
-	return fmt.Sprintf("[DELETE /config/{config_id}][%d] deleteConfigNoContent", 204)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[DELETE /config/{config_id}][%d] deleteConfigNoContent %s", 204, payload)
 }
 
 func (o *DeleteConfigNoContent) String() string {
-	return fmt.Sprintf("[DELETE /config/{config_id}][%d] deleteConfigNoContent", 204)
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[DELETE /config/{config_id}][%d] deleteConfigNoContent %s", 204, payload)
+}
+
+func (o *DeleteConfigNoContent) GetPayload() *models.FreeSlots {
+	return o.Payload
 }
 
 func (o *DeleteConfigNoContent) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
+
+	o.Payload = new(models.FreeSlots)
+
+	// response payload
+	if err := consumer.Consume(response.Body(), o.Payload); err != nil && err != io.EOF {
+		return err
+	}
 
 	return nil
 }

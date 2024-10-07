@@ -44,7 +44,7 @@ if [ "addbrigade" = "${cmd}" ]; then
         OVC_CONFIGS="${OVC_CONFIGS}" \
         OUTLINE_CONFIGS="${OUTLINE_CONFIGS}" \
         IPSEC_CONFIGS="${IPSEC_CONFIGS}" \
-        flock -x -E 1 -w 60 /tmp/modbrigade.lock "${basedir}"/addbrigade "$@"
+        "${basedir}"/addbrigade "$@"
 elif [ "delbrigade" = "${cmd}" ]; then
         DC_ID="${DC_ID}" \
         DC_NAME="${DC_NAME}" \
@@ -59,7 +59,7 @@ elif [ "delbrigade" = "${cmd}" ]; then
         OVC_CONFIGS="${OVC_CONFIGS}" \
         OUTLINE_CONFIGS="${OUTLINE_CONFIGS}" \
         IPSEC_CONFIGS="${IPSEC_CONFIGS}" \
-        flock -x -E 1 -w 60 /tmp/modbrigade.lock "${basedir}"/delbrigade "$@"
+        "${basedir}"/delbrigade "$@"
 elif [ "replacebrigadier" = "${cmd}" ]; then
         DC_ID="${DC_ID}" \
         DC_NAME="${DC_NAME}" \

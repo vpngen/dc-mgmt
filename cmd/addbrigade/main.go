@@ -33,6 +33,7 @@ import (
 	"github.com/vpngen/dc-mgmt/internal/kdlib"
 	dcmgmtlib "github.com/vpngen/dc-mgmt/internal/kdlib/dc-mgmt"
 	"github.com/vpngen/keydesk/gen/models"
+	"github.com/vpngen/keydesk/kdlib/lockedfile"
 	"github.com/vpngen/keydesk/keydesk"
 	"github.com/vpngen/wordsgens/namesgenerator"
 )
@@ -54,6 +55,10 @@ const (
 const (
 	BrigadeCgnatPrefix = 24
 	BrigadeUlaPrefix   = 64
+)
+
+const (
+	DefaultDelegationMutexPath = "/tmp/delegation_mutex.lock"
 )
 
 const defaultWireguardConfigs = "native"
@@ -84,6 +89,7 @@ type kdAddrSyncEnv struct {
 }
 
 type delegationSyncEnv struct {
+	delegationMutex  string
 	delegationUser   string
 	delegationServer string
 }
@@ -99,6 +105,7 @@ type vpnCfgs struct {
 	ovc     string
 	ipsec   string
 	outline string
+	proto0  string
 }
 
 type envOpts struct {
@@ -441,6 +448,19 @@ RETURNING instance_id;
 		return 0, fmt.Errorf("commit: %w", err)
 	}
 
+	if env.delegationMutex == "" {
+		env.delegationMutex = DefaultDelegationMutexPath
+	}
+
+	dmu := lockedfile.MutexAt(env.delegationMutex)
+
+	unlock, err := dmu.Lock()
+	if err != nil {
+		return 0, fmt.Errorf("lock delegation mutex: %w", err)
+	}
+
+	defer unlock()
+
 	// Pick up subdomain.
 
 	if !domainName.Valid {
@@ -591,6 +611,10 @@ WHERE
 
 		if vpnCfgs.outline != "" {
 			cmd += fmt.Sprintf(" -outline %s", vpnCfgs.outline)
+		}
+
+		if vpnCfgs.proto0 != "" {
+			cmd += fmt.Sprintf(" -proto0 %s", vpnCfgs.proto0)
 		}
 	}
 
@@ -876,6 +900,11 @@ func readConfigs() (string, *envOpts, error) {
 		return "", nil, errors.New("empty domain nameservers")
 	}
 
+	env.delegationMutex = os.Getenv("DELEGATION_MUTEX")
+	if env.delegationMutex == "" {
+		env.delegationMutex = DefaultDelegationMutexPath
+	}
+
 	env.domainNS = strings.Split(domainNameServers, ",")
 
 	env.vpnCfgs.wg = os.Getenv("WIREGUARD_CONFIGS")
@@ -886,6 +915,7 @@ func readConfigs() (string, *envOpts, error) {
 	env.vpnCfgs.ovc = os.Getenv("OVC_CONFIGS")
 	env.vpnCfgs.ipsec = os.Getenv("IPSEC_CONFIGS")
 	env.vpnCfgs.outline = os.Getenv("OUTLINE_CONFIGS")
+	env.vpnCfgs.proto0 = os.Getenv("PROTO0_CONFIGS")
 
 	return sshKeyFilename, env, nil
 }

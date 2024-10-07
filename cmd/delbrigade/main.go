@@ -22,6 +22,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/vpngen/dc-mgmt/internal/kdlib"
 	dcmgmt "github.com/vpngen/dc-mgmt/internal/kdlib/dc-mgmt"
+	"github.com/vpngen/keydesk/kdlib/lockedfile"
 
 	"golang.org/x/crypto/ssh"
 )
@@ -53,6 +54,10 @@ const (
 	deleteAttempts = 5
 )
 
+const (
+	DefaultDelegationMutexPath = "/tmp/delegation_mutex.lock"
+)
+
 var errInlalidArgs = errors.New("invalid args")
 
 var LogTag = setLogTag()
@@ -77,6 +82,8 @@ type opts struct {
 	subdomAPIToken string
 
 	ident string
+
+	delegationMutex string
 
 	delegationUser   string
 	delegationServer string
@@ -140,6 +147,7 @@ func main() {
 		instanceID,
 		opts.subdomAPIHost, opts.subdomAPIToken,
 		opts.ident,
+		opts.delegationMutex,
 		opts.delegationServer, delegationSyncSSHconf,
 		opts.kdAddrServer, kdAddrSyncSSHconf,
 		orphan,
@@ -259,6 +267,7 @@ func removeBrigade(
 	instanceID uuid.UUID,
 	subdomAPIHost, subdomAPIToken string,
 	ident string,
+	delegationMutex string,
 	delegationSyncServer string, delegationSyncSSHconf *ssh.ClientConfig,
 	kdAddrSyncServer string, kdAddrSyncSSHconf *ssh.ClientConfig,
 	orphan bool,
@@ -327,6 +336,19 @@ func removeBrigade(
 	if err := tx.Commit(ctx); err != nil {
 		return 0, fmt.Errorf("commit: %w", err)
 	}
+
+	if delegationMutex == "" {
+		delegationMutex = DefaultDelegationMutexPath
+	}
+
+	dmu := lockedfile.MutexAt(delegationMutex)
+
+	unlock, err := dmu.Lock()
+	if err != nil {
+		return 0, fmt.Errorf("lock delegation mutex: %w", err)
+	}
+
+	defer unlock()
 
 	if domain_name.Valid {
 		if err := revokeSubdomain(ctx, db, subdomAPIHost, subdomAPIToken, domain_name.String); err != nil {
@@ -548,6 +570,11 @@ func readConfigs() (*opts, error) {
 		return nil, fmt.Errorf("dc name: %w", err)
 	}
 
+	delegationMutex := os.Getenv("DELEGATION_MUTEX")
+	if delegationMutex == "" {
+		delegationMutex = DefaultDelegationMutexPath
+	}
+
 	delegationUser, delegationServer, err := dcmgmt.ParseConnEnv("DELEGATION_SYNC_CONNECT")
 	if err != nil {
 		return nil, fmt.Errorf("delegation sync connect: %w", err)
@@ -567,6 +594,8 @@ func readConfigs() (*opts, error) {
 			subdomAPIToken: subdomainAPIToken,
 
 			ident: ident,
+
+			delegationMutex: delegationMutex,
 
 			delegationUser:   delegationUser,
 			delegationServer: delegationServer,

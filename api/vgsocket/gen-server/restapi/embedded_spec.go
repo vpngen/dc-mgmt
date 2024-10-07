@@ -172,7 +172,7 @@ func init() {
           "201": {
             "description": "Created",
             "schema": {
-              "$ref": "#/definitions/VPNConfig"
+              "$ref": "#/definitions/VPNConfigResponse"
             }
           },
           "400": {
@@ -251,7 +251,10 @@ func init() {
         ],
         "responses": {
           "204": {
-            "description": "No Content"
+            "description": "No Content",
+            "schema": {
+              "$ref": "#/definitions/FreeSlots"
+            }
           },
           "400": {
             "description": "Bad Request",
@@ -344,7 +347,6 @@ func init() {
       "type": "string",
       "enum": [
         "wireguard",
-        "amneziavpn",
         "outline",
         "universal"
       ]
@@ -376,6 +378,17 @@ func init() {
         "message": {
           "description": "Error message",
           "type": "string"
+        }
+      }
+    },
+    "FreeSlots": {
+      "type": "object",
+      "required": [
+        "free_slots"
+      ],
+      "properties": {
+        "free_slots": {
+          "type": "integer"
         }
       }
     },
@@ -455,6 +468,17 @@ func init() {
           "format": "uuid4"
         }
       }
+    },
+    "VPNConfigResponse": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/definitions/VPNConfig"
+        },
+        {
+          "$ref": "#/definitions/FreeSlots"
+        }
+      ]
     },
     "VPNGenConfig": {
       "type": "object",
@@ -653,7 +677,7 @@ func init() {
           "201": {
             "description": "Created",
             "schema": {
-              "$ref": "#/definitions/VPNConfig"
+              "$ref": "#/definitions/VPNConfigResponse"
             }
           },
           "400": {
@@ -732,7 +756,10 @@ func init() {
         ],
         "responses": {
           "204": {
-            "description": "No Content"
+            "description": "No Content",
+            "schema": {
+              "$ref": "#/definitions/FreeSlots"
+            }
           },
           "400": {
             "description": "Bad Request",
@@ -825,7 +852,6 @@ func init() {
       "type": "string",
       "enum": [
         "wireguard",
-        "amneziavpn",
         "outline",
         "universal"
       ]
@@ -857,6 +883,17 @@ func init() {
         "message": {
           "description": "Error message",
           "type": "string"
+        }
+      }
+    },
+    "FreeSlots": {
+      "type": "object",
+      "required": [
+        "free_slots"
+      ],
+      "properties": {
+        "free_slots": {
+          "type": "integer"
         }
       }
     },
@@ -936,6 +973,17 @@ func init() {
           "format": "uuid4"
         }
       }
+    },
+    "VPNConfigResponse": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/definitions/VPNConfig"
+        },
+        {
+          "$ref": "#/definitions/FreeSlots"
+        }
+      ]
     },
     "VPNGenConfig": {
       "type": "object",

@@ -230,8 +230,8 @@ github.com/valyala/histogram v1.2.0 h1:wyYGAZZt3CpwUiIb9AU/Zbllg1llXyrtApRS815OL
 github.com/valyala/histogram v1.2.0/go.mod h1:Hb4kBwb4UxsaNbbbh+RRz8ZR6pdodR57tzWUS3BUzXY=
 github.com/vpngen/domain-commander v0.3.2 h1:CTAWopym6RvlcZ3bDgKZbaQRxt+U7txVX+rUr7fHLaM=
 github.com/vpngen/domain-commander v0.3.2/go.mod h1:cnnqKZ6+UCrdfH6KPHb5Rjgh4FNqMbxkLHctS905vcc=
-github.com/vpngen/keydesk v1.7.18 h1:GLEjZyc+NLz8nuAHrQmpHH+aGUhLD7ttiSamU4qZ0gQ=
-github.com/vpngen/keydesk v1.7.18/go.mod h1:cEwdyd5o3K/Dr/VQiGtMRTgVags7/4XjUBeCiLI5bNU=
+github.com/vpngen/keydesk v1.9.9 h1:VlW0q5EEv+ylnWk7aOsOCZnMtzF1QvOgLarpubIyZ4A=
+github.com/vpngen/keydesk v1.9.9/go.mod h1:cEwdyd5o3K/Dr/VQiGtMRTgVags7/4XjUBeCiLI5bNU=
 github.com/vpngen/keydesk-snap v0.0.18 h1:qM/LKox5VvJJHlhQteGZK6K23xj5VBEQsghBVKLNx/4=
 github.com/vpngen/keydesk-snap v0.0.18/go.mod h1:d4WhkM89AvA+UJwecDIRq0ZXrPGJvr65Ntx+YIUT7Wk=
 github.com/vpngen/vpngine v0.1.1 h1:vDLaPwMnc2RY2CtQlOwwcDSdAfDwQqgp0frfQdSI0ks=

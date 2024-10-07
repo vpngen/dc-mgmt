@@ -21,31 +21,31 @@ import (
 
 func GreateUser(ctx context.Context, logger *slog.Logger, opts *core.Options,
 	brigadeID uuid.UUID, configType string,
-) (*models.VPNConfig, error) {
+) (*models.VPNConfig, int, error) {
 	// 1. get control ip from brigade
 	// 2. call control node for config
 	// 3. return vpn config
 
 	controlIP, err := core.GetControlAddr(ctx, logger, opts.Db, opts.SqFmt, brigadeID)
 	if err != nil {
-		return nil, fmt.Errorf("getting control addr: %w", err)
+		return nil, 0, fmt.Errorf("getting control addr: %w", err)
 	}
 
 	if opts.KdTesting {
 		conf, _, err := CreateRandomConfig(ctx, brigadeID, configType)
 		if err != nil {
-			return nil, fmt.Errorf("creating random config: %w", err)
+			return nil, 0, fmt.Errorf("creating random config: %w", err)
 		}
 
-		return conf, nil
+		return conf, 100, nil
 	}
 
-	conf, _, err := callForConfig(ctx, logger, opts.AccessKey, brigadeID, controlIP, configType)
+	conf, _, slots, err := callForConfig(ctx, logger, opts.AccessKey, brigadeID, controlIP, configType)
 	if err != nil {
-		return nil, fmt.Errorf("calling for config: %w", err)
+		return nil, 0, fmt.Errorf("calling for config: %w", err)
 	}
 
-	return conf, nil
+	return conf, slots, nil
 }
 
 type ConfigRequest struct {
@@ -54,10 +54,10 @@ type ConfigRequest struct {
 
 func callForConfig(ctx context.Context, logger *slog.Logger, token string,
 	brigadeID uuid.UUID, controlIP netip.Addr, configType string,
-) (*models.VPNConfig, string, error) {
+) (*models.VPNConfig, string, int, error) {
 	data, err := json.Marshal(&ConfigRequest{Configs: []string{configType}})
 	if err != nil {
-		return nil, "", fmt.Errorf("marshaling request: %w", err)
+		return nil, "", 0, fmt.Errorf("marshaling request: %w", err)
 	}
 
 	c := &http.Client{
@@ -71,7 +71,7 @@ func callForConfig(ctx context.Context, logger *slog.Logger, token string,
 
 	req, err := http.NewRequestWithContext(ctx, "POST", apiurl, bytes.NewBuffer(data))
 	if nil != err {
-		return nil, "", fmt.Errorf("failed to create request: %w", err)
+		return nil, "", 0, fmt.Errorf("failed to create request: %w", err)
 	}
 
 	req.Header.Set("Content-Type", "application/json")
@@ -80,7 +80,7 @@ func callForConfig(ctx context.Context, logger *slog.Logger, token string,
 	for i := 0; i < core.MaxKdCallAttempts; i++ {
 		resp, err := c.Do(req)
 		if nil != err {
-			return nil, "", fmt.Errorf("failed to do request: %w", err)
+			return nil, "", 0, fmt.Errorf("failed to do request: %w", err)
 		}
 
 		defer resp.Body.Close()
@@ -98,7 +98,7 @@ func callForConfig(ctx context.Context, logger *slog.Logger, token string,
 			continue
 		}
 
-		m, name, err := kmodelToModel(user)
+		m, name, slots, err := kmodelToModel(user)
 		if err != nil {
 			logger.Debug("failed to convert model", "error", err)
 
@@ -107,15 +107,15 @@ func callForConfig(ctx context.Context, logger *slog.Logger, token string,
 
 		logger.Debug("config created", "config_id", m.UserID.String(), "config_name", name)
 
-		return m, name, nil
+		return m, name, slots, nil
 	}
 
 	logger.Error("max attempts reached", "attempts", core.MaxKdCallAttempts)
 
-	return nil, "", core.ErrMaxKdCallAttemptsExceeded
+	return nil, "", 0, core.ErrMaxKdCallAttemptsExceeded
 }
 
-func kmodelToModel(nu *SocketNewUser) (*models.VPNConfig, string, error) {
+func kmodelToModel(nu *SocketNewUser) (*models.VPNConfig, string, int, error) {
 	m := &models.VPNConfig{
 		UserID: conv.UUID4(strfmt.UUID4(nu.ID.String())),
 		Name:   swag.String(nu.Name),
@@ -129,7 +129,7 @@ func kmodelToModel(nu *SocketNewUser) (*models.VPNConfig, string, error) {
 			FileContent: &nu.Configs.Wireguard.FileContent,
 		}
 
-		return m, nu.Name, nil
+		return m, nu.Name, nu.FreeSlots, nil
 	}
 
 	if nu.Configs.Amnezia != nil {
@@ -139,7 +139,7 @@ func kmodelToModel(nu *SocketNewUser) (*models.VPNConfig, string, error) {
 			FileContent: &nu.Configs.Amnezia.FileContent,
 		}
 
-		return m, nu.Name, nil
+		return m, nu.Name, nu.FreeSlots, nil
 	}
 
 	if nu.Configs.Outline != nil {
@@ -147,7 +147,7 @@ func kmodelToModel(nu *SocketNewUser) (*models.VPNConfig, string, error) {
 			AccessKey: nu.Configs.Outline,
 		}
 
-		return m, nu.Name, nil
+		return m, nu.Name, nu.FreeSlots, nil
 	}
 
 	if nu.Configs.Vgc != nil {
@@ -155,8 +155,8 @@ func kmodelToModel(nu *SocketNewUser) (*models.VPNConfig, string, error) {
 			AccessKey: nu.Configs.Vgc,
 		}
 
-		return m, nu.Name, nil
+		return m, nu.Name, nu.FreeSlots, nil
 	}
 
-	return nil, "", fmt.Errorf("unknown config type")
+	return nil, "", 0, fmt.Errorf("unknown config type")
 }

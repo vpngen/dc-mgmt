@@ -30,7 +30,12 @@ func PostConfigHandler(ctx context.Context, logger *slog.Logger, opts *Options,
 
 		logger.Info("fake config created", "user_id", u.UserID.String())
 
-		return operations.NewCreateConfigCreated().WithPayload(u)
+		return operations.NewCreateConfigCreated().WithPayload(&models.VPNConfigResponse{
+			VPNConfig: *u,
+			FreeSlots: models.FreeSlots{
+				FreeSlots: swag.Int64(100),
+			},
+		})
 	}
 
 	brigadeID, err := uuid.Parse(params.Body.BrigadeID.String())
@@ -40,7 +45,7 @@ func PostConfigHandler(ctx context.Context, logger *slog.Logger, opts *Options,
 		return operations.NewCreateConfigInternalServerError()
 	}
 
-	conf, err := vpnconfig.GreateUser(ctx, logger, &opts.Options, brigadeID, swag.StringValue((*string)(params.Body.ConfigType)))
+	conf, slots, err := vpnconfig.GreateUser(ctx, logger, &opts.Options, brigadeID, swag.StringValue((*string)(params.Body.ConfigType)))
 	if err != nil {
 		logger.Error("create config error", "error", err)
 
@@ -49,5 +54,10 @@ func PostConfigHandler(ctx context.Context, logger *slog.Logger, opts *Options,
 
 	logger.Info("config created", "user_id", conf.UserID.String(), "config_name", conf.Name)
 
-	return operations.NewCreateConfigCreated().WithPayload(conf)
+	return operations.NewCreateConfigCreated().WithPayload(&models.VPNConfigResponse{
+		VPNConfig: *conf,
+		FreeSlots: models.FreeSlots{
+			FreeSlots: swag.Int64(int64(slots)),
+		},
+	})
 }

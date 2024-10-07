@@ -26,7 +26,7 @@ type CreateConfigCreated struct {
 	/*
 	  In: Body
 	*/
-	Payload *models.VPNConfig `json:"body,omitempty"`
+	Payload *models.VPNConfigResponse `json:"body,omitempty"`
 }
 
 // NewCreateConfigCreated creates CreateConfigCreated with default headers values
@@ -36,13 +36,13 @@ func NewCreateConfigCreated() *CreateConfigCreated {
 }
 
 // WithPayload adds the payload to the create config created response
-func (o *CreateConfigCreated) WithPayload(payload *models.VPNConfig) *CreateConfigCreated {
+func (o *CreateConfigCreated) WithPayload(payload *models.VPNConfigResponse) *CreateConfigCreated {
 	o.Payload = payload
 	return o
 }
 
 // SetPayload sets the payload to the create config created response
-func (o *CreateConfigCreated) SetPayload(payload *models.VPNConfig) {
+func (o *CreateConfigCreated) SetPayload(payload *models.VPNConfigResponse) {
 	o.Payload = payload
 }
 

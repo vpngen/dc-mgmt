@@ -175,7 +175,17 @@ func retrieveOperationOperationsDeleteConfigConfigIDFlag(m *operations.DeleteCon
 func parseOperationOperationsDeleteConfigResult(resp0 *operations.DeleteConfigNoContent, respErr error) (string, error) {
 	if respErr != nil {
 
-		// Non schema case: warning deleteConfigNoContent is not supported
+		var iResp0 interface{} = respErr
+		resp0, ok := iResp0.(*operations.DeleteConfigNoContent)
+		if ok {
+			if !swag.IsZero(resp0) && !swag.IsZero(resp0.Payload) {
+				msgStr, err := json.Marshal(resp0.Payload)
+				if err != nil {
+					return "", err
+				}
+				return string(msgStr), nil
+			}
+		}
 
 		var iResp1 interface{} = respErr
 		resp1, ok := iResp1.(*operations.DeleteConfigBadRequest)
@@ -228,7 +238,13 @@ func parseOperationOperationsDeleteConfigResult(resp0 *operations.DeleteConfigNo
 		return "", respErr
 	}
 
-	// warning: non schema response deleteConfigNoContent is not supported by go-swagger cli yet.
+	if !swag.IsZero(resp0) && !swag.IsZero(resp0.Payload) {
+		msgStr, err := json.Marshal(resp0.Payload)
+		if err != nil {
+			return "", err
+		}
+		return string(msgStr), nil
+	}
 
 	return "", nil
 }

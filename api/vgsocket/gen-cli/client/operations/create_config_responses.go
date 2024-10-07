@@ -70,7 +70,7 @@ CreateConfigCreated describes a response with status code 201, with default head
 Created
 */
 type CreateConfigCreated struct {
-	Payload *models.VPNConfig
+	Payload *models.VPNConfigResponse
 }
 
 // IsSuccess returns true when this create config created response has a 2xx status code
@@ -113,13 +113,13 @@ func (o *CreateConfigCreated) String() string {
 	return fmt.Sprintf("[POST /config][%d] createConfigCreated %s", 201, payload)
 }
 
-func (o *CreateConfigCreated) GetPayload() *models.VPNConfig {
+func (o *CreateConfigCreated) GetPayload() *models.VPNConfigResponse {
 	return o.Payload
 }
 
 func (o *CreateConfigCreated) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
-	o.Payload = new(models.VPNConfig)
+	o.Payload = new(models.VPNConfigResponse)
 
 	// response payload
 	if err := consumer.Consume(response.Body(), o.Payload); err != nil && err != io.EOF {

@@ -32,7 +32,7 @@ paths:
         "201":
           description: Created
           schema:
-            $ref: "#/definitions/VPNConfig"
+            $ref: "#/definitions/VPNConfigResponse"
         "400":
           description: Bad Request
           schema:
@@ -86,6 +86,8 @@ paths:
       responses:
         "204":
           description: No Content
+          schema:
+            $ref: "#/definitions/FreeSlots"
         "400":
           description: Bad Request
           schema:
@@ -208,7 +210,6 @@ definitions:
     type: string
     enum:
       - wireguard
-      - amneziavpn
       - outline
       - universal
 
@@ -306,6 +307,20 @@ definitions:
         type: integer
       total_slots:
         type: integer
+
+  FreeSlots:
+    type: object
+    required:
+      - free_slots
+    properties:
+      free_slots:
+        type: integer
+
+  VPNConfigResponse:
+    type: object
+    allOf:
+      - $ref: '#/definitions/VPNConfig'
+      - $ref: '#/definitions/FreeSlots'
 
   BrigadeActivity:
     type: object
