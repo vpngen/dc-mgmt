@@ -51,9 +51,7 @@ func DeleteUserHandler(ctx context.Context, logger *slog.Logger, opts *Options,
 		if errors.Is(err, core.ErrUserNotFound) {
 			logger.Warn("config not found", "user_id", params.ConfigID)
 
-			return operations.NewDeleteConfigOK().WithPayload(&models.FreeSlots{
-				FreeSlots: swag.Int64(int64(slots)),
-			})
+			return operations.NewDeleteConfigNotFound()
 		}
 
 		if errors.Is(err, core.ErrTemporarilyUnavailable) {

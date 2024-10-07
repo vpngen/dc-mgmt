@@ -70,7 +70,11 @@ func callForDel(ctx context.Context, logger *slog.Logger, token string,
 
 		defer resp.Body.Close()
 
-		if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNoContent {
+		if resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusNoContent {
+			return 0, core.ErrUserNotFound
+		}
+
+		if resp.StatusCode != http.StatusOK {
 			logger.Error("unexpected status code", "status_code", resp.StatusCode)
 
 			continue

@@ -212,7 +212,7 @@ func parseOperationOperationsDeleteConfigResult(resp0 *operations.DeleteConfigOK
 		}
 
 		var iResp3 interface{} = respErr
-		resp3, ok := iResp3.(*operations.DeleteConfigInternalServerError)
+		resp3, ok := iResp3.(*operations.DeleteConfigNotFound)
 		if ok {
 			if !swag.IsZero(resp3) && !swag.IsZero(resp3.Payload) {
 				msgStr, err := json.Marshal(resp3.Payload)
@@ -224,10 +224,22 @@ func parseOperationOperationsDeleteConfigResult(resp0 *operations.DeleteConfigOK
 		}
 
 		var iResp4 interface{} = respErr
-		resp4, ok := iResp4.(*operations.DeleteConfigServiceUnavailable)
+		resp4, ok := iResp4.(*operations.DeleteConfigInternalServerError)
 		if ok {
 			if !swag.IsZero(resp4) && !swag.IsZero(resp4.Payload) {
 				msgStr, err := json.Marshal(resp4.Payload)
+				if err != nil {
+					return "", err
+				}
+				return string(msgStr), nil
+			}
+		}
+
+		var iResp5 interface{} = respErr
+		resp5, ok := iResp5.(*operations.DeleteConfigServiceUnavailable)
+		if ok {
+			if !swag.IsZero(resp5) && !swag.IsZero(resp5.Payload) {
+				msgStr, err := json.Marshal(resp5.Payload)
 				if err != nil {
 					return "", err
 				}
