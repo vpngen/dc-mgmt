@@ -172,11 +172,11 @@ func retrieveOperationOperationsDeleteConfigConfigIDFlag(m *operations.DeleteCon
 }
 
 // parseOperationOperationsDeleteConfigResult parses request result and return the string content
-func parseOperationOperationsDeleteConfigResult(resp0 *operations.DeleteConfigNoContent, respErr error) (string, error) {
+func parseOperationOperationsDeleteConfigResult(resp0 *operations.DeleteConfigOK, respErr error) (string, error) {
 	if respErr != nil {
 
 		var iResp0 interface{} = respErr
-		resp0, ok := iResp0.(*operations.DeleteConfigNoContent)
+		resp0, ok := iResp0.(*operations.DeleteConfigOK)
 		if ok {
 			if !swag.IsZero(resp0) && !swag.IsZero(resp0.Payload) {
 				msgStr, err := json.Marshal(resp0.Payload)

@@ -29,7 +29,7 @@ func DeleteUserHandler(ctx context.Context, logger *slog.Logger, opts *Options,
 			return operations.NewDeleteConfigInternalServerError()
 		}
 
-		return operations.NewDeleteConfigNoContent()
+		return operations.NewDeleteConfigOK()
 	}
 
 	userID, err := uuid.Parse(params.ConfigID)
@@ -51,7 +51,7 @@ func DeleteUserHandler(ctx context.Context, logger *slog.Logger, opts *Options,
 		if errors.Is(err, core.ErrUserNotFound) {
 			logger.Warn("config not found", "user_id", params.ConfigID)
 
-			return operations.NewDeleteConfigNoContent().WithPayload(&models.FreeSlots{
+			return operations.NewDeleteConfigOK().WithPayload(&models.FreeSlots{
 				FreeSlots: swag.Int64(int64(slots)),
 			})
 		}
@@ -72,7 +72,7 @@ func DeleteUserHandler(ctx context.Context, logger *slog.Logger, opts *Options,
 		return operations.NewDeleteConfigInternalServerError()
 	}
 
-	return operations.NewDeleteConfigNoContent().WithPayload(&models.FreeSlots{
+	return operations.NewDeleteConfigOK().WithPayload(&models.FreeSlots{
 		FreeSlots: swag.Int64(int64(slots)),
 	})
 }

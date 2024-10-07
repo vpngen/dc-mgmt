@@ -250,8 +250,8 @@ func init() {
           }
         ],
         "responses": {
-          "204": {
-            "description": "No Content",
+          "200": {
+            "description": "OK",
             "schema": {
               "$ref": "#/definitions/FreeSlots"
             }
@@ -755,8 +755,8 @@ func init() {
           }
         ],
         "responses": {
-          "204": {
-            "description": "No Content",
+          "200": {
+            "description": "OK",
             "schema": {
               "$ref": "#/definitions/FreeSlots"
             }

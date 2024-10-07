@@ -102,7 +102,7 @@ func WithAcceptApplicationXML(r *runtime.ClientOperation) {
 type ClientService interface {
 	CreateConfig(params *CreateConfigParams, authInfo runtime.ClientAuthInfoWriter, opts ...ClientOption) (*CreateConfigCreated, error)
 
-	DeleteConfig(params *DeleteConfigParams, authInfo runtime.ClientAuthInfoWriter, opts ...ClientOption) (*DeleteConfigNoContent, error)
+	DeleteConfig(params *DeleteConfigParams, authInfo runtime.ClientAuthInfoWriter, opts ...ClientOption) (*DeleteConfigOK, error)
 
 	GetBrigadeActivity(params *GetBrigadeActivityParams, authInfo runtime.ClientAuthInfoWriter, opts ...ClientOption) (*GetBrigadeActivityOK, error)
 
@@ -153,7 +153,7 @@ func (a *Client) CreateConfig(params *CreateConfigParams, authInfo runtime.Clien
 /*
 DeleteConfig deletes v p n config
 */
-func (a *Client) DeleteConfig(params *DeleteConfigParams, authInfo runtime.ClientAuthInfoWriter, opts ...ClientOption) (*DeleteConfigNoContent, error) {
+func (a *Client) DeleteConfig(params *DeleteConfigParams, authInfo runtime.ClientAuthInfoWriter, opts ...ClientOption) (*DeleteConfigOK, error) {
 	// TODO: Validate the params before sending
 	if params == nil {
 		params = NewDeleteConfigParams()
@@ -179,7 +179,7 @@ func (a *Client) DeleteConfig(params *DeleteConfigParams, authInfo runtime.Clien
 	if err != nil {
 		return nil, err
 	}
-	success, ok := result.(*DeleteConfigNoContent)
+	success, ok := result.(*DeleteConfigOK)
 	if ok {
 		return success, nil
 	}

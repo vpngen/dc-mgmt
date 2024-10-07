@@ -28,8 +28,8 @@ type DeleteConfigReader struct {
 // ReadResponse reads a server response into the received o.
 func (o *DeleteConfigReader) ReadResponse(response runtime.ClientResponse, consumer runtime.Consumer) (interface{}, error) {
 	switch response.Code() {
-	case 204:
-		result := NewDeleteConfigNoContent()
+	case 200:
+		result := NewDeleteConfigOK()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
 			return nil, err
 		}
@@ -63,65 +63,65 @@ func (o *DeleteConfigReader) ReadResponse(response runtime.ClientResponse, consu
 	}
 }
 
-// NewDeleteConfigNoContent creates a DeleteConfigNoContent with default headers values
-func NewDeleteConfigNoContent() *DeleteConfigNoContent {
-	return &DeleteConfigNoContent{}
+// NewDeleteConfigOK creates a DeleteConfigOK with default headers values
+func NewDeleteConfigOK() *DeleteConfigOK {
+	return &DeleteConfigOK{}
 }
 
 /*
-DeleteConfigNoContent describes a response with status code 204, with default header values.
+DeleteConfigOK describes a response with status code 200, with default header values.
 
-No Content
+OK
 */
-type DeleteConfigNoContent struct {
+type DeleteConfigOK struct {
 	Payload *models.FreeSlots
 }
 
-// IsSuccess returns true when this delete config no content response has a 2xx status code
-func (o *DeleteConfigNoContent) IsSuccess() bool {
+// IsSuccess returns true when this delete config o k response has a 2xx status code
+func (o *DeleteConfigOK) IsSuccess() bool {
 	return true
 }
 
-// IsRedirect returns true when this delete config no content response has a 3xx status code
-func (o *DeleteConfigNoContent) IsRedirect() bool {
+// IsRedirect returns true when this delete config o k response has a 3xx status code
+func (o *DeleteConfigOK) IsRedirect() bool {
 	return false
 }
 
-// IsClientError returns true when this delete config no content response has a 4xx status code
-func (o *DeleteConfigNoContent) IsClientError() bool {
+// IsClientError returns true when this delete config o k response has a 4xx status code
+func (o *DeleteConfigOK) IsClientError() bool {
 	return false
 }
 
-// IsServerError returns true when this delete config no content response has a 5xx status code
-func (o *DeleteConfigNoContent) IsServerError() bool {
+// IsServerError returns true when this delete config o k response has a 5xx status code
+func (o *DeleteConfigOK) IsServerError() bool {
 	return false
 }
 
-// IsCode returns true when this delete config no content response a status code equal to that given
-func (o *DeleteConfigNoContent) IsCode(code int) bool {
-	return code == 204
+// IsCode returns true when this delete config o k response a status code equal to that given
+func (o *DeleteConfigOK) IsCode(code int) bool {
+	return code == 200
 }
 
-// Code gets the status code for the delete config no content response
-func (o *DeleteConfigNoContent) Code() int {
-	return 204
+// Code gets the status code for the delete config o k response
+func (o *DeleteConfigOK) Code() int {
+	return 200
 }
 
-func (o *DeleteConfigNoContent) Error() string {
+func (o *DeleteConfigOK) Error() string {
 	payload, _ := json.Marshal(o.Payload)
-	return fmt.Sprintf("[DELETE /config/{config_id}][%d] deleteConfigNoContent %s", 204, payload)
+	return fmt.Sprintf("[DELETE /config/{config_id}][%d] deleteConfigOK %s", 200, payload)
 }
 
-func (o *DeleteConfigNoContent) String() string {
+func (o *DeleteConfigOK) String() string {
 	payload, _ := json.Marshal(o.Payload)
-	return fmt.Sprintf("[DELETE /config/{config_id}][%d] deleteConfigNoContent %s", 204, payload)
+	return fmt.Sprintf("[DELETE /config/{config_id}][%d] deleteConfigOK %s", 200, payload)
 }
 
-func (o *DeleteConfigNoContent) GetPayload() *models.FreeSlots {
+func (o *DeleteConfigOK) GetPayload() *models.FreeSlots {
 	return o.Payload
 }
 
-func (o *DeleteConfigNoContent) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
+func (o *DeleteConfigOK) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
 	o.Payload = new(models.FreeSlots)
 

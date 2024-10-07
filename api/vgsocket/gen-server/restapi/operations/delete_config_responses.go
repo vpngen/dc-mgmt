@@ -13,15 +13,15 @@ import (
 	"github.com/vpngen/dc-mgmt/api/vgsocket/gen-server/models"
 )
 
-// DeleteConfigNoContentCode is the HTTP code returned for type DeleteConfigNoContent
-const DeleteConfigNoContentCode int = 204
+// DeleteConfigOKCode is the HTTP code returned for type DeleteConfigOK
+const DeleteConfigOKCode int = 200
 
 /*
-DeleteConfigNoContent No Content
+DeleteConfigOK OK
 
-swagger:response deleteConfigNoContent
+swagger:response deleteConfigOK
 */
-type DeleteConfigNoContent struct {
+type DeleteConfigOK struct {
 
 	/*
 	  In: Body
@@ -29,27 +29,27 @@ type DeleteConfigNoContent struct {
 	Payload *models.FreeSlots `json:"body,omitempty"`
 }
 
-// NewDeleteConfigNoContent creates DeleteConfigNoContent with default headers values
-func NewDeleteConfigNoContent() *DeleteConfigNoContent {
+// NewDeleteConfigOK creates DeleteConfigOK with default headers values
+func NewDeleteConfigOK() *DeleteConfigOK {
 
-	return &DeleteConfigNoContent{}
+	return &DeleteConfigOK{}
 }
 
-// WithPayload adds the payload to the delete config no content response
-func (o *DeleteConfigNoContent) WithPayload(payload *models.FreeSlots) *DeleteConfigNoContent {
+// WithPayload adds the payload to the delete config o k response
+func (o *DeleteConfigOK) WithPayload(payload *models.FreeSlots) *DeleteConfigOK {
 	o.Payload = payload
 	return o
 }
 
-// SetPayload sets the payload to the delete config no content response
-func (o *DeleteConfigNoContent) SetPayload(payload *models.FreeSlots) {
+// SetPayload sets the payload to the delete config o k response
+func (o *DeleteConfigOK) SetPayload(payload *models.FreeSlots) {
 	o.Payload = payload
 }
 
 // WriteResponse to the client
-func (o *DeleteConfigNoContent) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
+func (o *DeleteConfigOK) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
 
-	rw.WriteHeader(204)
+	rw.WriteHeader(200)
 	if o.Payload != nil {
 		payload := o.Payload
 		if err := producer.Produce(rw, payload); err != nil {
