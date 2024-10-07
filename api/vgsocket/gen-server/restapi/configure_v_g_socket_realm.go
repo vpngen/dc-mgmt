@@ -35,10 +35,8 @@ func configureAPI(api *operations.VGSocketRealmAPI) http.Handler {
 	// api.UseRedoc()
 
 	api.JSONConsumer = runtime.JSONConsumer()
-	api.XMLConsumer = runtime.XMLConsumer()
 
 	api.JSONProducer = runtime.JSONProducer()
-	api.XMLProducer = runtime.XMLProducer()
 
 	if api.JWTAuth == nil {
 		api.JWTAuth = func(token string, scopes []string) (*models.Principal, error) {

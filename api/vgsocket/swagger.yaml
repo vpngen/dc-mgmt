@@ -60,10 +60,8 @@ paths:
       operationId: deleteConfig
       consumes:
         - application/json
-        - application/xml
       produces:
         - application/json
-        - application/xml
       parameters:
         - in: path
           name: config_id

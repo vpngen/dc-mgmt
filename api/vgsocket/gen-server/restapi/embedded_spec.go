@@ -212,12 +212,10 @@ func init() {
           }
         ],
         "consumes": [
-          "application/json",
-          "application/xml"
+          "application/json"
         ],
         "produces": [
-          "application/json",
-          "application/xml"
+          "application/json"
         ],
         "summary": "Delete VPN config",
         "operationId": "deleteConfig",
@@ -723,12 +721,10 @@ func init() {
           }
         ],
         "consumes": [
-          "application/json",
-          "application/xml"
+          "application/json"
         ],
         "produces": [
-          "application/json",
-          "application/xml"
+          "application/json"
         ],
         "summary": "Delete VPN config",
         "operationId": "deleteConfig",

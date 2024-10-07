@@ -41,10 +41,8 @@ func NewVGSocketRealmAPI(spec *loads.Document) *VGSocketRealmAPI {
 		BearerAuthenticator: security.BearerAuth,
 
 		JSONConsumer: runtime.JSONConsumer(),
-		XMLConsumer:  runtime.XMLConsumer(),
 
 		JSONProducer: runtime.JSONProducer(),
-		XMLProducer:  runtime.XMLProducer(),
 
 		CreateConfigHandler: CreateConfigHandlerFunc(func(params CreateConfigParams, principal *models.Principal) middleware.Responder {
 			return middleware.NotImplemented("operation CreateConfig has not yet been implemented")
@@ -95,16 +93,10 @@ type VGSocketRealmAPI struct {
 	// JSONConsumer registers a consumer for the following mime types:
 	//   - application/json
 	JSONConsumer runtime.Consumer
-	// XMLConsumer registers a consumer for the following mime types:
-	//   - application/xml
-	XMLConsumer runtime.Consumer
 
 	// JSONProducer registers a producer for the following mime types:
 	//   - application/json
 	JSONProducer runtime.Producer
-	// XMLProducer registers a producer for the following mime types:
-	//   - application/xml
-	XMLProducer runtime.Producer
 
 	// JWTAuth registers a function that takes an access token and a collection of required scopes and returns a principal
 	// it performs authentication based on an oauth2 bearer token provided in the request
@@ -193,15 +185,9 @@ func (o *VGSocketRealmAPI) Validate() error {
 	if o.JSONConsumer == nil {
 		unregistered = append(unregistered, "JSONConsumer")
 	}
-	if o.XMLConsumer == nil {
-		unregistered = append(unregistered, "XMLConsumer")
-	}
 
 	if o.JSONProducer == nil {
 		unregistered = append(unregistered, "JSONProducer")
-	}
-	if o.XMLProducer == nil {
-		unregistered = append(unregistered, "XMLProducer")
 	}
 
 	if o.JWTAuth == nil {
@@ -261,8 +247,6 @@ func (o *VGSocketRealmAPI) ConsumersFor(mediaTypes []string) map[string]runtime.
 		switch mt {
 		case "application/json":
 			result["application/json"] = o.JSONConsumer
-		case "application/xml":
-			result["application/xml"] = o.XMLConsumer
 		}
 
 		if c, ok := o.customConsumers[mt]; ok {
@@ -280,8 +264,6 @@ func (o *VGSocketRealmAPI) ProducersFor(mediaTypes []string) map[string]runtime.
 		switch mt {
 		case "application/json":
 			result["application/json"] = o.JSONProducer
-		case "application/xml":
-			result["application/xml"] = o.XMLProducer
 		}
 
 		if p, ok := o.customProducers[mt]; ok {
