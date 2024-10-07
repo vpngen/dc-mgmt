@@ -29,7 +29,9 @@ func DeleteUserHandler(ctx context.Context, logger *slog.Logger, opts *Options,
 			return operations.NewDeleteConfigInternalServerError()
 		}
 
-		return operations.NewDeleteConfigOK()
+		return operations.NewDeleteConfigOK().WithPayload(&models.FreeSlots{
+			FreeSlots: swag.Int64(100),
+		})
 	}
 
 	userID, err := uuid.Parse(params.ConfigID)
