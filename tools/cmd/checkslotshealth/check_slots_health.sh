@@ -224,7 +224,7 @@ EOF
                         BLESS="-r"
                 fi
 
-                flock -x -E 1 -w 60 /tmp/modbrigade.lock "$0" \
+                flock -x -E 1 -w 180 /tmp/modbrigade.lock "$0" \
                         -control_ip "${control_ip}" -endpoint_ipv4 "${endpoint_ipv4}" \
                         -id "${BRIGADE_ID}" \
                         -name "${GEN_NAME}" -person "${GEN_PERSON}" -desc "${GEN_DESC}" -url "${GEN_URL}" \

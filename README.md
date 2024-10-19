@@ -20,6 +20,12 @@
 echo "fdcc:1786:d861::3" | cut -f 2,3 -d ':' | sed 's/\://' | xxd -r -p | hexdump -v -e '/1 "%u."' | sed 's/\.$/\n/'
 ```
 
+## Calculated IPv4 to IPv6:
+
+```shell
+echo "23.134.216.97" | awk -F '.' '{printf "%02x%02x:%02x%02x\n", $1, $2, $3, $4}' | sed 's/\(..\)\(..\):\(..\)\(..\)/fdcc:\1\2:\3\4::3/'
+```
+
 ### Keydesk brigade ID to Database UUID:
 
 ```shell

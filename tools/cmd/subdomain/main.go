@@ -15,6 +15,14 @@ func main() {
 		log.Fatalf("Can't get executable name: %s\n", err)
 	}
 
+	flag.Parse()
+
+	srvZone := ""
+
+	if flag.NArg() > 0 {
+		srvZone = flag.Arg(0)
+	}
+
 	token := os.Getenv("SUBDOMAIN_API_TOKEN")
 	host := os.Getenv("SUBDOMAIN_API_SERVER")
 
@@ -30,12 +38,12 @@ func main() {
 
 	switch flag.Arg(0) {
 	case "pick":
-		subdom, err := kdlib.SubdomainPick(host, token)
+		subdom, hosts, err := kdlib.SubdomainPick(host, token, srvZone)
 		if err != nil {
 			log.Fatalf("Can't pick subdomain: %s\n", err)
 		}
 
-		fmt.Printf("%s\n", subdom)
+		fmt.Printf("%s %s\n", subdom, hosts)
 	case "del":
 		if flag.NArg() < 2 {
 			log.Fatalf("Usage: %s del <subdomain>\n", progName)

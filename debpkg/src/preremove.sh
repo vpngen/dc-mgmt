@@ -5,6 +5,7 @@ remove() {
 
         printf "Stop the service unit\n"
         systemctl stop --force vg-dc-vgsocket.service ||:
+        systemctl stop --force vg-dc-vgsbrigades.service ||:
         systemctl stop --force vg-dc-stats.timer ||:
         systemctl stop --force vg-dc-stats.service ||:
         systemctl stop --force vg-dc-gfsn.service ||:

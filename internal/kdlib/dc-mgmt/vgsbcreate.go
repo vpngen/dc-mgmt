@@ -12,10 +12,12 @@ import (
 	"strings"
 	"sync"
 
+	sq "github.com/Masterminds/squirrel"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgtype/zeronull"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/vpngen/dc-mgmt/internal/kdlib"
 	"github.com/vpngen/wordsgens/namesgenerator"
 	"golang.org/x/crypto/ssh"
 )
@@ -27,8 +29,9 @@ const (
 var ErrNotDelegated = errors.New("not delegated")
 
 type subdomAPI struct {
-	host  string
-	token string
+	host    string
+	token   string
+	srvZone string
 }
 
 type delegationSync struct {
@@ -54,6 +57,88 @@ type pairOpts struct {
 	controlIP    netip.Addr
 	endpointIPv4 netip.Addr
 	domain       string
+}
+
+func VgsCreateBrigade(ctx context.Context, logger *slog.Logger, db *pgxpool.Pool, sqfmt sq.StatementBuilderType,
+	orderID uuid.UUID,
+	dcident string,
+	host, token string,
+	sshkey, sshuser, server string,
+	ns []string, vpnCfgs *VpnCfgs,
+	maxusers int,
+	doNotCreatePhy bool,
+) error {
+	logger.Info("creating brigade", "order_id", orderID)
+
+	_, zone, pairID, controlIP, endpointIP, brigadeID, brigadeName, err := vgsGetOrderMeta(ctx, logger, db, sqfmt, orderID, false)
+	if err != nil {
+		return fmt.Errorf("error getting order brigade meta: %w", err)
+	}
+
+	logger.Info("fetch order", "brigade_id", brigadeID, "brigade_name", brigadeName, "order_id", orderID, "control_ip", controlIP, "endpoint_ipv4", endpointIP)
+
+	sshconf, err := kdlib.CreateSSHConfig(sshkey, sshuser, kdlib.SSHDefaultTimeOut)
+	if err != nil {
+		if err := vgsSetOrderError(ctx, logger, db, sqfmt, orderID, err.Error()); err != nil {
+			return fmt.Errorf("error setting order error: %w", err)
+		}
+
+		return fmt.Errorf("error creating ssh configs: %w", err)
+	}
+
+	if err := vgsCreateBrigade(ctx, db, logger, dcident,
+		&brigadeOpts{
+			id:   brigadeID.String(),
+			name: brigadeName,
+		},
+		&pairOpts{
+			pairID:       pairID,
+			endpointIPv4: endpointIP,
+			controlIP:    controlIP,
+		},
+		&delegationSync{
+			sshconf: sshconf,
+			server:  server,
+		},
+		&subdomAPI{
+			host:    host,
+			token:   token,
+			srvZone: zone,
+		},
+	); err != nil {
+		if err := vgsSetOrderError(ctx, logger, db, sqfmt, orderID, err.Error()); err != nil {
+			return fmt.Errorf("error setting order error: %w", err)
+		}
+
+		return fmt.Errorf("error creating brigade: %w", err)
+	}
+
+	if !doNotCreatePhy {
+		sshconf, err := kdlib.CreateSSHConfig(sshkey, sshkeyRemoteUsername, kdlib.SSHDefaultTimeOut)
+		if err != nil {
+			if err := vgsSetOrderError(ctx, logger, db, sqfmt, orderID, err.Error()); err != nil {
+				return fmt.Errorf("error setting order error: %w", err)
+			}
+
+			return fmt.Errorf("error creating ssh configs: %w", err)
+		}
+
+		if err := vgsRequestBrigade(ctx, db, logger, sshconf, brigadeID.String(), ns, vpnCfgs, maxusers); err != nil {
+			if err := vgsSetOrderError(ctx, logger, db, sqfmt, orderID, err.Error()); err != nil {
+				return fmt.Errorf("error setting order error: %w", err)
+			}
+
+			return fmt.Errorf("error requesting brigade: %w", err)
+		}
+	}
+
+	if err := vgsSetOrderComplete(ctx, logger, db, sqfmt, orderID); err != nil {
+		return fmt.Errorf("error setting order completed: %w", err)
+	}
+
+	logger.Info("brigade created", "brigade_id", brigadeID, "brigade_name", brigadeName, "order_id", orderID)
+
+	return nil
 }
 
 func vgsCreateBrigade(
@@ -147,7 +232,7 @@ RETURNING instance_id;
 
 	// Pick up subdomain.
 	if popts.domain == "" {
-		if err := ApplySubdomain(ctx, db, subdomAPI.host, subdomAPI.token, bopts.id, popts.endpointIPv4); err != nil {
+		if err := ApplySubdomain(ctx, db, subdomAPI.host, subdomAPI.token, bopts.id, popts.endpointIPv4, subdomAPI.srvZone); err != nil {
 			return fmt.Errorf("apply subdomain: %w", err)
 		}
 	}
@@ -197,6 +282,7 @@ func vgsRequestBrigade(
 		ipv6ULA      netip.Prefix
 		control_ip   netip.Addr
 		kdIPv6       netip.Addr
+		nameservers  pgtype.Text
 	)
 
 	sqlFetchBrigade := `
@@ -209,7 +295,8 @@ SELECT
 	meta_brigades.ipv4_cgnat,
 	meta_brigades.ipv6_ula,
 	meta_brigades.control_ip,
-	meta_brigades.keydesk_ipv6
+	meta_brigades.keydesk_ipv6,
+	meta_brigades.nameservers
 FROM brigades.meta_brigades
 WHERE
 	meta_brigades.brigade_id=$1
@@ -225,6 +312,7 @@ WHERE
 		&ipv6ULA,
 		&control_ip,
 		&kdIPv6,
+		&nameservers,
 	)
 	if err != nil {
 		return fmt.Errorf("brigade query: %w", err)
@@ -304,7 +392,12 @@ WHERE
 
 	logger.Debug("waiting for delegation", "domain_name", domain.String, "endpoint_ipv4", endpointIPv4)
 
-	if !vgsWaitForAllDelegations(logger, domain.String, endpointIPv4, ns) {
+	nss := strings.Split(nameservers.String, ",")
+	if len(nss) == 0 {
+		nss = ns
+	}
+
+	if !vgsWaitForAllDelegations(logger, domain.String, endpointIPv4, nss) {
 		return fmt.Errorf("delegation: %w", ErrNotDelegated)
 	}
 

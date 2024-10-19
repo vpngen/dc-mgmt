@@ -57,7 +57,7 @@ func main() {
 	}
 
 	server.SetSecurityHandlers(ctx, opts, cfg.JWTSigningMethod, cfg.JWTVerifyKey)
-
+	server.SetBrigadeHandlers(ctx, opts)
 	server.SetUserHandlers(ctx, opts)
 
 	// construct API handler.

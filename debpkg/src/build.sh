@@ -24,6 +24,7 @@ go build -C dc-mgmt/tools/cmd/delegation-sync -o ../../../../bin/delegation-sync
 go build -C dc-mgmt/socket/cmd/create_brigade -o ../../../../bin/create_brigade
 go build -C dc-mgmt/socket/cmd/delete_brigade -o ../../../../bin/delete_brigade
 go build -C dc-mgmt/socket/cmd/vgsocket_service -o ../../../../bin/vgsocket_service
+go build -C dc-mgmt/socket/cmd/vgsbrigades_service -o ../../../../bin/vgsbrigades_service
 
 go install github.com/goreleaser/nfpm/v2/cmd/nfpm@latest
 

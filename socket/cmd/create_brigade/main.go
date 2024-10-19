@@ -45,7 +45,7 @@ func main() {
 	SqFmt := sq.StatementBuilder.PlaceholderFormat(sq.Dollar)
 
 	// 1. create order
-	orderID, err := dcmgmtlib.VgsOrderCreateBrigade(ctx, logger, dbPool, SqFmt, cfg.BrigadeID, cfg.BrigadeName)
+	orderID, _, _, err := dcmgmtlib.VgsOrderCreateBrigade(ctx, logger, dbPool, SqFmt, cfg.BrigadeID, cfg.BrigadeName, cfg.Zone)
 	if err != nil {
 		logger.Error("error creating order", "error", err)
 
@@ -53,9 +53,8 @@ func main() {
 	}
 
 	// 2. create control/endpoint pair
-	pairID, controlIP, endpointIPv4, err := dcmgmtlib.VgsCreatePair(ctx, logger, dbPool, SqFmt,
-		cfg.PairsApp, orderID, cfg.MgmtRandomResponses)
-	if err != nil {
+	if err := dcmgmtlib.VgsCreatePair(ctx, logger, dbPool, SqFmt,
+		cfg.PairsApp, orderID, cfg.MgmtRandomResponses); err != nil {
 		logger.Error("error creating pair", "error", err)
 
 		log.Fatalf("Error creating pair: %s", err)
@@ -63,8 +62,7 @@ func main() {
 
 	// 3. create brigade
 	if err := dcmgmtlib.VgsCreateBrigade(ctx, logger, dbPool, SqFmt, orderID,
-		cfg.DCIdent, pairID, controlIP, endpointIPv4,
-		cfg.BrigadeID, cfg.BrigadeName,
+		cfg.DCIdent,
 		cfg.SubdomAPIHost, cfg.SubdomAPIToken,
 		cfg.SSHKeyFile, cfg.DelegationSyncUser, cfg.DelegationSyncHost,
 		cfg.NameServers, &dcmgmtlib.VpnCfgs{

@@ -29,7 +29,9 @@ func DeleteUserHandler(ctx context.Context, logger *slog.Logger, opts *Options,
 			return operations.NewDeleteConfigInternalServerError()
 		}
 
-		return operations.NewDeleteConfigNoContent()
+		return operations.NewDeleteConfigOK().WithPayload(&models.FreeSlots{
+			FreeSlots: swag.Int64(100),
+		})
 	}
 
 	userID, err := uuid.Parse(params.ConfigID)
@@ -46,11 +48,12 @@ func DeleteUserHandler(ctx context.Context, logger *slog.Logger, opts *Options,
 		return operations.NewDeleteConfigInternalServerError()
 	}
 
-	if err := vpnconfig.DeleteUser(ctx, logger, &opts.Options, brigadeID, userID); err != nil {
+	slots, err := vpnconfig.DeleteUser(ctx, logger, &opts.Options, brigadeID, userID)
+	if err != nil {
 		if errors.Is(err, core.ErrUserNotFound) {
 			logger.Warn("config not found", "user_id", params.ConfigID)
 
-			return operations.NewDeleteConfigNoContent()
+			return operations.NewDeleteConfigNotFound()
 		}
 
 		if errors.Is(err, core.ErrTemporarilyUnavailable) {
@@ -69,5 +72,7 @@ func DeleteUserHandler(ctx context.Context, logger *slog.Logger, opts *Options,
 		return operations.NewDeleteConfigInternalServerError()
 	}
 
-	return operations.NewDeleteConfigNoContent()
+	return operations.NewDeleteConfigOK().WithPayload(&models.FreeSlots{
+		FreeSlots: swag.Int64(int64(slots)),
+	})
 }

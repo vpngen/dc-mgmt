@@ -13,29 +13,49 @@ import (
 	"github.com/vpngen/dc-mgmt/api/vgsocket/gen-server/models"
 )
 
-// DeleteConfigNoContentCode is the HTTP code returned for type DeleteConfigNoContent
-const DeleteConfigNoContentCode int = 204
+// DeleteConfigOKCode is the HTTP code returned for type DeleteConfigOK
+const DeleteConfigOKCode int = 200
 
 /*
-DeleteConfigNoContent No Content
+DeleteConfigOK OK
 
-swagger:response deleteConfigNoContent
+swagger:response deleteConfigOK
 */
-type DeleteConfigNoContent struct {
+type DeleteConfigOK struct {
+
+	/*
+	  In: Body
+	*/
+	Payload *models.FreeSlots `json:"body,omitempty"`
 }
 
-// NewDeleteConfigNoContent creates DeleteConfigNoContent with default headers values
-func NewDeleteConfigNoContent() *DeleteConfigNoContent {
+// NewDeleteConfigOK creates DeleteConfigOK with default headers values
+func NewDeleteConfigOK() *DeleteConfigOK {
 
-	return &DeleteConfigNoContent{}
+	return &DeleteConfigOK{}
+}
+
+// WithPayload adds the payload to the delete config o k response
+func (o *DeleteConfigOK) WithPayload(payload *models.FreeSlots) *DeleteConfigOK {
+	o.Payload = payload
+	return o
+}
+
+// SetPayload sets the payload to the delete config o k response
+func (o *DeleteConfigOK) SetPayload(payload *models.FreeSlots) {
+	o.Payload = payload
 }
 
 // WriteResponse to the client
-func (o *DeleteConfigNoContent) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
+func (o *DeleteConfigOK) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
 
-	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
-
-	rw.WriteHeader(204)
+	rw.WriteHeader(200)
+	if o.Payload != nil {
+		payload := o.Payload
+		if err := producer.Produce(rw, payload); err != nil {
+			panic(err) // let the recovery middleware deal with this
+		}
+	}
 }
 
 // DeleteConfigBadRequestCode is the HTTP code returned for type DeleteConfigBadRequest
@@ -120,6 +140,51 @@ func (o *DeleteConfigUnauthorized) SetPayload(payload *models.Error) {
 func (o *DeleteConfigUnauthorized) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
 
 	rw.WriteHeader(401)
+	if o.Payload != nil {
+		payload := o.Payload
+		if err := producer.Produce(rw, payload); err != nil {
+			panic(err) // let the recovery middleware deal with this
+		}
+	}
+}
+
+// DeleteConfigNotFoundCode is the HTTP code returned for type DeleteConfigNotFound
+const DeleteConfigNotFoundCode int = 404
+
+/*
+DeleteConfigNotFound Not Found
+
+swagger:response deleteConfigNotFound
+*/
+type DeleteConfigNotFound struct {
+
+	/*
+	  In: Body
+	*/
+	Payload *models.Error `json:"body,omitempty"`
+}
+
+// NewDeleteConfigNotFound creates DeleteConfigNotFound with default headers values
+func NewDeleteConfigNotFound() *DeleteConfigNotFound {
+
+	return &DeleteConfigNotFound{}
+}
+
+// WithPayload adds the payload to the delete config not found response
+func (o *DeleteConfigNotFound) WithPayload(payload *models.Error) *DeleteConfigNotFound {
+	o.Payload = payload
+	return o
+}
+
+// SetPayload sets the payload to the delete config not found response
+func (o *DeleteConfigNotFound) SetPayload(payload *models.Error) {
+	o.Payload = payload
+}
+
+// WriteResponse to the client
+func (o *DeleteConfigNotFound) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
+
+	rw.WriteHeader(404)
 	if o.Payload != nil {
 		payload := o.Payload
 		if err := producer.Produce(rw, payload); err != nil {

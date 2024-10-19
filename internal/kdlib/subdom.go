@@ -8,14 +8,19 @@ import (
 	"github.com/go-openapi/runtime"
 	httptransport "github.com/go-openapi/runtime/client"
 	"github.com/go-openapi/strfmt"
+	"github.com/go-openapi/swag"
 	apiclient "github.com/vpngen/domain-commander/subdomain-provisioner/gen-client/client"
 	"github.com/vpngen/domain-commander/subdomain-provisioner/gen-client/client/operations"
+	"github.com/vpngen/domain-commander/subdomain-provisioner/gen-client/models"
 )
 
 const APIRequestTimeout = 10 * time.Second
 
 // ErrEmptySubdomain - is returned when the subdomain is empty
 var ErrEmptySubdomain = errors.New("empty subdomain")
+
+// ErrEmptyNameServers - is returned when the name servers are empty
+var ErrEmptyNameServers = errors.New("empty name servers")
 
 func createSubdomainAPIClient(host, token string) (*apiclient.Subdomapi, runtime.ClientAuthInfoWriter) {
 	// create the transport
@@ -30,23 +35,29 @@ func createSubdomainAPIClient(host, token string) (*apiclient.Subdomapi, runtime
 	return client, bearerToken
 }
 
-func SubdomainPick(host, token string) (string, error) {
+func SubdomainPick(host, token, srvZone string) (string, string, error) {
 	client, bearerToken := createSubdomainAPIClient(host, token)
 
 	// make the request
 	resp, err := client.Operations.PostSubdomain(
-		operations.NewPostSubdomainParams().WithTimeout(APIRequestTimeout),
+		operations.NewPostSubdomainParams().
+			WithTimeout(APIRequestTimeout).
+			WithBody(&models.SubdomainRequest{ServiceZone: srvZone}),
 		bearerToken,
 	)
 	if err != nil {
-		return "", fmt.Errorf("post subdomain: %w", err)
+		return "", "", fmt.Errorf("post subdomain: %w", err)
 	}
 
-	if resp.Payload.SubdomainName == nil {
-		return "", ErrEmptySubdomain
+	if resp.Payload.SubdomainName == nil || resp.Payload.NameServers == nil {
+		return "", "", ErrEmptySubdomain
 	}
 
-	return *resp.Payload.SubdomainName, nil
+	if resp.Payload.NameServers == nil {
+		return "", "", ErrEmptyNameServers
+	}
+
+	return swag.StringValue(resp.Payload.SubdomainName), swag.StringValue(resp.Payload.NameServers), nil
 }
 
 func SubdomainDelete(host, token, subdomain string) error {

@@ -212,7 +212,7 @@ func checkBrigade(db *pgxpool.Pool, schema string, brigadeID string) (netip.Addr
 }
 
 func replaceBrigadier(sshconf *ssh.ClientConfig, brigadeID string, control_ip netip.Addr, opts vpnCfgs) (*models.Newuser, error) {
-	cmd := fmt.Sprintf("replace -id %s -ch -j", brigadeID)
+	cmd := fmt.Sprintf("replace -id %s -j", brigadeID)
 
 	if opts.wg != "" {
 		cmd += fmt.Sprintf(" -wg %s", opts.wg)
@@ -228,6 +228,10 @@ func replaceBrigadier(sshconf *ssh.ClientConfig, brigadeID string, control_ip ne
 
 	if opts.outline != "" {
 		cmd += fmt.Sprintf(" -outline %s", opts.outline)
+	}
+
+	if opts.proto0 != "" {
+		cmd += fmt.Sprintf(" -proto0 %s", opts.proto0)
 	}
 
 	fmt.Fprintf(os.Stderr, "%s: %s#%s:22 -> %s\n", LogTag, sshkeyRemoteUsername, control_ip, cmd)
@@ -265,7 +269,8 @@ func replaceBrigadier(sshconf *ssh.ClientConfig, brigadeID string, control_ip ne
 		return nil, fmt.Errorf("ssh run: %w", err)
 	}
 
-	payload, err := io.ReadAll(httputil.NewChunkedReader(&b))
+	// payload, err := io.ReadAll(httputil.NewChunkedReader(&b))
+	payload, err := io.ReadAll(&b)
 	if err != nil {
 		return nil, fmt.Errorf("chunk read: %w", err)
 	}
@@ -333,6 +338,7 @@ type vpnCfgs struct {
 	ovc     string
 	ipsec   string
 	outline string
+	proto0  string
 }
 
 func readConfigs() (string, string, string, vpnCfgs, error) {
@@ -361,6 +367,7 @@ func readConfigs() (string, string, string, vpnCfgs, error) {
 	opts.ovc = os.Getenv("REPLACE_OVC_CONFIGS")
 	opts.ipsec = os.Getenv("REPLACE_IPSEC_CONFIGS")
 	opts.outline = os.Getenv("REPLACE_OUTLINE_CONFIGS")
+	opts.proto0 = os.Getenv("REPLACE_PROTO0_CONFIGS")
 
 	return sshKeyFilename, dbURL, brigadeSchema, opts, nil
 }

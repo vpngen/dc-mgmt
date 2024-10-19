@@ -52,6 +52,33 @@ func SetSecurityHandlers(ctx context.Context, opts *APIOpts, jwtMethod jwt.Signi
 	}
 }
 
+func SetBrigadeHandlers(ctx context.Context, opts *APIOpts) {
+	hopts := &handlers.Options{
+		Options: core.Options{
+			Db:    opts.Db,
+			SqFmt: opts.SqFmt,
+
+			AccessKey: opts.AccessKey,
+
+			KdTesting: opts.KdTesting,
+		},
+
+		Testing: opts.Testing,
+	}
+
+	opts.API.GetBrigadeSlotsHandler = operations.GetBrigadeSlotsHandlerFunc(func(params operations.GetBrigadeSlotsParams, principal *models.Principal) middleware.Responder {
+		logger := NewLogger(opts.Logger, params.HTTPRequest, principal)
+
+		return handlers.GetBrigadeSlotsHandler(ctx, logger, hopts, params, principal)
+	})
+
+	opts.API.GetBrigadeActivityHandler = operations.GetBrigadeActivityHandlerFunc(func(params operations.GetBrigadeActivityParams, principal *models.Principal) middleware.Responder {
+		logger := NewLogger(opts.Logger, params.HTTPRequest, principal)
+
+		return handlers.GetBrigadeActivityHandler(ctx, logger, hopts, params, principal)
+	})
+}
+
 func SetUserHandlers(ctx context.Context, opts *APIOpts) {
 	hopts := &handlers.Options{
 		Options: core.Options{
@@ -71,12 +98,6 @@ func SetUserHandlers(ctx context.Context, opts *APIOpts) {
 
 		return handlers.PostConfigHandler(ctx, logger, hopts, params, principal)
 	})
-
-	/*opts.API.PutUserHandler = operations.PutUserHandlerFunc(func(params operations.PutUserParams, principal *models.Principal) middleware.Responder {
-		logger := NewLogger(opts.Logger, params.HTTPRequest, principal)
-
-		return handlers.PutUserHandler(ctx, logger, hopts, params, principal)
-	})*/
 
 	opts.API.DeleteConfigHandler = operations.DeleteConfigHandlerFunc(func(params operations.DeleteConfigParams, principal *models.Principal) middleware.Responder {
 		logger := NewLogger(opts.Logger, params.HTTPRequest, principal)
