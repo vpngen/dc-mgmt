@@ -83,7 +83,7 @@ type DeleteConfigBody struct {
 	// Brigade ID
 	// Required: true
 	// Format: uuid
-	BrigadeID *strfmt.UUID `json:"brigadeID"`
+	BrigadeID *strfmt.UUID `json:"brigade_id"`
 }
 
 // Validate validates this delete config body
@@ -102,11 +102,11 @@ func (o *DeleteConfigBody) Validate(formats strfmt.Registry) error {
 
 func (o *DeleteConfigBody) validateBrigadeID(formats strfmt.Registry) error {
 
-	if err := validate.Required("body"+"."+"brigadeID", "body", o.BrigadeID); err != nil {
+	if err := validate.Required("body"+"."+"brigade_id", "body", o.BrigadeID); err != nil {
 		return err
 	}
 
-	if err := validate.FormatOf("body"+"."+"brigadeID", "body", "uuid", o.BrigadeID.String(), formats); err != nil {
+	if err := validate.FormatOf("body"+"."+"brigade_id", "body", "uuid", o.BrigadeID.String(), formats); err != nil {
 		return err
 	}
 

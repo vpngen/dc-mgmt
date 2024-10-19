@@ -31,6 +31,14 @@ type VPNConfig struct {
 	// wire guard config
 	WireGuardConfig *WireGuardConfig `json:"WireGuardConfig,omitempty"`
 
+	// domain
+	// Required: true
+	Domain *string `json:"domain"`
+
+	// name
+	// Required: true
+	Name *string `json:"name"`
+
 	// user id
 	// Required: true
 	// Format: uuid4
@@ -54,6 +62,14 @@ func (m *VPNConfig) Validate(formats strfmt.Registry) error {
 	}
 
 	if err := m.validateWireGuardConfig(formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.validateDomain(formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.validateName(formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -138,6 +154,24 @@ func (m *VPNConfig) validateWireGuardConfig(formats strfmt.Registry) error {
 			}
 			return err
 		}
+	}
+
+	return nil
+}
+
+func (m *VPNConfig) validateDomain(formats strfmt.Registry) error {
+
+	if err := validate.Required("domain", "body", m.Domain); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (m *VPNConfig) validateName(formats strfmt.Registry) error {
+
+	if err := validate.Required("name", "body", m.Name); err != nil {
+		return err
 	}
 
 	return nil

@@ -23,9 +23,9 @@ func getBrigadesGroups(db *pgxpool.Pool, schema_pairs, schema_brigades string, e
 	LEFT JOIN
 		%s AS b ON p.pair_id = b.pair_id
 	WHERE
-		b.endpoint_ipv4 << $1::cidr
+		b.endpoint_ipv4 <<= $1::cidr
 	AND
-		p.control_ip << $2::cidr
+		p.control_ip <<= $2::cidr
 	GROUP BY
 		p.pair_id
 	HAVING

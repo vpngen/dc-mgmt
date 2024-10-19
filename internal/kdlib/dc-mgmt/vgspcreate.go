@@ -18,106 +18,24 @@ import (
 	sq "github.com/Masterminds/squirrel"
 )
 
-const vgsActionCreateBrigade = "create_brigade"
+const VgsActionCreateBrigade = "create_brigade"
 
 var (
 	vgsControlNetWindow  = netip.MustParsePrefix("10.0.0.0/8")
 	vgsEndpointNetWindow = netip.MustParsePrefix("180.0.0.0/8")
 )
 
-func VgsCreateBrigade(ctx context.Context, logger *slog.Logger, db *pgxpool.Pool, sqfmt sq.StatementBuilderType,
-	orderID uuid.UUID,
-	dcident string, pairID uuid.UUID, controlIP netip.Addr, endpointIP netip.Addr,
-	brigadeID uuid.UUID, brigadeName string,
-	host, token string,
-	sshkey, sshuser, server string,
-	ns []string, vpnCfgs *VpnCfgs,
-	maxusers int,
-	doNotCreatePhy bool,
-) error {
-	logger.Info("creating brigade", "brigade_id", brigadeID, "brigade_name", brigadeName, "order_id", orderID, "control_ip", controlIP, "endpoint_ipv4", endpointIP)
-
-	err := vgsSetOrderFilling(ctx, logger, db, sqfmt, orderID)
-	if err != nil {
-		if err := vgsSetOrderError(ctx, logger, db, sqfmt, orderID, err.Error()); err != nil {
-			return fmt.Errorf("error setting order error: %w", err)
-		}
-
-		return fmt.Errorf("error setting order filling: %w", err)
-	}
-
-	sshconf, err := kdlib.CreateSSHConfig(sshkey, sshuser, kdlib.SSHDefaultTimeOut)
-	if err != nil {
-		if err := vgsSetOrderError(ctx, logger, db, sqfmt, orderID, err.Error()); err != nil {
-			return fmt.Errorf("error setting order error: %w", err)
-		}
-
-		return fmt.Errorf("error creating ssh configs: %w", err)
-	}
-
-	if err := vgsCreateBrigade(ctx, db, logger, dcident,
-		&brigadeOpts{
-			id:   brigadeID.String(),
-			name: brigadeName,
-		},
-		&pairOpts{
-			pairID:       pairID,
-			endpointIPv4: endpointIP,
-			controlIP:    controlIP,
-		},
-		&delegationSync{
-			sshconf: sshconf,
-			server:  server,
-		},
-		&subdomAPI{
-			host:  host,
-			token: token,
-		},
-	); err != nil {
-		if err := vgsSetOrderError(ctx, logger, db, sqfmt, orderID, err.Error()); err != nil {
-			return fmt.Errorf("error setting order error: %w", err)
-		}
-
-		return fmt.Errorf("error creating brigade: %w", err)
-	}
-
-	if !doNotCreatePhy {
-		sshconf, err := kdlib.CreateSSHConfig(sshkey, sshkeyRemoteUsername, kdlib.SSHDefaultTimeOut)
-		if err != nil {
-			if err := vgsSetOrderError(ctx, logger, db, sqfmt, orderID, err.Error()); err != nil {
-				return fmt.Errorf("error setting order error: %w", err)
-			}
-
-			return fmt.Errorf("error creating ssh configs: %w", err)
-		}
-
-		if err := vgsRequestBrigade(ctx, db, logger, sshconf, brigadeID.String(), ns, vpnCfgs, maxusers); err != nil {
-			if err := vgsSetOrderError(ctx, logger, db, sqfmt, orderID, err.Error()); err != nil {
-				return fmt.Errorf("error setting order error: %w", err)
-			}
-
-			return fmt.Errorf("error requesting brigade: %w", err)
-		}
-	}
-
-	if err := vgsSetOrderCompleted(ctx, logger, db, sqfmt, orderID); err != nil {
-		return fmt.Errorf("error setting order completed: %w", err)
-	}
-
-	logger.Info("brigade created", "brigade_id", brigadeID, "brigade_name", brigadeName, "order_id", orderID)
-
-	return nil
-}
+// created_at +=> pair_completed_at +=> completed_at || failed_at
 
 // VgsOrderCreateBrigade creates an order to create a brigade.
 func VgsOrderCreateBrigade(ctx context.Context, logger *slog.Logger, db *pgxpool.Pool, sqfmt sq.StatementBuilderType,
-	brigadeID uuid.UUID, brigadeName string,
-) (uuid.UUID, error) {
-	logger.Info("creating brigade order", "brigade_id", brigadeID, "brigade_name", brigadeName)
+	brigadeID uuid.UUID, brigadeName string, zone string,
+) (uuid.UUID, string, int64, error) {
+	logger.Info("creating brigade order", "brigade_id", brigadeID, "brigade_name", brigadeName, "zone", zone)
 
 	tx, err := db.Begin(ctx)
 	if err != nil {
-		return uuid.Nil, fmt.Errorf("error starting transaction: %w", err)
+		return uuid.Nil, "", 0, fmt.Errorf("error starting transaction: %w", err)
 	}
 
 	defer tx.Rollback(ctx)
@@ -131,46 +49,46 @@ func VgsOrderCreateBrigade(ctx context.Context, logger *slog.Logger, db *pgxpool
 
 	sql, args, err := queryNum.ToSql()
 	if err != nil {
-		return uuid.Nil, fmt.Errorf("error building SQL: %w", err)
+		return uuid.Nil, "", 0, fmt.Errorf("error building SQL: %w", err)
 	}
 
 	var numID int
 
 	if err := tx.QueryRow(ctx, sql, args...).Scan(&numID); err != nil {
-		return uuid.Nil, fmt.Errorf("error inserting number: %w", err)
+		return uuid.Nil, "", 0, fmt.Errorf("error inserting number: %w", err)
 	}
 
 	query := sqfmt.Insert("pairs.pair_orders").
-		Columns("endpoint_num", "brigade_id", "brigade_name", "action", "created_at", "is_processing", "is_registering", "is_filling", "is_completed", "is_error", "message").
-		Values(numID, brigadeID, brigadeName, vgsActionCreateBrigade, now, false, false, false, false, false, "").
+		Columns("endpoint_num", "brigade_id", "brigade_name", "zone", "action", "created_at", "message").
+		Values(numID, brigadeID, brigadeName, zone, VgsActionCreateBrigade, now, "").
 		Suffix("RETURNING order_id")
 
 	sql, args, err = query.ToSql()
 	if err != nil {
-		return uuid.Nil, fmt.Errorf("error building SQL: %w", err)
+		return uuid.Nil, "", 0, fmt.Errorf("error building SQL: %w", err)
 	}
 
 	var orderID uuid.UUID
 
 	if err := tx.QueryRow(ctx, sql, args...).Scan(&orderID); err != nil {
-		return uuid.Nil, fmt.Errorf("error inserting order: %w", err)
+		return uuid.Nil, "", 0, fmt.Errorf("error inserting order: %w", err)
 	}
 
 	if err := tx.Commit(ctx); err != nil {
-		return uuid.Nil, fmt.Errorf("error committing transaction: %w", err)
+		return uuid.Nil, "", 0, fmt.Errorf("error committing transaction: %w", err)
 	}
 
 	logger.Info("brigade order created", "brigade_id", brigadeID, "brigade_name", brigadeName, "order_id", orderID, "endpoint_num", numID)
 
-	return orderID, nil
+	return orderID, VgsOrderStatusAccepted, DefaultVgsOrderRetryAfter, nil
 }
 
 func VgsCreatePair(ctx context.Context, logger *slog.Logger, db *pgxpool.Pool, sqfmt sq.StatementBuilderType,
 	app string, orderID uuid.UUID, doNotCreatePhy bool,
-) (uuid.UUID, netip.Addr, netip.Addr, error) {
-	num, err := vgsSetOrderProcessing(ctx, logger, db, sqfmt, orderID)
+) error {
+	num, zone, _, _, _, _, _, err := vgsGetOrderMeta(ctx, logger, db, sqfmt, orderID, true)
 	if err != nil {
-		return uuid.Nil, netip.Addr{}, netip.Addr{}, fmt.Errorf("error setting order processing: %w", err)
+		return fmt.Errorf("error setting order processing: %w", err)
 	}
 
 	logger.Info("creating pair", "order_id", orderID, "endpoint_num", num)
@@ -187,42 +105,34 @@ func VgsCreatePair(ctx context.Context, logger *slog.Logger, db *pgxpool.Pool, s
 		controlIP = kdlib.RandomAddrIPv4(vgsControlNetWindow)
 		endpointIP = kdlib.RandomAddrIPv4(vgsEndpointNetWindow)
 	default:
-		controlIP, endpointIP, err = vgsProcessPair(ctx, logger, app, num)
+		controlIP, endpointIP, err = vgsProcessPair(ctx, logger, app, num, zone)
 		if err != nil {
 			if err := vgsSetOrderError(ctx, logger, db, sqfmt, orderID, err.Error()); err != nil {
-				return uuid.Nil, netip.Addr{}, netip.Addr{}, fmt.Errorf("error setting order error: %w", err)
+				return fmt.Errorf("error setting order error: %w", err)
 			}
 
-			return uuid.Nil, netip.Addr{}, netip.Addr{}, fmt.Errorf("error processing pair: %w", err)
+			return fmt.Errorf("error processing pair: %w", err)
 		}
 	}
 
-	logger.Info("pair physically created", "order_id", orderID, "endpoint_num", num, "control_ip", controlIP, "endpoint_ipv4", endpointIP, "duration", time.Since(start))
+	logger.Info("pair created", "order_id", orderID, "endpoint_num", num, "control_ip", controlIP, "endpoint_ipv4", endpointIP, "duration", time.Since(start))
 
-	if err := vgsSetOrderRegistering(ctx, logger, db, sqfmt, orderID); err != nil {
-		if err := vgsSetOrderError(ctx, logger, db, sqfmt, orderID, err.Error()); err != nil {
-			return uuid.Nil, netip.Addr{}, netip.Addr{}, fmt.Errorf("error setting order error: %w", err)
-		}
-
-		return uuid.Nil, netip.Addr{}, netip.Addr{}, fmt.Errorf("error setting order registering: %w", err)
-	}
-
-	pairID, err := vgsRegisterPair(ctx, logger, db, sqfmt, controlIP, endpointIP, num)
+	pairID, err := vgsRegisterPair(ctx, logger, db, sqfmt, controlIP, endpointIP, orderID, num, zone)
 	if err != nil {
 		if err := vgsSetOrderError(ctx, logger, db, sqfmt, orderID, err.Error()); err != nil {
-			return uuid.Nil, netip.Addr{}, netip.Addr{}, fmt.Errorf("error setting order error: %w", err)
+			return fmt.Errorf("error setting order error: %w", err)
 		}
 
-		return uuid.Nil, netip.Addr{}, netip.Addr{}, fmt.Errorf("error registering pair: %w", err)
+		return fmt.Errorf("error registering pair: %w", err)
 	}
 
 	logger.Info("pair created", "order_id", orderID, "endpoint_id", pairID, "endpoint_num", num, "control_ip", controlIP, "endpoint_ipv4", endpointIP)
 
-	return pairID, controlIP, endpointIP, nil
+	return nil
 }
 
 func vgsRegisterPair(ctx context.Context, _ *slog.Logger, db *pgxpool.Pool, sqfmt sq.StatementBuilderType,
-	controlIP netip.Addr, endpointIP netip.Addr, num int,
+	controlIP netip.Addr, endpointIP netip.Addr, orderID uuid.UUID, num int, zone string,
 ) (uuid.UUID, error) {
 	tx, err := db.Begin(ctx)
 	if err != nil {
@@ -234,8 +144,8 @@ func vgsRegisterPair(ctx context.Context, _ *slog.Logger, db *pgxpool.Pool, sqfm
 	newid := uuid.New()
 
 	query := sqfmt.Insert("pairs.pairs").
-		Columns("pair_id", "control_ip", "is_active").
-		Values(newid, controlIP, true).
+		Columns("pair_id", "control_ip", "zone", "is_active").
+		Values(newid, controlIP, zone, true).
 		Suffix("ON CONFLICT (control_ip) DO UPDATE SET is_active=TRUE RETURNING pair_id")
 
 	sql, args, err := query.ToSql()
@@ -275,6 +185,19 @@ func vgsRegisterPair(ctx context.Context, _ *slog.Logger, db *pgxpool.Pool, sqfm
 		return uuid.Nil, fmt.Errorf("error inserting number: %w", err)
 	}
 
+	queryStatus := sqfmt.Update("pairs.pair_orders").
+		Set("pair_completed_at", time.Now().UTC()).
+		Where(sq.Eq{"order_id": orderID})
+
+	sql, args, err = queryStatus.ToSql()
+	if err != nil {
+		return uuid.Nil, fmt.Errorf("error building SQL: %w", err)
+	}
+
+	if _, err := tx.Exec(ctx, sql, args...); err != nil {
+		return uuid.Nil, fmt.Errorf("error updating order: %w", err)
+	}
+
 	if err := tx.Commit(ctx); err != nil {
 		return uuid.Nil, fmt.Errorf("error committing transaction: %w", err)
 	}
@@ -293,7 +216,7 @@ type VgsPairsResult struct {
 	} `json:"endpoint,omitempty"`
 }
 
-func vgsProcessPair(_ context.Context, logger *slog.Logger, app string, number int) (netip.Addr, netip.Addr, error) {
+func vgsProcessPair(_ context.Context, logger *slog.Logger, app string, number int, _ string) (netip.Addr, netip.Addr, error) {
 	var (
 		stderr bytes.Buffer
 		result VgsPairsResult
@@ -336,194 +259,4 @@ func vgsProcessPair(_ context.Context, logger *slog.Logger, app string, number i
 	}
 
 	return result.Control.IP, result.Endpoint.IP, nil
-}
-
-func vgsSetOrderProcessing(ctx context.Context, _ *slog.Logger, db *pgxpool.Pool, sqfmt sq.StatementBuilderType,
-	orderID uuid.UUID,
-) (int, error) {
-	tx, err := db.Begin(ctx)
-	if err != nil {
-		return 0, fmt.Errorf("error starting transaction: %w", err)
-	}
-
-	defer tx.Rollback(ctx)
-
-	now := time.Now().UTC()
-
-	query := sqfmt.Update("pairs.pair_orders").
-		Set("is_processing", true).
-		Set("processing_started_at", now).
-		Where(sq.Eq{"order_id": orderID})
-
-	sql, args, err := query.ToSql()
-	if err != nil {
-		return 0, fmt.Errorf("error building SQL: %w", err)
-	}
-
-	if _, err := tx.Exec(ctx, sql, args...); err != nil {
-		return 0, fmt.Errorf("error updating order: %w", err)
-	}
-
-	queryNum := sqfmt.Select("endpoint_num").
-		From("pairs.pair_orders").
-		Where(sq.Eq{"order_id": orderID})
-
-	sql, args, err = queryNum.ToSql()
-	if err != nil {
-		return 0, fmt.Errorf("error building SQL: %w", err)
-	}
-
-	var numID int
-
-	if err := tx.QueryRow(ctx, sql, args...).Scan(&numID); err != nil {
-		return 0, fmt.Errorf("error getting number ID: %w", err)
-	}
-
-	if err := tx.Commit(ctx); err != nil {
-		return 0, fmt.Errorf("error committing transaction: %w", err)
-	}
-
-	return numID, nil
-}
-
-func vgsSetOrderRegistering(ctx context.Context, _ *slog.Logger, db *pgxpool.Pool, sqfmt sq.StatementBuilderType,
-	orderID uuid.UUID,
-) error {
-	tx, err := db.Begin(ctx)
-	if err != nil {
-		return fmt.Errorf("error starting transaction: %w", err)
-	}
-
-	defer tx.Rollback(ctx)
-
-	now := time.Now().UTC()
-
-	query := sqfmt.Update("pairs.pair_orders").
-		Set("is_processing", false).
-		Set("is_registering", true).
-		Set("registering_started_at", now).
-		Where(sq.Eq{"order_id": orderID})
-
-	sql, args, err := query.ToSql()
-	if err != nil {
-		return fmt.Errorf("error building SQL: %w", err)
-	}
-
-	if _, err := tx.Exec(ctx, sql, args...); err != nil {
-		return fmt.Errorf("error updating order: %w", err)
-	}
-
-	if err := tx.Commit(ctx); err != nil {
-		return fmt.Errorf("error committing transaction: %w", err)
-	}
-
-	return nil
-}
-
-func vgsSetOrderFilling(ctx context.Context, _ *slog.Logger, db *pgxpool.Pool, sqfmt sq.StatementBuilderType,
-	orderID uuid.UUID,
-) error {
-	tx, err := db.Begin(ctx)
-	if err != nil {
-		return fmt.Errorf("error starting transaction: %w", err)
-	}
-
-	defer tx.Rollback(ctx)
-
-	now := time.Now().UTC()
-
-	query := sqfmt.Update("pairs.pair_orders").
-		Set("is_processing", false).
-		Set("is_registering", false).
-		Set("is_filling", true).
-		Set("filling_started_at", now).
-		Where(sq.Eq{"order_id": orderID})
-
-	sql, args, err := query.ToSql()
-	if err != nil {
-		return fmt.Errorf("error building SQL: %w", err)
-	}
-
-	if _, err := tx.Exec(ctx, sql, args...); err != nil {
-		return fmt.Errorf("error updating order: %w", err)
-	}
-
-	if err := tx.Commit(ctx); err != nil {
-		return fmt.Errorf("error committing transaction: %w", err)
-	}
-
-	return nil
-}
-
-func vgsSetOrderCompleted(ctx context.Context, _ *slog.Logger, db *pgxpool.Pool, sqfmt sq.StatementBuilderType,
-	orderID uuid.UUID,
-) error {
-	tx, err := db.Begin(ctx)
-	if err != nil {
-		return fmt.Errorf("error starting transaction: %w", err)
-	}
-
-	defer tx.Rollback(ctx)
-
-	now := time.Now().UTC()
-
-	query := sqfmt.Update("pairs.pair_orders").
-		Set("is_processing", false).
-		Set("is_registering", false).
-		Set("is_filling", false).
-		Set("is_completed", true).
-		Set("completed_at", now).
-		Where(sq.Eq{"order_id": orderID})
-
-	sql, args, err := query.ToSql()
-	if err != nil {
-		return fmt.Errorf("error building SQL: %w", err)
-	}
-
-	if _, err := tx.Exec(ctx, sql, args...); err != nil {
-		return fmt.Errorf("error updating order: %w", err)
-	}
-
-	if err := tx.Commit(ctx); err != nil {
-		return fmt.Errorf("error committing transaction: %w", err)
-	}
-
-	return nil
-}
-
-func vgsSetOrderError(ctx context.Context, _ *slog.Logger, db *pgxpool.Pool, sqfmt sq.StatementBuilderType,
-	orderID uuid.UUID, message string,
-) error {
-	tx, err := db.Begin(ctx)
-	if err != nil {
-		return fmt.Errorf("error starting transaction: %w", err)
-	}
-
-	defer tx.Rollback(ctx)
-
-	now := time.Now().UTC()
-
-	query := sqfmt.Update("pairs.pair_orders").
-		Set("is_processing", false).
-		Set("is_registering", false).
-		Set("is_filling", false).
-		Set("is_error", true).
-		Set("error_at", now).
-		Set("message", message).
-		Where(sq.Eq{"order_id": orderID})
-
-	sql, args, err := query.ToSql()
-	if err != nil {
-		return fmt.Errorf("error building SQL: %w", err)
-	}
-
-	if _, err := tx.Exec(ctx, sql, args...); err != nil {
-		return fmt.Errorf("error updating order: %w", err)
-	}
-
-	if err := tx.Commit(ctx); err != nil {
-		return fmt.Errorf("error committing transaction: %w", err)
-	}
-
-	return nil
 }

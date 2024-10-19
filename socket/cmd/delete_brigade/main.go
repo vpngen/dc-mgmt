@@ -45,7 +45,7 @@ func main() {
 	SqFmt := sq.StatementBuilder.PlaceholderFormat(sq.Dollar)
 
 	// 1. create order
-	orderID, pairID, controlIP, err := dcmgmtlib.VgsOrderDeleteBrigade(ctx, logger, dbPool, SqFmt, cfg.BrigadeID)
+	orderID, _, _, err := dcmgmtlib.VgsOrderDeleteBrigade(ctx, logger, dbPool, SqFmt, cfg.BrigadeID)
 	if err != nil {
 		logger.Error("error creating order", "error", err)
 
@@ -54,8 +54,7 @@ func main() {
 
 	// 2. delete brigade
 	if err := dcmgmtlib.VgsDeleteBrigade(ctx, logger, dbPool, SqFmt, orderID,
-		cfg.DCIdent, pairID, controlIP,
-		cfg.BrigadeID,
+		cfg.DCIdent,
 		cfg.SubdomAPIHost, cfg.SubdomAPIToken,
 		cfg.SSHKeyFile, cfg.DelegationSyncUser, cfg.DelegationSyncHost,
 		cfg.MgmtRandomResponses,
@@ -68,7 +67,7 @@ func main() {
 	// 3. delete control/endpoint pair
 
 	if err := dcmgmtlib.VgsDeletePair(ctx, logger, dbPool, SqFmt,
-		cfg.PairsApp, orderID, pairID, cfg.MgmtRandomResponses); err != nil {
+		cfg.PairsApp, orderID, cfg.MgmtRandomResponses); err != nil {
 		logger.Error("error deleting pair", "error", err)
 
 		log.Fatalf("Error deleting pair: %s", err)

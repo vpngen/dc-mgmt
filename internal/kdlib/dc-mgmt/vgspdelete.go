@@ -3,10 +3,10 @@ package dcmgmt
 import (
 	"bytes"
 	"context"
-	"encoding/base32"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/netip"
 	"os/exec"
@@ -14,94 +14,30 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/vpngen/dc-mgmt/internal/kdlib"
 
 	sq "github.com/Masterminds/squirrel"
 )
 
-const vgsActionDeleteBrigade = "delete_brigade"
+// created_at +=> brigade_completed_at +=> completed_at || failed_at
 
-func VgsDeleteBrigade(ctx context.Context, logger *slog.Logger, db *pgxpool.Pool, sqfmt sq.StatementBuilderType,
-	orderID uuid.UUID,
-	dcident string, pairID uuid.UUID, controlIP netip.Addr,
-	brigadeID uuid.UUID,
-	host, token string,
-	sshkey, sshuser, server string,
-	doNotCreatePhy bool,
-) error {
-	logger.Info("deleting brigade", "brigade_id", brigadeID, "order_id", orderID, "control_ip", controlIP)
-
-	err := vgsSetOrderFilling(ctx, logger, db, sqfmt, orderID)
-	if err != nil {
-		if err := vgsSetOrderError(ctx, logger, db, sqfmt, orderID, err.Error()); err != nil {
-			return fmt.Errorf("error setting order error: %w", err)
-		}
-
-		return fmt.Errorf("error setting order filling: %w", err)
-	}
-
-	if !doNotCreatePhy {
-		sshconf, err := kdlib.CreateSSHConfig(sshkey, sshkeyRemoteUsername, kdlib.SSHDefaultTimeOut)
-		if err != nil {
-			if err := vgsSetOrderError(ctx, logger, db, sqfmt, orderID, err.Error()); err != nil {
-				return fmt.Errorf("error setting order error: %w", err)
-			}
-
-			return fmt.Errorf("error creating ssh configs: %w", err)
-		}
-
-		bid := base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(brigadeID[:])
-
-		if err := vgsRevokeBrigade(ctx, logger, sshconf, bid, controlIP); err != nil {
-			if err := vgsSetOrderError(ctx, logger, db, sqfmt, orderID, err.Error()); err != nil {
-				return fmt.Errorf("error setting order error: %w", err)
-			}
-
-			return fmt.Errorf("error revoking brigade: %w", err)
-		}
-	}
-
-	sshconf, err := kdlib.CreateSSHConfig(sshkey, sshuser, kdlib.SSHDefaultTimeOut)
-	if err != nil {
-		if err := vgsSetOrderError(ctx, logger, db, sqfmt, orderID, err.Error()); err != nil {
-			return fmt.Errorf("error setting order error: %w", err)
-		}
-
-		return fmt.Errorf("error creating ssh configs: %w", err)
-	}
-
-	if err := vgsRemoveBrigadeFull(ctx, db, logger, dcident,
-		brigadeID.String(),
-		server, sshconf, host, token,
-	); err != nil {
-		if err := vgsSetOrderError(ctx, logger, db, sqfmt, orderID, err.Error()); err != nil {
-			return fmt.Errorf("error setting order error: %w", err)
-		}
-
-		return fmt.Errorf("error deleting brigade: %w", err)
-	}
-
-	logger.Info("brigade deleted", "brigade_id", brigadeID, "order_id", orderID)
-
-	return nil
-}
+const VgsActionDeleteBrigade = "delete_brigade"
 
 // VgsOrderDeleteBrigade creates an order to create a brigade.
 func VgsOrderDeleteBrigade(ctx context.Context, logger *slog.Logger, db *pgxpool.Pool, sqfmt sq.StatementBuilderType,
 	brigadeID uuid.UUID,
-) (uuid.UUID, uuid.UUID, netip.Addr, error) {
+) (uuid.UUID, string, int64, error) {
 	logger.Info("deleting brigade order", "brigade_id", brigadeID)
 
 	tx, err := db.Begin(ctx)
 	if err != nil {
-		return uuid.Nil, uuid.Nil, netip.Addr{}, fmt.Errorf("error starting transaction: %w", err)
+		return uuid.Nil, "", 0, fmt.Errorf("error starting transaction: %w", err)
 	}
 
 	defer tx.Rollback(ctx)
 
 	now := time.Now().UTC()
 
-	queryNumName := sqfmt.Select("l.endpoint_num", "b.brigadier", "p.pair_id", "p.control_ip").
+	queryNumName := sqfmt.Select("l.endpoint_num", "b.brigadier", "p.pair_id", "p.control_ip", "p.zone").
 		From("brigades.brigades b").
 		Join("pairs.pairs p ON b.pair_id = p.pair_id").
 		Join("pairs.endpoint_num_links l ON b.endpoint_ipv4 = l.endpoint_ipv4").
@@ -109,7 +45,7 @@ func VgsOrderDeleteBrigade(ctx context.Context, logger *slog.Logger, db *pgxpool
 
 	sql, args, err := queryNumName.ToSql()
 	if err != nil {
-		return uuid.Nil, uuid.Nil, netip.Addr{}, fmt.Errorf("error building SQL: %w", err)
+		return uuid.Nil, "", 0, fmt.Errorf("error building SQL: %w", err)
 	}
 
 	var (
@@ -117,41 +53,42 @@ func VgsOrderDeleteBrigade(ctx context.Context, logger *slog.Logger, db *pgxpool
 		brigadeName string
 		pairID      uuid.UUID
 		controlIP   netip.Addr
+		zone        string
 	)
 
-	if err := tx.QueryRow(ctx, sql, args...).Scan(&numID, &brigadeName, &pairID, &controlIP); err != nil {
-		return uuid.Nil, uuid.Nil, netip.Addr{}, fmt.Errorf("error reading number and name: %w", err)
+	if err := tx.QueryRow(ctx, sql, args...).Scan(&numID, &brigadeName, &pairID, &controlIP, &zone); err != nil {
+		return uuid.Nil, "", 0, fmt.Errorf("error reading number and name: %w", err)
 	}
 
 	query := sqfmt.Insert("pairs.pair_orders").
-		Columns("endpoint_num", "brigade_id", "brigade_name", "action", "created_at", "is_processing", "is_registering", "is_filling", "is_completed", "is_error", "message").
-		Values(numID, brigadeID, brigadeName, vgsActionDeleteBrigade, now, false, false, false, false, false, "").
+		Columns("endpoint_num", "brigade_id", "brigade_name", "zone", "action", "created_at", "message").
+		Values(numID, brigadeID, brigadeName, zone, VgsActionDeleteBrigade, now, "").
 		Suffix("RETURNING order_id")
 
 	sql, args, err = query.ToSql()
 	if err != nil {
-		return uuid.Nil, uuid.Nil, netip.Addr{}, fmt.Errorf("error building SQL: %w", err)
+		return uuid.Nil, "", 0, fmt.Errorf("error building SQL: %w", err)
 	}
 
 	var orderID uuid.UUID
 
 	if err := tx.QueryRow(ctx, sql, args...).Scan(&orderID); err != nil {
-		return uuid.Nil, uuid.Nil, netip.Addr{}, fmt.Errorf("error inserting order: %w", err)
+		return uuid.Nil, "", 0, fmt.Errorf("error inserting order: %w", err)
 	}
 
 	if err := tx.Commit(ctx); err != nil {
-		return uuid.Nil, uuid.Nil, netip.Addr{}, fmt.Errorf("error committing transaction: %w", err)
+		return uuid.Nil, "", 0, fmt.Errorf("error committing transaction: %w", err)
 	}
 
 	logger.Info("brigade order created", "brigade_id", brigadeID, "brigade_name", brigadeName, "order_id", orderID, "endpoint_num", numID)
 
-	return orderID, pairID, controlIP, nil
+	return orderID, VgsOrderStatusAccepted, DefaultVgsOrderRetryAfter, nil
 }
 
 func VgsDeletePair(ctx context.Context, logger *slog.Logger, db *pgxpool.Pool, sqfmt sq.StatementBuilderType,
-	app string, orderID uuid.UUID, pairID uuid.UUID, doNotCreatePhy bool,
+	app string, orderID uuid.UUID, doNotCreatePhy bool,
 ) error {
-	num, err := vgsSetOrderProcessing(ctx, logger, db, sqfmt, orderID)
+	num, zone, pairID, _, endpointIPv4, _, _, err := vgsGetOrderMeta(ctx, logger, db, sqfmt, orderID, false)
 	if err != nil {
 		return fmt.Errorf("error setting order processing: %w", err)
 	}
@@ -163,7 +100,7 @@ func VgsDeletePair(ctx context.Context, logger *slog.Logger, db *pgxpool.Pool, s
 	switch doNotCreatePhy {
 	case true:
 	default:
-		if err := vgsProcessPairDeleting(ctx, logger, app, num); err != nil {
+		if err := vgsProcessPairDeleting(ctx, logger, app, num, zone); err != nil {
 			if err := vgsSetOrderError(ctx, logger, db, sqfmt, orderID, err.Error()); err != nil {
 				return fmt.Errorf("error setting order error: %w", err)
 			}
@@ -174,15 +111,7 @@ func VgsDeletePair(ctx context.Context, logger *slog.Logger, db *pgxpool.Pool, s
 
 	logger.Info("pair physically deleted", "order_id", orderID, "endpoint_num", num, "duration", time.Since(start))
 
-	if err := vgsSetOrderRegistering(ctx, logger, db, sqfmt, orderID); err != nil {
-		if err := vgsSetOrderError(ctx, logger, db, sqfmt, orderID, err.Error()); err != nil {
-			return fmt.Errorf("error setting order error: %w", err)
-		}
-
-		return fmt.Errorf("error setting order registering: %w", err)
-	}
-
-	if err := vgsUnregisterPair(ctx, logger, db, sqfmt, pairID, num); err != nil {
+	if err := vgsUnregisterPair(ctx, logger, db, sqfmt, pairID, num, endpointIPv4); err != nil {
 		if err := vgsSetOrderError(ctx, logger, db, sqfmt, orderID, err.Error()); err != nil {
 			return fmt.Errorf("error setting order error: %w", err)
 		}
@@ -190,7 +119,7 @@ func VgsDeletePair(ctx context.Context, logger *slog.Logger, db *pgxpool.Pool, s
 		return fmt.Errorf("error registering pair: %w", err)
 	}
 
-	if err := vgsSetOrderCompleted(ctx, logger, db, sqfmt, orderID); err != nil {
+	if err := vgsSetOrderComplete(ctx, logger, db, sqfmt, orderID); err != nil {
 		if err := vgsSetOrderError(ctx, logger, db, sqfmt, orderID, err.Error()); err != nil {
 			return fmt.Errorf("error setting order error: %w", err)
 		}
@@ -198,13 +127,13 @@ func VgsDeletePair(ctx context.Context, logger *slog.Logger, db *pgxpool.Pool, s
 		return fmt.Errorf("error setting order completed: %w", err)
 	}
 
-	logger.Info("pair created", "order_id", orderID, "pair_id", pairID, "endpoint_num", num)
+	logger.Info("pair deleted", "order_id", orderID, "pair_id", pairID, "endpoint_num", num)
 
 	return nil
 }
 
 func vgsUnregisterPair(ctx context.Context, _ *slog.Logger, db *pgxpool.Pool, sqfmt sq.StatementBuilderType,
-	pairID uuid.UUID, num int,
+	pairID uuid.UUID, num int, endpointIPv4 netip.Addr,
 ) error {
 	tx, err := db.Begin(ctx)
 	if err != nil {
@@ -226,7 +155,10 @@ func vgsUnregisterPair(ctx context.Context, _ *slog.Logger, db *pgxpool.Pool, sq
 	}
 
 	queryEndpointIP := sqfmt.Delete("pairs.pairs_endpoints_ipv4").
-		Where(sq.Eq{"pair_id": pairID})
+		Where(sq.And{
+			sq.Eq{"pair_id": pairID},
+			sq.Eq{"endpoint_ipv4": endpointIPv4},
+		})
 
 	sql, args, err = queryEndpointIP.ToSql()
 	if err != nil {
@@ -237,16 +169,33 @@ func vgsUnregisterPair(ctx context.Context, _ *slog.Logger, db *pgxpool.Pool, sq
 		return fmt.Errorf("error deleting endpoint IP: %w", err)
 	}
 
-	query := sqfmt.Delete("pairs.pairs").
+	queryPairs := sqfmt.Select("COUNT(*)").
+		From("pairs.pairs_endpoints_ipv4").
 		Where(sq.Eq{"pair_id": pairID})
 
-	sql, args, err = query.ToSql()
+	sql, args, err = queryPairs.ToSql()
 	if err != nil {
 		return fmt.Errorf("error building SQL: %w", err)
 	}
 
-	if _, err := tx.Exec(ctx, sql, args...); err != nil {
-		return fmt.Errorf("error deleting pair: %w", err)
+	var count int
+
+	if err := tx.QueryRow(ctx, sql, args...).Scan(&count); err != nil {
+		return fmt.Errorf("error counting endpoint IPs: %w", err)
+	}
+
+	if count == 0 {
+		query := sqfmt.Delete("pairs.pairs").
+			Where(sq.Eq{"pair_id": pairID})
+
+		sql, args, err := query.ToSql()
+		if err != nil {
+			return fmt.Errorf("error building SQL: %w", err)
+		}
+
+		if _, err := tx.Exec(ctx, sql, args...); err != nil {
+			return fmt.Errorf("error deleting pair: %w", err)
+		}
 	}
 
 	if err := tx.Commit(ctx); err != nil {
@@ -256,7 +205,7 @@ func vgsUnregisterPair(ctx context.Context, _ *slog.Logger, db *pgxpool.Pool, sq
 	return nil
 }
 
-func vgsProcessPairDeleting(_ context.Context, logger *slog.Logger, app string, number int) error {
+func vgsProcessPairDeleting(_ context.Context, logger *slog.Logger, app string, number int, _ string) error {
 	var (
 		stderr bytes.Buffer
 		result VgsPairsResult
@@ -282,13 +231,17 @@ func vgsProcessPairDeleting(_ context.Context, logger *slog.Logger, app string, 
 	}
 
 	if err := dec.Decode(&result); err != nil {
+		if err == io.EOF {
+			return nil
+		}
+
 		return fmt.Errorf("error decoding JSON: %w", err)
 	}
 
 	if err := cmd.Wait(); err != nil {
 		exe := &exec.ExitError{}
 		if errors.As(err, &exe) {
-			if err := json.NewDecoder(&stderr).Decode(&result); err != nil {
+			if err := json.NewDecoder(&stderr).Decode(&result); err != nil && err != io.EOF {
 				return fmt.Errorf("error decoding JSON: %w", err)
 			}
 

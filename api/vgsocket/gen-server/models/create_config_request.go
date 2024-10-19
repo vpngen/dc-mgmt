@@ -22,11 +22,11 @@ type CreateConfigRequest struct {
 	// Brigade ID
 	// Required: true
 	// Format: uuid
-	BrigadeID *strfmt.UUID `json:"brigadeID"`
+	BrigadeID *strfmt.UUID `json:"brigade_id"`
 
 	// config type
 	// Required: true
-	ConfigType *ConfigType `json:"configType"`
+	ConfigType *ConfigType `json:"config_type"`
 }
 
 // Validate validates this create config request
@@ -49,11 +49,11 @@ func (m *CreateConfigRequest) Validate(formats strfmt.Registry) error {
 
 func (m *CreateConfigRequest) validateBrigadeID(formats strfmt.Registry) error {
 
-	if err := validate.Required("brigadeID", "body", m.BrigadeID); err != nil {
+	if err := validate.Required("brigade_id", "body", m.BrigadeID); err != nil {
 		return err
 	}
 
-	if err := validate.FormatOf("brigadeID", "body", "uuid", m.BrigadeID.String(), formats); err != nil {
+	if err := validate.FormatOf("brigade_id", "body", "uuid", m.BrigadeID.String(), formats); err != nil {
 		return err
 	}
 
@@ -62,20 +62,20 @@ func (m *CreateConfigRequest) validateBrigadeID(formats strfmt.Registry) error {
 
 func (m *CreateConfigRequest) validateConfigType(formats strfmt.Registry) error {
 
-	if err := validate.Required("configType", "body", m.ConfigType); err != nil {
+	if err := validate.Required("config_type", "body", m.ConfigType); err != nil {
 		return err
 	}
 
-	if err := validate.Required("configType", "body", m.ConfigType); err != nil {
+	if err := validate.Required("config_type", "body", m.ConfigType); err != nil {
 		return err
 	}
 
 	if m.ConfigType != nil {
 		if err := m.ConfigType.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
-				return ve.ValidateName("configType")
+				return ve.ValidateName("config_type")
 			} else if ce, ok := err.(*errors.CompositeError); ok {
-				return ce.ValidateName("configType")
+				return ce.ValidateName("config_type")
 			}
 			return err
 		}
@@ -104,9 +104,9 @@ func (m *CreateConfigRequest) contextValidateConfigType(ctx context.Context, for
 
 		if err := m.ConfigType.ContextValidate(ctx, formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
-				return ve.ValidateName("configType")
+				return ve.ValidateName("config_type")
 			} else if ce, ok := err.(*errors.CompositeError); ok {
-				return ce.ValidateName("configType")
+				return ce.ValidateName("config_type")
 			}
 			return err
 		}
