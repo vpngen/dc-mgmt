@@ -3,6 +3,7 @@ package kdlib
 import (
 	"errors"
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/go-openapi/runtime"
@@ -38,11 +39,17 @@ func createSubdomainAPIClient(host, token string) (*apiclient.Subdomapi, runtime
 func SubdomainPick(host, token, srvZone string) (string, string, error) {
 	client, bearerToken := createSubdomainAPIClient(host, token)
 
+	fmt.Fprintf(os.Stderr, "Picking subdomain for %s\n", srvZone)
+	fmt.Fprintf(os.Stderr, "Using API host: %s\n", host)
+	fmt.Fprintf(os.Stderr, "Using API token: %s\n", token)
+
+	param := operations.NewPostSubdomainParams()
+	param = param.WithBody(&models.SubdomainRequest{ServiceZone: srvZone})
+	param = param.WithTimeout(APIRequestTimeout)
+
 	// make the request
 	resp, err := client.Operations.PostSubdomain(
-		operations.NewPostSubdomainParams().
-			WithTimeout(APIRequestTimeout).
-			WithBody(&models.SubdomainRequest{ServiceZone: srvZone}),
+		param,
 		bearerToken,
 	)
 	if err != nil {

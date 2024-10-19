@@ -23,7 +23,7 @@ require (
 	github.com/rs/cors v1.11.1
 	github.com/spf13/cobra v1.8.1
 	github.com/spf13/viper v1.19.0
-	github.com/vpngen/domain-commander v0.4.0
+	github.com/vpngen/domain-commander v0.4.1
 	github.com/vpngen/keydesk v1.10.8
 	github.com/vpngen/keydesk-snap v0.0.20
 	github.com/vpngen/vpngine v0.1.2-0.20240528050541-356825e04e77
