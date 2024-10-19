@@ -228,8 +228,8 @@ github.com/valyala/fasttemplate v1.2.2 h1:lxLXG0uE3Qnshl9QyaK6XJxMXlQZELvChBOCmQ
 github.com/valyala/fasttemplate v1.2.2/go.mod h1:KHLXt3tVN2HBp8eijSv/kGJopbvo7S+qRAEEKiv+SiQ=
 github.com/valyala/histogram v1.2.0 h1:wyYGAZZt3CpwUiIb9AU/Zbllg1llXyrtApRS815OLoQ=
 github.com/valyala/histogram v1.2.0/go.mod h1:Hb4kBwb4UxsaNbbbh+RRz8ZR6pdodR57tzWUS3BUzXY=
-github.com/vpngen/domain-commander v0.4.0 h1:klYeRZLtw9bfipWR4q5MVyahpBNNGxKrERHZasVmxys=
-github.com/vpngen/domain-commander v0.4.0/go.mod h1:c8p2FjVMtVgUi3ymqJ/SGoNE1aQwJrR+2M78ZjQ115s=
+github.com/vpngen/domain-commander v0.4.1 h1:1dk8YQ4YIgwDtAdgsYSO8PNtcGRdqs4yjOGPD+e/5XA=
+github.com/vpngen/domain-commander v0.4.1/go.mod h1:c8p2FjVMtVgUi3ymqJ/SGoNE1aQwJrR+2M78ZjQ115s=
 github.com/vpngen/keydesk v1.10.8 h1:LweOn4u+dpmy4WMGiKMv8Yxsz6Mw87+twZiZU5B8LE8=
 github.com/vpngen/keydesk v1.10.8/go.mod h1:XDmDn6x2wxdHyCr5+dEva7UHwbQZYB/lG/XbozXKGYs=
 github.com/vpngen/keydesk-snap v0.0.20 h1:E1dXUKEaUmr5mI+g9zLAUaq0Hr4KE5pRQgc+sqhV2ic=

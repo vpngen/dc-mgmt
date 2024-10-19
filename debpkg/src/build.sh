@@ -20,6 +20,7 @@ go build -C dc-mgmt/cmd/restoresnaps -o ../../../bin/restoresnaps
 go build -C dc-mgmt/tools/cmd/dns-srv -o ../../../../bin/dns-srv
 go build -C dc-mgmt/tools/cmd/dns-chk -o ../../../../bin/dns-chk
 go build -C dc-mgmt/tools/cmd/delegation-sync -o ../../../../bin/delegation-sync
+go build -C dc-mgmt/tools/cmd/subdomain -o ../../../../bin/subdomain
 
 go build -C dc-mgmt/socket/cmd/create_brigade -o ../../../../bin/create_brigade
 go build -C dc-mgmt/socket/cmd/delete_brigade -o ../../../../bin/delete_brigade
