@@ -33,6 +33,7 @@ import (
 	"github.com/vpngen/dc-mgmt/internal/kdlib"
 	dcmgmtlib "github.com/vpngen/dc-mgmt/internal/kdlib/dc-mgmt"
 	"github.com/vpngen/keydesk/gen/models"
+	"github.com/vpngen/keydesk/kdlib/lockedfile"
 	"github.com/vpngen/keydesk/keydesk"
 	"github.com/vpngen/wordsgens/namesgenerator"
 )
@@ -56,7 +57,13 @@ const (
 	BrigadeUlaPrefix   = 64
 )
 
+const (
+	DefaultDelegationMutexPath = "/tmp/delegation_mutex.lock"
+)
+
 const defaultWireguardConfigs = "native"
+
+const DefaultServiceZone = ""
 
 type brigadeOpts struct {
 	id      string
@@ -84,6 +91,7 @@ type kdAddrSyncEnv struct {
 }
 
 type delegationSyncEnv struct {
+	delegationMutex  string
 	delegationUser   string
 	delegationServer string
 }
@@ -99,6 +107,7 @@ type vpnCfgs struct {
 	ovc     string
 	ipsec   string
 	outline string
+	proto0  string
 }
 
 type envOpts struct {
@@ -109,6 +118,7 @@ type envOpts struct {
 	delegationSyncEnv
 	delegationCheckEnv
 	vpnCfgs
+	Zone string
 }
 
 // Args errors.
@@ -441,10 +451,23 @@ RETURNING instance_id;
 		return 0, fmt.Errorf("commit: %w", err)
 	}
 
+	if env.delegationMutex == "" {
+		env.delegationMutex = DefaultDelegationMutexPath
+	}
+
+	dmu := lockedfile.MutexAt(env.delegationMutex)
+
+	unlock, err := dmu.Lock()
+	if err != nil {
+		return 0, fmt.Errorf("lock delegation mutex: %w", err)
+	}
+
+	defer unlock()
+
 	// Pick up subdomain.
 
 	if !domainName.Valid {
-		if err := dcmgmtlib.ApplySubdomain(ctx, db, env.subdomainAPIHost, env.subdomainAPIToken, opts.id, pairEndpointIPv4); err != nil {
+		if err := dcmgmtlib.ApplySubdomain(ctx, db, env.subdomainAPIHost, env.subdomainAPIToken, opts.id, pairEndpointIPv4, env.Zone); err != nil {
 			return 0, fmt.Errorf("apply subdomain: %w", err)
 		}
 	}
@@ -491,15 +514,6 @@ func requestBrigade(
 	opts *brigadeOpts,
 	vpnCfgs *vpnCfgs,
 ) (*models.Newuser, netip.Addr, error) {
-	ctx := context.Background()
-
-	tx, err := db.Begin(ctx)
-	if err != nil {
-		return nil, netip.Addr{}, fmt.Errorf("begin: %w", err)
-	}
-
-	defer tx.Rollback(ctx)
-
 	var (
 		brigadeID    []byte
 		fullname     string
@@ -512,6 +526,7 @@ func requestBrigade(
 		ipv6ULA      netip.Prefix
 		pjson        []byte
 		control_ip   netip.Addr
+		nameservers  pgtype.Text
 	)
 
 	sqlFetchBrigade := `
@@ -526,37 +541,52 @@ SELECT
 	meta_brigades.ipv4_cgnat,
 	meta_brigades.ipv6_ula,
 	meta_brigades.person,
-	meta_brigades.control_ip
+	meta_brigades.control_ip,
+	meta_brigades.nameservers
 FROM %s
 WHERE
 	meta_brigades.brigade_id=$1
 `
 
-	err = tx.QueryRow(ctx,
-		fmt.Sprintf(sqlFetchBrigade,
-			(pgx.Identifier{brigadesSchema, "meta_brigades"}.Sanitize()),
-		),
-		opts.id,
-	).Scan(
-		&brigadeID,
-		&fullname,
-		&endpointIPv4,
-		&domainName,
-		&dnsIPv4,
-		&dnsIPv6,
-		&keydeskIPv6,
-		&ipv4CGNAT,
-		&ipv6ULA,
-		&pjson,
-		&control_ip,
-	)
-	if err != nil {
+	if err := func() error {
+		ctx := context.Background()
+
+		tx, err := db.Begin(ctx)
+		if err != nil {
+			return err
+		}
+
+		defer tx.Rollback(ctx)
+		err = tx.QueryRow(ctx,
+			fmt.Sprintf(sqlFetchBrigade,
+				(pgx.Identifier{brigadesSchema, "meta_brigades"}.Sanitize()),
+			),
+			opts.id,
+		).Scan(
+			&brigadeID,
+			&fullname,
+			&endpointIPv4,
+			&domainName,
+			&dnsIPv4,
+			&dnsIPv6,
+			&keydeskIPv6,
+			&ipv4CGNAT,
+			&ipv6ULA,
+			&pjson,
+			&control_ip,
+			&nameservers,
+		)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	}(); err != nil {
 		return nil, netip.Addr{}, fmt.Errorf("brigade query: %w", err)
 	}
 
 	person := &namesgenerator.Person{}
-	err = json.Unmarshal(pjson, &person)
-	if err != nil {
+	if err := json.Unmarshal(pjson, &person); err != nil {
 		return nil, netip.Addr{}, fmt.Errorf("person: %w", err)
 	}
 
@@ -591,6 +621,10 @@ WHERE
 
 		if vpnCfgs.outline != "" {
 			cmd += fmt.Sprintf(" -outline %s", vpnCfgs.outline)
+		}
+
+		if vpnCfgs.proto0 != "" {
+			cmd += fmt.Sprintf(" -proto0 %s", vpnCfgs.proto0)
 		}
 	}
 
@@ -637,6 +671,11 @@ WHERE
 		return nil, netip.Addr{}, fmt.Errorf("chunk read: %w", err)
 	}
 
+	nss := strings.Split(nameservers.String, ",")
+	if len(nss) == 0 {
+		nss = dlgenv.domainNS
+	}
+
 	fmt.Fprintf(os.Stderr, "%s: Waiting for delegation: %s, %s -> %s\n", LogTag, keydeskIPv6.String(), domainName.String, endpointIPv4)
 	if !waitForAllDelegations(
 		dlgenv.kdDomain,
@@ -644,7 +683,7 @@ WHERE
 		dlgenv.kdNS,
 		domainName.String,
 		endpointIPv4,
-		dlgenv.domainNS,
+		nss,
 	) {
 		return nil, netip.Addr{}, fmt.Errorf("delegation: %w", ErrNotDelegated)
 	}
@@ -876,6 +915,11 @@ func readConfigs() (string, *envOpts, error) {
 		return "", nil, errors.New("empty domain nameservers")
 	}
 
+	env.delegationMutex = os.Getenv("DELEGATION_MUTEX")
+	if env.delegationMutex == "" {
+		env.delegationMutex = DefaultDelegationMutexPath
+	}
+
 	env.domainNS = strings.Split(domainNameServers, ",")
 
 	env.vpnCfgs.wg = os.Getenv("WIREGUARD_CONFIGS")
@@ -886,6 +930,12 @@ func readConfigs() (string, *envOpts, error) {
 	env.vpnCfgs.ovc = os.Getenv("OVC_CONFIGS")
 	env.vpnCfgs.ipsec = os.Getenv("IPSEC_CONFIGS")
 	env.vpnCfgs.outline = os.Getenv("OUTLINE_CONFIGS")
+	env.vpnCfgs.proto0 = os.Getenv("PROTO0_CONFIGS")
+
+	env.Zone = os.Getenv("SERVICE_ZONE")
+	if env.Zone == "" {
+		env.Zone = DefaultServiceZone
+	}
 
 	return sshKeyFilename, env, nil
 }

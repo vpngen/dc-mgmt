@@ -172,10 +172,20 @@ func retrieveOperationOperationsDeleteConfigConfigIDFlag(m *operations.DeleteCon
 }
 
 // parseOperationOperationsDeleteConfigResult parses request result and return the string content
-func parseOperationOperationsDeleteConfigResult(resp0 *operations.DeleteConfigNoContent, respErr error) (string, error) {
+func parseOperationOperationsDeleteConfigResult(resp0 *operations.DeleteConfigOK, respErr error) (string, error) {
 	if respErr != nil {
 
-		// Non schema case: warning deleteConfigNoContent is not supported
+		var iResp0 interface{} = respErr
+		resp0, ok := iResp0.(*operations.DeleteConfigOK)
+		if ok {
+			if !swag.IsZero(resp0) && !swag.IsZero(resp0.Payload) {
+				msgStr, err := json.Marshal(resp0.Payload)
+				if err != nil {
+					return "", err
+				}
+				return string(msgStr), nil
+			}
+		}
 
 		var iResp1 interface{} = respErr
 		resp1, ok := iResp1.(*operations.DeleteConfigBadRequest)
@@ -202,7 +212,7 @@ func parseOperationOperationsDeleteConfigResult(resp0 *operations.DeleteConfigNo
 		}
 
 		var iResp3 interface{} = respErr
-		resp3, ok := iResp3.(*operations.DeleteConfigInternalServerError)
+		resp3, ok := iResp3.(*operations.DeleteConfigNotFound)
 		if ok {
 			if !swag.IsZero(resp3) && !swag.IsZero(resp3.Payload) {
 				msgStr, err := json.Marshal(resp3.Payload)
@@ -214,7 +224,7 @@ func parseOperationOperationsDeleteConfigResult(resp0 *operations.DeleteConfigNo
 		}
 
 		var iResp4 interface{} = respErr
-		resp4, ok := iResp4.(*operations.DeleteConfigServiceUnavailable)
+		resp4, ok := iResp4.(*operations.DeleteConfigInternalServerError)
 		if ok {
 			if !swag.IsZero(resp4) && !swag.IsZero(resp4.Payload) {
 				msgStr, err := json.Marshal(resp4.Payload)
@@ -225,10 +235,28 @@ func parseOperationOperationsDeleteConfigResult(resp0 *operations.DeleteConfigNo
 			}
 		}
 
+		var iResp5 interface{} = respErr
+		resp5, ok := iResp5.(*operations.DeleteConfigServiceUnavailable)
+		if ok {
+			if !swag.IsZero(resp5) && !swag.IsZero(resp5.Payload) {
+				msgStr, err := json.Marshal(resp5.Payload)
+				if err != nil {
+					return "", err
+				}
+				return string(msgStr), nil
+			}
+		}
+
 		return "", respErr
 	}
 
-	// warning: non schema response deleteConfigNoContent is not supported by go-swagger cli yet.
+	if !swag.IsZero(resp0) && !swag.IsZero(resp0.Payload) {
+		msgStr, err := json.Marshal(resp0.Payload)
+		if err != nil {
+			return "", err
+		}
+		return string(msgStr), nil
+	}
 
 	return "", nil
 }
@@ -252,9 +280,9 @@ func registerDeleteConfigBodyPropBrigadeID(depth int, cmdPrefix string, cmd *cob
 
 	var flagBrigadeIDName string
 	if cmdPrefix == "" {
-		flagBrigadeIDName = "brigadeID"
+		flagBrigadeIDName = "brigade_id"
 	} else {
-		flagBrigadeIDName = fmt.Sprintf("%v.brigadeID", cmdPrefix)
+		flagBrigadeIDName = fmt.Sprintf("%v.brigade_id", cmdPrefix)
 	}
 
 	_ = cmd.PersistentFlags().String(flagBrigadeIDName, "", flagBrigadeIDDescription)
@@ -281,14 +309,14 @@ func retrieveDeleteConfigBodyPropBrigadeIDFlags(depth int, m *operations.DeleteC
 	}
 	retAdded := false
 
-	flagBrigadeIDName := fmt.Sprintf("%v.brigadeID", cmdPrefix)
+	flagBrigadeIDName := fmt.Sprintf("%v.brigade_id", cmdPrefix)
 	if cmd.Flags().Changed(flagBrigadeIDName) {
 
 		var flagBrigadeIDName string
 		if cmdPrefix == "" {
-			flagBrigadeIDName = "brigadeID"
+			flagBrigadeIDName = "brigade_id"
 		} else {
-			flagBrigadeIDName = fmt.Sprintf("%v.brigadeID", cmdPrefix)
+			flagBrigadeIDName = fmt.Sprintf("%v.brigade_id", cmdPrefix)
 		}
 
 		flagBrigadeIDValueStr, err := cmd.Flags().GetString(flagBrigadeIDName)

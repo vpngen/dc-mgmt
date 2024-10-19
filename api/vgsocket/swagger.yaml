@@ -32,7 +32,7 @@ paths:
         "201":
           description: Created
           schema:
-            $ref: "#/definitions/VPNConfig"
+            $ref: "#/definitions/VPNConfigResponse"
         "400":
           description: Bad Request
           schema:
@@ -60,10 +60,8 @@ paths:
       operationId: deleteConfig
       consumes:
         - application/json
-        - application/xml
       produces:
         - application/json
-        - application/xml
       parameters:
         - in: path
           name: config_id
@@ -84,10 +82,16 @@ paths:
                 format: uuid
                 description: Brigade ID
       responses:
-        "204":
-          description: No Content
+        "200":
+          description: OK
+          schema:
+            $ref: "#/definitions/FreeSlots"
         "400":
           description: Bad Request
+          schema:
+            $ref: '#/definitions/Error'
+        "404":
+          description: Not Found
           schema:
             $ref: '#/definitions/Error'
         "401":
@@ -102,6 +106,82 @@ paths:
           description: Service Temporarily Unavailable
           schema:
             $ref: '#/definitions/ServiceTemporarilyUnavailable'
+
+  /brigade/{brigade_id}/slots:
+
+    get:
+      security:
+        - JWT:
+          - manager
+      summary: Get VPN socket brigade slots stats
+      operationId: getBrigadeSlots
+      consumes:
+        - application/json
+      produces:
+        - application/json
+      parameters:
+        - in: path
+          name: brigade_id
+          required: true
+          type: string
+          description: Brigade ID
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: "#/definitions/BrigadeSlots"
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/Error'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/Error'
+        "503":
+          description: Service Temporarily Unavailable
+
+  /brigade/{brigade_id}/activity:
+
+    get:
+      security:
+        - JWT:
+          - manager
+      summary: Get VPN socket brigade activity stats
+      operationId: getBrigadeActivity
+      consumes:
+        - application/json
+      produces:
+        - application/json
+      parameters:
+        - in: path
+          name: brigade_id
+          required: true
+          type: string
+          description: Brigade ID
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: "#/definitions/BrigadeActivity"
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/Error'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/Error'
+        "503":
+          description: Service Temporarily Unavailable
 
 definitions:
   
@@ -132,7 +212,6 @@ definitions:
     type: string
     enum:
       - wireguard
-      - amneziavpn
       - outline
       - universal
 
@@ -219,6 +298,49 @@ definitions:
         description: Brigade ID
       config_type:
         $ref: '#/definitions/ConfigType'
+
+  BrigadeSlots:
+    type: object
+    required:
+      - free_slots
+      - total_slots
+    properties:
+      free_slots:
+        type: integer
+      total_slots:
+        type: integer
+
+  FreeSlots:
+    type: object
+    required:
+      - free_slots
+    properties:
+      free_slots:
+        type: integer
+
+  VPNConfigResponse:
+    type: object
+    allOf:
+      - $ref: '#/definitions/VPNConfig'
+      - $ref: '#/definitions/FreeSlots'
+
+  BrigadeActivity:
+    type: object
+    additionalProperties:
+      $ref: '#/definitions/AcitivityData'
+
+  AcitivityData:
+    type: object
+    required:
+      - last_seen
+      - updated
+    properties:
+      last_seen:
+        type: string
+        format: date-time
+      updated:
+        type: string
+        format: date-time
 
   Principal:
     type: object

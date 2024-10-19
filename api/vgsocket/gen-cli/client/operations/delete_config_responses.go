@@ -28,8 +28,8 @@ type DeleteConfigReader struct {
 // ReadResponse reads a server response into the received o.
 func (o *DeleteConfigReader) ReadResponse(response runtime.ClientResponse, consumer runtime.Consumer) (interface{}, error) {
 	switch response.Code() {
-	case 204:
-		result := NewDeleteConfigNoContent()
+	case 200:
+		result := NewDeleteConfigOK()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
 			return nil, err
 		}
@@ -42,6 +42,12 @@ func (o *DeleteConfigReader) ReadResponse(response runtime.ClientResponse, consu
 		return nil, result
 	case 401:
 		result := NewDeleteConfigUnauthorized()
+		if err := result.readResponse(response, consumer, o.formats); err != nil {
+			return nil, err
+		}
+		return nil, result
+	case 404:
+		result := NewDeleteConfigNotFound()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
 			return nil, err
 		}
@@ -63,58 +69,72 @@ func (o *DeleteConfigReader) ReadResponse(response runtime.ClientResponse, consu
 	}
 }
 
-// NewDeleteConfigNoContent creates a DeleteConfigNoContent with default headers values
-func NewDeleteConfigNoContent() *DeleteConfigNoContent {
-	return &DeleteConfigNoContent{}
+// NewDeleteConfigOK creates a DeleteConfigOK with default headers values
+func NewDeleteConfigOK() *DeleteConfigOK {
+	return &DeleteConfigOK{}
 }
 
 /*
-DeleteConfigNoContent describes a response with status code 204, with default header values.
+DeleteConfigOK describes a response with status code 200, with default header values.
 
-No Content
+OK
 */
-type DeleteConfigNoContent struct {
+type DeleteConfigOK struct {
+	Payload *models.FreeSlots
 }
 
-// IsSuccess returns true when this delete config no content response has a 2xx status code
-func (o *DeleteConfigNoContent) IsSuccess() bool {
+// IsSuccess returns true when this delete config o k response has a 2xx status code
+func (o *DeleteConfigOK) IsSuccess() bool {
 	return true
 }
 
-// IsRedirect returns true when this delete config no content response has a 3xx status code
-func (o *DeleteConfigNoContent) IsRedirect() bool {
+// IsRedirect returns true when this delete config o k response has a 3xx status code
+func (o *DeleteConfigOK) IsRedirect() bool {
 	return false
 }
 
-// IsClientError returns true when this delete config no content response has a 4xx status code
-func (o *DeleteConfigNoContent) IsClientError() bool {
+// IsClientError returns true when this delete config o k response has a 4xx status code
+func (o *DeleteConfigOK) IsClientError() bool {
 	return false
 }
 
-// IsServerError returns true when this delete config no content response has a 5xx status code
-func (o *DeleteConfigNoContent) IsServerError() bool {
+// IsServerError returns true when this delete config o k response has a 5xx status code
+func (o *DeleteConfigOK) IsServerError() bool {
 	return false
 }
 
-// IsCode returns true when this delete config no content response a status code equal to that given
-func (o *DeleteConfigNoContent) IsCode(code int) bool {
-	return code == 204
+// IsCode returns true when this delete config o k response a status code equal to that given
+func (o *DeleteConfigOK) IsCode(code int) bool {
+	return code == 200
 }
 
-// Code gets the status code for the delete config no content response
-func (o *DeleteConfigNoContent) Code() int {
-	return 204
+// Code gets the status code for the delete config o k response
+func (o *DeleteConfigOK) Code() int {
+	return 200
 }
 
-func (o *DeleteConfigNoContent) Error() string {
-	return fmt.Sprintf("[DELETE /config/{config_id}][%d] deleteConfigNoContent", 204)
+func (o *DeleteConfigOK) Error() string {
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[DELETE /config/{config_id}][%d] deleteConfigOK %s", 200, payload)
 }
 
-func (o *DeleteConfigNoContent) String() string {
-	return fmt.Sprintf("[DELETE /config/{config_id}][%d] deleteConfigNoContent", 204)
+func (o *DeleteConfigOK) String() string {
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[DELETE /config/{config_id}][%d] deleteConfigOK %s", 200, payload)
 }
 
-func (o *DeleteConfigNoContent) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
+func (o *DeleteConfigOK) GetPayload() *models.FreeSlots {
+	return o.Payload
+}
+
+func (o *DeleteConfigOK) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
+
+	o.Payload = new(models.FreeSlots)
+
+	// response payload
+	if err := consumer.Consume(response.Body(), o.Payload); err != nil && err != io.EOF {
+		return err
+	}
 
 	return nil
 }
@@ -248,6 +268,76 @@ func (o *DeleteConfigUnauthorized) GetPayload() *models.Error {
 }
 
 func (o *DeleteConfigUnauthorized) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
+
+	o.Payload = new(models.Error)
+
+	// response payload
+	if err := consumer.Consume(response.Body(), o.Payload); err != nil && err != io.EOF {
+		return err
+	}
+
+	return nil
+}
+
+// NewDeleteConfigNotFound creates a DeleteConfigNotFound with default headers values
+func NewDeleteConfigNotFound() *DeleteConfigNotFound {
+	return &DeleteConfigNotFound{}
+}
+
+/*
+DeleteConfigNotFound describes a response with status code 404, with default header values.
+
+Not Found
+*/
+type DeleteConfigNotFound struct {
+	Payload *models.Error
+}
+
+// IsSuccess returns true when this delete config not found response has a 2xx status code
+func (o *DeleteConfigNotFound) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this delete config not found response has a 3xx status code
+func (o *DeleteConfigNotFound) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this delete config not found response has a 4xx status code
+func (o *DeleteConfigNotFound) IsClientError() bool {
+	return true
+}
+
+// IsServerError returns true when this delete config not found response has a 5xx status code
+func (o *DeleteConfigNotFound) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this delete config not found response a status code equal to that given
+func (o *DeleteConfigNotFound) IsCode(code int) bool {
+	return code == 404
+}
+
+// Code gets the status code for the delete config not found response
+func (o *DeleteConfigNotFound) Code() int {
+	return 404
+}
+
+func (o *DeleteConfigNotFound) Error() string {
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[DELETE /config/{config_id}][%d] deleteConfigNotFound %s", 404, payload)
+}
+
+func (o *DeleteConfigNotFound) String() string {
+	payload, _ := json.Marshal(o.Payload)
+	return fmt.Sprintf("[DELETE /config/{config_id}][%d] deleteConfigNotFound %s", 404, payload)
+}
+
+func (o *DeleteConfigNotFound) GetPayload() *models.Error {
+	return o.Payload
+}
+
+func (o *DeleteConfigNotFound) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
 	o.Payload = new(models.Error)
 
@@ -408,7 +498,7 @@ type DeleteConfigBody struct {
 	// Brigade ID
 	// Required: true
 	// Format: uuid
-	BrigadeID *strfmt.UUID `json:"brigadeID"`
+	BrigadeID *strfmt.UUID `json:"brigade_id"`
 }
 
 // Validate validates this delete config body
@@ -427,11 +517,11 @@ func (o *DeleteConfigBody) Validate(formats strfmt.Registry) error {
 
 func (o *DeleteConfigBody) validateBrigadeID(formats strfmt.Registry) error {
 
-	if err := validate.Required("body"+"."+"brigadeID", "body", o.BrigadeID); err != nil {
+	if err := validate.Required("body"+"."+"brigade_id", "body", o.BrigadeID); err != nil {
 		return err
 	}
 
-	if err := validate.FormatOf("body"+"."+"brigadeID", "body", "uuid", o.BrigadeID.String(), formats); err != nil {
+	if err := validate.FormatOf("body"+"."+"brigade_id", "body", "uuid", o.BrigadeID.String(), formats); err != nil {
 		return err
 	}
 

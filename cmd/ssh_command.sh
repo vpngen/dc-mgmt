@@ -44,7 +44,8 @@ if [ "addbrigade" = "${cmd}" ]; then
         OVC_CONFIGS="${OVC_CONFIGS}" \
         OUTLINE_CONFIGS="${OUTLINE_CONFIGS}" \
         IPSEC_CONFIGS="${IPSEC_CONFIGS}" \
-        flock -x -E 1 -w 60 /tmp/modbrigade.lock "${basedir}"/addbrigade "$@"
+        PROTO0_CONFIGS="${PROTO0_CONFIGS}" \
+        "${basedir}"/addbrigade "$@"
 elif [ "delbrigade" = "${cmd}" ]; then
         DC_ID="${DC_ID}" \
         DC_NAME="${DC_NAME}" \
@@ -59,7 +60,8 @@ elif [ "delbrigade" = "${cmd}" ]; then
         OVC_CONFIGS="${OVC_CONFIGS}" \
         OUTLINE_CONFIGS="${OUTLINE_CONFIGS}" \
         IPSEC_CONFIGS="${IPSEC_CONFIGS}" \
-        flock -x -E 1 -w 60 /tmp/modbrigade.lock "${basedir}"/delbrigade "$@"
+        PROTO0_CONFIGS="${PROTO0_CONFIGS}" \
+        "${basedir}"/delbrigade "$@"
 elif [ "replacebrigadier" = "${cmd}" ]; then
         DC_ID="${DC_ID}" \
         DC_NAME="${DC_NAME}" \
@@ -67,6 +69,7 @@ elif [ "replacebrigadier" = "${cmd}" ]; then
         REPLACE_OVC_CONFIGS="${REPLACE_OVC_CONFIGS}" \
         REPLACE_OUTLINE_CONFIGS="${REPLACE_OUTLINE_CONFIGS}" \
         REPLACE_IPSEC_CONFIGS="${REPLACE_IPSEC_CONFIGS}" \
+        REPLACE_PROTO0_CONFIGS="${REPLACE_PROTO0_CONFIGS}" \
         "${basedir}"/replacebrigadier "$@"
 elif [ "getwasted" = "${cmd}" ]; then
         "${basedir}"/getwasted "$@"

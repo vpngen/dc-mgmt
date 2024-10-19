@@ -3,6 +3,7 @@ package vpnconfig
 import (
 	"context"
 	"encoding/base32"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -13,33 +14,34 @@ import (
 	"github.com/vpngen/dc-mgmt/socket/cmd/vgsocket_service/core"
 )
 
-func DeleteUser(ctx context.Context, logger *slog.Logger, opts *core.Options, brigadeID uuid.UUID, userID uuid.UUID) error {
+func DeleteUser(ctx context.Context, logger *slog.Logger, opts *core.Options, brigadeID uuid.UUID, userID uuid.UUID) (int, error) {
 	// 1. get control ip from brigade
 	// 2. delete user (update active flag to false)
 
-	controlIP, err := getControlAddr(ctx, logger, opts, brigadeID)
+	controlIP, err := core.GetControlAddr(ctx, logger, opts.Db, opts.SqFmt, brigadeID)
 	if err != nil {
-		return fmt.Errorf("getting control addr: %w", err)
+		return 0, fmt.Errorf("getting control addr: %w", err)
 	}
 
 	if opts.KdTesting {
 		if err := DeleteRandomUser(); err != nil {
-			return fmt.Errorf("creating random config: %w", err)
+			return 0, fmt.Errorf("creating random config: %w", err)
 		}
 
-		return nil
+		return 100, nil
 	}
 
-	if err := callForDel(ctx, logger, opts.AccessKey, brigadeID, controlIP, userID); err != nil {
-		return fmt.Errorf("calling for config: %w", err)
+	slots, err := callForDel(ctx, logger, opts.AccessKey, brigadeID, controlIP, userID)
+	if err != nil {
+		return 0, fmt.Errorf("calling for config: %w", err)
 	}
 
-	return nil
+	return slots, nil
 }
 
 func callForDel(ctx context.Context, logger *slog.Logger, token string,
 	brigadeID uuid.UUID, controlIP netip.Addr, userID uuid.UUID,
-) error {
+) (int, error) {
 	c := &http.Client{
 		Timeout: 120 * time.Second,
 	}
@@ -52,7 +54,7 @@ func callForDel(ctx context.Context, logger *slog.Logger, token string,
 
 	req, err := http.NewRequestWithContext(ctx, "DELETE", apiurl, nil)
 	if nil != err {
-		return fmt.Errorf("failed to create request: %w", err)
+		return 0, fmt.Errorf("failed to create request: %w", err)
 	}
 
 	req.Header.Set("Content-Type", "application/json")
@@ -68,16 +70,27 @@ func callForDel(ctx context.Context, logger *slog.Logger, token string,
 
 		defer resp.Body.Close()
 
-		if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNoContent {
+		if resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusNoContent {
+			return 0, core.ErrUserNotFound
+		}
+
+		if resp.StatusCode != http.StatusOK {
 			logger.Error("unexpected status code", "status_code", resp.StatusCode)
 
 			continue
 		}
 
-		return nil
+		slots := &SocketDeleteUser{}
+		if err := json.NewDecoder(resp.Body).Decode(slots); nil != err {
+			logger.Debug("failed to decode response", "error", err)
+
+			continue
+		}
+
+		return slots.FreeSlots, nil
 	}
 
 	logger.Error("max attempts reached", "attempts", core.MaxKdCallAttempts)
 
-	return core.ErrMaxKdCallAttemptsExceeded
+	return 0, core.ErrMaxKdCallAttemptsExceeded
 }

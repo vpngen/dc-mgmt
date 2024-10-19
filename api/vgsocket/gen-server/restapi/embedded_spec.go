@@ -26,6 +26,120 @@ func init() {
   },
   "basePath": "/v1",
   "paths": {
+    "/brigade/{brigade_id}/activity": {
+      "get": {
+        "security": [
+          {
+            "JWT": [
+              "manager"
+            ]
+          }
+        ],
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "summary": "Get VPN socket brigade activity stats",
+        "operationId": "getBrigadeActivity",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "Brigade ID",
+            "name": "brigade_id",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/BrigadeActivity"
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            }
+          },
+          "503": {
+            "description": "Service Temporarily Unavailable"
+          }
+        }
+      }
+    },
+    "/brigade/{brigade_id}/slots": {
+      "get": {
+        "security": [
+          {
+            "JWT": [
+              "manager"
+            ]
+          }
+        ],
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "summary": "Get VPN socket brigade slots stats",
+        "operationId": "getBrigadeSlots",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "Brigade ID",
+            "name": "brigade_id",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/BrigadeSlots"
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            }
+          },
+          "503": {
+            "description": "Service Temporarily Unavailable"
+          }
+        }
+      }
+    },
     "/config": {
       "post": {
         "security": [
@@ -58,7 +172,7 @@ func init() {
           "201": {
             "description": "Created",
             "schema": {
-              "$ref": "#/definitions/VPNConfig"
+              "$ref": "#/definitions/VPNConfigResponse"
             }
           },
           "400": {
@@ -98,12 +212,10 @@ func init() {
           }
         ],
         "consumes": [
-          "application/json",
-          "application/xml"
+          "application/json"
         ],
         "produces": [
-          "application/json",
-          "application/xml"
+          "application/json"
         ],
         "summary": "Delete VPN config",
         "operationId": "deleteConfig",
@@ -136,8 +248,11 @@ func init() {
           }
         ],
         "responses": {
-          "204": {
-            "description": "No Content"
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/FreeSlots"
+            }
           },
           "400": {
             "description": "Bad Request",
@@ -147,6 +262,12 @@ func init() {
           },
           "401": {
             "description": "Unauthorized",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            }
+          },
+          "404": {
+            "description": "Not Found",
             "schema": {
               "$ref": "#/definitions/Error"
             }
@@ -168,6 +289,23 @@ func init() {
     }
   },
   "definitions": {
+    "AcitivityData": {
+      "type": "object",
+      "required": [
+        "last_seen",
+        "updated"
+      ],
+      "properties": {
+        "last_seen": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updated": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
     "AmneziaOVCConfig": {
       "type": "object",
       "required": [
@@ -187,12 +325,32 @@ func init() {
         }
       }
     },
+    "BrigadeActivity": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/definitions/AcitivityData"
+      }
+    },
+    "BrigadeSlots": {
+      "type": "object",
+      "required": [
+        "free_slots",
+        "total_slots"
+      ],
+      "properties": {
+        "free_slots": {
+          "type": "integer"
+        },
+        "total_slots": {
+          "type": "integer"
+        }
+      }
+    },
     "ConfigType": {
       "description": "VPN config type",
       "type": "string",
       "enum": [
         "wireguard",
-        "amneziavpn",
         "outline",
         "universal"
       ]
@@ -224,6 +382,17 @@ func init() {
         "message": {
           "description": "Error message",
           "type": "string"
+        }
+      }
+    },
+    "FreeSlots": {
+      "type": "object",
+      "required": [
+        "free_slots"
+      ],
+      "properties": {
+        "free_slots": {
+          "type": "integer"
         }
       }
     },
@@ -303,6 +472,17 @@ func init() {
           "format": "uuid4"
         }
       }
+    },
+    "VPNConfigResponse": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/definitions/VPNConfig"
+        },
+        {
+          "$ref": "#/definitions/FreeSlots"
+        }
+      ]
     },
     "VPNGenConfig": {
       "type": "object",
@@ -355,6 +535,120 @@ func init() {
   },
   "basePath": "/v1",
   "paths": {
+    "/brigade/{brigade_id}/activity": {
+      "get": {
+        "security": [
+          {
+            "JWT": [
+              "manager"
+            ]
+          }
+        ],
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "summary": "Get VPN socket brigade activity stats",
+        "operationId": "getBrigadeActivity",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "Brigade ID",
+            "name": "brigade_id",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/BrigadeActivity"
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            }
+          },
+          "503": {
+            "description": "Service Temporarily Unavailable"
+          }
+        }
+      }
+    },
+    "/brigade/{brigade_id}/slots": {
+      "get": {
+        "security": [
+          {
+            "JWT": [
+              "manager"
+            ]
+          }
+        ],
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "summary": "Get VPN socket brigade slots stats",
+        "operationId": "getBrigadeSlots",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "Brigade ID",
+            "name": "brigade_id",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/BrigadeSlots"
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            }
+          },
+          "503": {
+            "description": "Service Temporarily Unavailable"
+          }
+        }
+      }
+    },
     "/config": {
       "post": {
         "security": [
@@ -387,7 +681,7 @@ func init() {
           "201": {
             "description": "Created",
             "schema": {
-              "$ref": "#/definitions/VPNConfig"
+              "$ref": "#/definitions/VPNConfigResponse"
             }
           },
           "400": {
@@ -427,12 +721,10 @@ func init() {
           }
         ],
         "consumes": [
-          "application/json",
-          "application/xml"
+          "application/json"
         ],
         "produces": [
-          "application/json",
-          "application/xml"
+          "application/json"
         ],
         "summary": "Delete VPN config",
         "operationId": "deleteConfig",
@@ -465,8 +757,11 @@ func init() {
           }
         ],
         "responses": {
-          "204": {
-            "description": "No Content"
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/FreeSlots"
+            }
           },
           "400": {
             "description": "Bad Request",
@@ -476,6 +771,12 @@ func init() {
           },
           "401": {
             "description": "Unauthorized",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            }
+          },
+          "404": {
+            "description": "Not Found",
             "schema": {
               "$ref": "#/definitions/Error"
             }
@@ -497,6 +798,23 @@ func init() {
     }
   },
   "definitions": {
+    "AcitivityData": {
+      "type": "object",
+      "required": [
+        "last_seen",
+        "updated"
+      ],
+      "properties": {
+        "last_seen": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updated": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
     "AmneziaOVCConfig": {
       "type": "object",
       "required": [
@@ -516,12 +834,32 @@ func init() {
         }
       }
     },
+    "BrigadeActivity": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/definitions/AcitivityData"
+      }
+    },
+    "BrigadeSlots": {
+      "type": "object",
+      "required": [
+        "free_slots",
+        "total_slots"
+      ],
+      "properties": {
+        "free_slots": {
+          "type": "integer"
+        },
+        "total_slots": {
+          "type": "integer"
+        }
+      }
+    },
     "ConfigType": {
       "description": "VPN config type",
       "type": "string",
       "enum": [
         "wireguard",
-        "amneziavpn",
         "outline",
         "universal"
       ]
@@ -553,6 +891,17 @@ func init() {
         "message": {
           "description": "Error message",
           "type": "string"
+        }
+      }
+    },
+    "FreeSlots": {
+      "type": "object",
+      "required": [
+        "free_slots"
+      ],
+      "properties": {
+        "free_slots": {
+          "type": "integer"
         }
       }
     },
@@ -632,6 +981,17 @@ func init() {
           "format": "uuid4"
         }
       }
+    },
+    "VPNConfigResponse": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/definitions/VPNConfig"
+        },
+        {
+          "$ref": "#/definitions/FreeSlots"
+        }
+      ]
     },
     "VPNGenConfig": {
       "type": "object",

@@ -9,7 +9,7 @@ basePath: /v1
 
 paths:
 
-  /brigade/status/{orderId}:
+  /brigade/status/{order_id}:
 
     get:
       security:
@@ -23,7 +23,7 @@ paths:
         - application/json
       parameters:
         - in: path
-          name: orderId
+          name: order_id
           required: true
           type: string
           description: Order ID
@@ -68,7 +68,7 @@ paths:
       security:
         - JWT:
           - admin
-      summary: Create VPN brigade
+      summary: Create VPN socket brigade
       operationId: createBrigade
       consumes:
         - application/json
@@ -119,7 +119,7 @@ paths:
       security:
         - JWT:
           - admin
-      summary: Get VPN brigade
+      summary: Get VPN socket brigade
       operationId: getBrigade
       consumes:
         - application/json
@@ -155,7 +155,7 @@ paths:
       security:
         - JWT:
           - admin
-      summary: Delete VPN brigade
+      summary: Delete VPN socket brigade
       operationId: deleteBrigade
       consumes:
         - application/json
@@ -196,83 +196,6 @@ paths:
         "503":
           description: Service Temporarily Unavailable
 
-  /user:
-
-    post:
-      security:
-        - JWT:
-          - manager
-      summary: Create VPN user
-      operationId: createUser
-      consumes:
-        - application/json
-      produces:
-        - application/json
-      parameters:
-        - in: body
-          name: body
-          required: true
-          description: User data
-          schema:
-            $ref: '#/definitions/CreateUserRequest'
-      responses:
-        "201":
-          description: Created
-          schema:
-            $ref: "#/definitions/VPNConfig"
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/Error'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/Error'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/Error'
-        "503":
-          description: Service Temporarily Unavailable
-
-  /user/{user_id}:
-
-    delete:
-      security:
-        - JWT:
-          - manager
-      summary: Delete VPN user
-      operationId: deleteUser
-      consumes:
-        - application/json
-        - application/xml
-      produces:
-        - application/json
-        - application/xml
-      parameters:
-        - in: path
-          name: user_id
-          required: true
-          type: string
-          description: User ID
-      responses:
-        "204":
-          description: No Content
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/Error'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/Error'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/Error'
-        "503":
-          description: Service Temporarily Unavailable
-
 definitions:
   
   OrderStatus:
@@ -285,6 +208,7 @@ definitions:
         type: string
         description: Order status
         enum:
+          - created
           - processing
           - completed
           - failed
@@ -295,47 +219,55 @@ definitions:
         type: integer
         description: Retry after seconds
         x-omitempty: true
-      brigadeID:
+      order_id:
         type: string
         format: uuid
-        description: Brigade ID
+        description: Order ID
         x-omitempty: true
 
   CreateBirgadeRequest:
     type: object
     required:
-      - brigadeName
-      - brigadeID
+      - brigade_name
+      - brigade_id
+      - zone
     properties:
-      brigadeName:
+      brigade_name:
         type: string
         description: Brigade name
-      brigadeID:
+      brigade_id:
         type: string
         format: uuid
         description: Brigade ID
+      zone:
+        type: string
+        description: Virtual machine zone
 
   Brigade:
     type: object
     required:
-      - brigadeID
-      - brigadeName
-      - maxUsers
+      - brigade_id
+      - brigade_name
+      - max_users
       - deleted
+      - zone
     properties:
       deleted:
         type: boolean
         description: Deleted
-      brigadeID:
+      brigade_id:
         type: string
         format: uuid
         description: Brigade ID
-      brigadeName:
+      brigade_name:
         type: string
         description: Brigade name
-      maxUsers:
+      max_users:
         type: integer
         description: Max users
+      zone:
+        type: string
+        description: Virtual machine zone
 
   Error:
     type: object
@@ -357,93 +289,6 @@ definitions:
         type: string
         description: Error message
 
-  ConfigType:
-    description: VPN config type
-    type: string
-    enum:
-      - wireguard
-      - amneziavpn
-      - outline
-      - vgc
-
-  OutlineConfig:
-    type: object
-    required:
-      - access_key
-    properties:
-      access_key:
-        type: string
-  
-  AmneziaOVCConfig:
-    type: object
-    required:
-      - tunnel_name
-      - file_name
-      - file_content
-    properties:
-      tunnel_name:
-        type: string
-      file_name:
-        type: string
-      file_content:
-        type: string
-
-  WireGuardConfig:
-    type: object
-    required:
-      - tunnel_name
-      - file_name
-      - file_content
-    properties:
-      tunnel_name:
-        type: string
-      file_name:
-        type: string
-      file_content:
-        type: string
-
-  VPNGenConfig:
-    type: object
-    required:
-      - access_key
-    properties:
-      access_key:
-        type: string
-
-  VPNConfig:
-    type: object
-    required:
-      - user_id
-    properties:
-      user_id:
-        type: string
-        format: uuid4
-      OutlineConfig:
-        $ref: '#/definitions/OutlineConfig'
-        x-omitempty: true
-      AmneziaOVCConfig:
-        $ref: '#/definitions/AmneziaOVCConfig'
-        x-omitempty: true
-      WireGuardConfig:
-        $ref: '#/definitions/WireGuardConfig'
-        x-omitempty: true
-      VPNGenConfig:
-        $ref: '#/definitions/VPNGenConfig'
-        x-omitempty: true
-
-  CreateUserRequest:
-    type: object
-    required:
-      - brigadeID
-      - configType
-    properties:
-      brigadeID:
-        type: string
-        format: uuid
-        description: Brigade ID
-      configType:
-        $ref: '#/definitions/ConfigType'
-
   Principal:
     type: object
     required:
@@ -462,5 +307,3 @@ securityDefinitions:
     scopes:
       admin: Admin scope
       manager: Manager scope
-  Basic:
-    type: basic

@@ -75,6 +75,9 @@ cleanInstall() {
         systemctl enable vg-dc-vgsocket.service ||:
         systemctl start vg-dc-vgsocket.service ||:
  
+        systemctl enable vg-dc-vgsbrigades.service ||:
+        systemctl start vg-dc-vgsbrigades.service ||:
+
         systemctl enable vg-dc-stats.timer ||:
 	systemctl start vg-dc-stats.timer ||:
 
@@ -95,6 +98,9 @@ upgrade() {
 
         systemctl enable vg-dc-vgsocket.service ||:
         systemctl start vg-dc-vgsocket.service ||:
+
+        systemctl enable vg-dc-vgsbrigades.service ||:
+        systemctl start vg-dc-vgsbrigades.service ||:
 
         systemctl enable vg-dc-stats.timer ||:
         systemctl enable vg-dc-stats.service ||:

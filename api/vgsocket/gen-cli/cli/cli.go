@@ -58,10 +58,7 @@ func makeClient(cmd *cobra.Command, _ []string) (*client.VGSocketRealm, error) {
 
 	r.Consumers["application/json"] = runtime.JSONConsumer()
 
-	// warning: consumes application/xml is not supported by go-swagger cli yet
-
 	r.Producers["application/json"] = runtime.JSONProducer()
-	// warning: produces application/xml is not supported by go-swagger cli yet
 
 	auth, err := makeAuthInfoWriter(cmd)
 	if err != nil {
@@ -207,6 +204,18 @@ func makeGroupOfOperationsOperationsCmd() (*cobra.Command, error) {
 		return nil, err
 	}
 	parent.AddCommand(sub1)
+
+	sub2, err := makeOperationOperationsGetBrigadeActivityCmd()
+	if err != nil {
+		return nil, err
+	}
+	parent.AddCommand(sub2)
+
+	sub3, err := makeOperationOperationsGetBrigadeSlotsCmd()
+	if err != nil {
+		return nil, err
+	}
+	parent.AddCommand(sub3)
 
 	return parent, nil
 }

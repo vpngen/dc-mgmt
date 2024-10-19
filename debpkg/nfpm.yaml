@@ -488,6 +488,12 @@ contents:
     mode: 0005
     owner: root
     group: root
+- src: bin/vgsbrigades_service
+  dst: /opt/vg-dc-socket/vgsbrigades_service
+  file_info:
+    mode: 0005
+    owner: root
+    group: root
 
 - src: dc-mgmt/systemd/vg-dc-vgsocket.service
   dst: /etc/systemd/system/vg-dc-vgsocket.service
@@ -512,6 +518,30 @@ contents:
     mode: 0440
     owner: root
     group: vgs_user
+
+- src: dc-mgmt/systemd/vg-dc-vgsbrigades.service
+  dst: /etc/systemd/system/vg-dc-vgsbrigades.service
+  file_info:
+    mode: 0644
+    owner: root
+    group: root
+
+- dst: /etc/vg-dc-socket-admin
+  type: dir
+  file_info:
+    mode: 0110
+    owner: root
+    group: vgs_admin
+
+- dst: /etc/vg-dc-socket-admin/vgsocket.env
+  type: ghost
+
+- src: dc-mgmt/debpkg/src/vgsbrigades.env-sample
+  dst: /etc/vg-dc-socket-admin/vgsbrigades.env-sample
+  file_info:
+    mode: 0440
+    owner: root
+    group: vgs_admin
 
 overrides:
   deb:

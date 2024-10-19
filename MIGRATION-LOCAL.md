@@ -76,7 +76,7 @@ This document describes the process of migrating a set of brigades within a sing
 
 * Use `vgmigr` datacenter account to switch the brigades instances to the new ones
 * Switch the brigades instances
-  * Example: `/opt/vg-dc-snaps/switch_local_migr.sh -r ab12cd34-5678-90ab-cdef-1234567890ab -f 4.33.222.0-migr-prepared-20000101-000000.json`
+  * Example: `/opt/vg-dc-snaps/switch_local_migr.sh switch -r ab12cd34-5678-90ab-cdef-1234567890ab -f 4.33.222.0-migr-prepared-20000101-000000.json`
 * Use `vgvpnapi` datacenter account to sync subdomains
 * Sync subdomains with subdomain management API
   * Example: `SSH_KEY=~/.ssh/id_ed25519 /opt/vg-dc-vpnapi/delegation-sync.sh`

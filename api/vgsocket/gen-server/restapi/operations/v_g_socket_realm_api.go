@@ -41,16 +41,20 @@ func NewVGSocketRealmAPI(spec *loads.Document) *VGSocketRealmAPI {
 		BearerAuthenticator: security.BearerAuth,
 
 		JSONConsumer: runtime.JSONConsumer(),
-		XMLConsumer:  runtime.XMLConsumer(),
 
 		JSONProducer: runtime.JSONProducer(),
-		XMLProducer:  runtime.XMLProducer(),
 
 		CreateConfigHandler: CreateConfigHandlerFunc(func(params CreateConfigParams, principal *models.Principal) middleware.Responder {
 			return middleware.NotImplemented("operation CreateConfig has not yet been implemented")
 		}),
 		DeleteConfigHandler: DeleteConfigHandlerFunc(func(params DeleteConfigParams, principal *models.Principal) middleware.Responder {
 			return middleware.NotImplemented("operation DeleteConfig has not yet been implemented")
+		}),
+		GetBrigadeActivityHandler: GetBrigadeActivityHandlerFunc(func(params GetBrigadeActivityParams, principal *models.Principal) middleware.Responder {
+			return middleware.NotImplemented("operation GetBrigadeActivity has not yet been implemented")
+		}),
+		GetBrigadeSlotsHandler: GetBrigadeSlotsHandlerFunc(func(params GetBrigadeSlotsParams, principal *models.Principal) middleware.Responder {
+			return middleware.NotImplemented("operation GetBrigadeSlots has not yet been implemented")
 		}),
 
 		JWTAuth: func(token string, scopes []string) (*models.Principal, error) {
@@ -89,16 +93,10 @@ type VGSocketRealmAPI struct {
 	// JSONConsumer registers a consumer for the following mime types:
 	//   - application/json
 	JSONConsumer runtime.Consumer
-	// XMLConsumer registers a consumer for the following mime types:
-	//   - application/xml
-	XMLConsumer runtime.Consumer
 
 	// JSONProducer registers a producer for the following mime types:
 	//   - application/json
 	JSONProducer runtime.Producer
-	// XMLProducer registers a producer for the following mime types:
-	//   - application/xml
-	XMLProducer runtime.Producer
 
 	// JWTAuth registers a function that takes an access token and a collection of required scopes and returns a principal
 	// it performs authentication based on an oauth2 bearer token provided in the request
@@ -111,6 +109,10 @@ type VGSocketRealmAPI struct {
 	CreateConfigHandler CreateConfigHandler
 	// DeleteConfigHandler sets the operation handler for the delete config operation
 	DeleteConfigHandler DeleteConfigHandler
+	// GetBrigadeActivityHandler sets the operation handler for the get brigade activity operation
+	GetBrigadeActivityHandler GetBrigadeActivityHandler
+	// GetBrigadeSlotsHandler sets the operation handler for the get brigade slots operation
+	GetBrigadeSlotsHandler GetBrigadeSlotsHandler
 
 	// ServeError is called when an error is received, there is a default handler
 	// but you can set your own with this
@@ -183,15 +185,9 @@ func (o *VGSocketRealmAPI) Validate() error {
 	if o.JSONConsumer == nil {
 		unregistered = append(unregistered, "JSONConsumer")
 	}
-	if o.XMLConsumer == nil {
-		unregistered = append(unregistered, "XMLConsumer")
-	}
 
 	if o.JSONProducer == nil {
 		unregistered = append(unregistered, "JSONProducer")
-	}
-	if o.XMLProducer == nil {
-		unregistered = append(unregistered, "XMLProducer")
 	}
 
 	if o.JWTAuth == nil {
@@ -203,6 +199,12 @@ func (o *VGSocketRealmAPI) Validate() error {
 	}
 	if o.DeleteConfigHandler == nil {
 		unregistered = append(unregistered, "DeleteConfigHandler")
+	}
+	if o.GetBrigadeActivityHandler == nil {
+		unregistered = append(unregistered, "GetBrigadeActivityHandler")
+	}
+	if o.GetBrigadeSlotsHandler == nil {
+		unregistered = append(unregistered, "GetBrigadeSlotsHandler")
 	}
 
 	if len(unregistered) > 0 {
@@ -245,8 +247,6 @@ func (o *VGSocketRealmAPI) ConsumersFor(mediaTypes []string) map[string]runtime.
 		switch mt {
 		case "application/json":
 			result["application/json"] = o.JSONConsumer
-		case "application/xml":
-			result["application/xml"] = o.XMLConsumer
 		}
 
 		if c, ok := o.customConsumers[mt]; ok {
@@ -264,8 +264,6 @@ func (o *VGSocketRealmAPI) ProducersFor(mediaTypes []string) map[string]runtime.
 		switch mt {
 		case "application/json":
 			result["application/json"] = o.JSONProducer
-		case "application/xml":
-			result["application/xml"] = o.XMLProducer
 		}
 
 		if p, ok := o.customProducers[mt]; ok {
@@ -314,6 +312,14 @@ func (o *VGSocketRealmAPI) initHandlerCache() {
 		o.handlers["DELETE"] = make(map[string]http.Handler)
 	}
 	o.handlers["DELETE"]["/config/{config_id}"] = NewDeleteConfig(o.context, o.DeleteConfigHandler)
+	if o.handlers["GET"] == nil {
+		o.handlers["GET"] = make(map[string]http.Handler)
+	}
+	o.handlers["GET"]["/brigade/{brigade_id}/activity"] = NewGetBrigadeActivity(o.context, o.GetBrigadeActivityHandler)
+	if o.handlers["GET"] == nil {
+		o.handlers["GET"] = make(map[string]http.Handler)
+	}
+	o.handlers["GET"]["/brigade/{brigade_id}/slots"] = NewGetBrigadeSlots(o.context, o.GetBrigadeSlotsHandler)
 }
 
 // Serve creates a http handler to serve the API over HTTP

@@ -59,6 +59,8 @@ type Config struct {
 	BrigadeID   uuid.UUID // Brigade ID
 	BrigadeName string    // Brigade name
 
+	Zone string // Zone
+
 	PairsApp string // Script which creates pairs
 
 	DCIdent string // Datacenter identifier
@@ -269,6 +271,7 @@ func (c *Config) readArgs() error {
 	// Some code to read args from os.Args
 	id := flag.String("id", "", "brigade ID (UUID form)")
 	name := flag.String("name", "", "brigade name")
+	zone := flag.String("zone", "", "zone")
 	auto := flag.Bool("auto", false, "auto-generate brigade ID and name")
 	maxusers := flag.Int("maxusers", 0, "max users")
 
@@ -303,6 +306,8 @@ func (c *Config) readArgs() error {
 	if *maxusers == 0 {
 		c.MaxUsers = defaultMaxUsers
 	}
+
+	c.Zone = *zone
 
 	return nil // just for future cases
 }
