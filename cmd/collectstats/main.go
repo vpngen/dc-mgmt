@@ -222,6 +222,8 @@ func updateStats(db *pgxpool.Pool, statsSchema string, stats *Stats) error {
 		return fmt.Errorf("begin transaction: %w", err)
 	}
 
+	defer tx.Rollback(ctx)
+
 	brigadeID, err := base32.StdEncoding.WithPadding(base32.NoPadding).DecodeString(stats.BrigadeID)
 	if err != nil {
 		return fmt.Errorf("decode brigade id: %w", err)

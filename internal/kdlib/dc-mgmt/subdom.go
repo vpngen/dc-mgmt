@@ -17,7 +17,7 @@ const (
 	subdomainAPISleep    = 2 * time.Second
 )
 
-func ApplySubdomain(ctx context.Context, db *pgxpool.Pool, apihost, apitoken string, brigadeID string, endpointIPv4 netip.Addr) error {
+func ApplySubdomain(ctx context.Context, db *pgxpool.Pool, apihost, apitoken string, brigadeID string, endpointIPv4 netip.Addr, srvZone string) error {
 	if apitoken == NoUseSubdomainAPIToken {
 		fmt.Fprintf(os.Stderr, "subdomain api token is set to dry-run\n")
 
@@ -32,12 +32,13 @@ func ApplySubdomain(ctx context.Context, db *pgxpool.Pool, apihost, apitoken str
 	defer tx.Rollback(ctx)
 
 	var (
-		domainName pgtype.Text
-		subdomain  string
+		domainName  pgtype.Text
+		subdomain   string
+		nameservers string
 	)
 
 	for i := 0; i < subdomainAPIAttempts; i++ {
-		subdomain, err = kdlib.SubdomainPick(apihost, apitoken)
+		subdomain, nameservers, err = kdlib.SubdomainPick(apihost, apitoken, srvZone)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Can't pick subdomain (%d): %s\n", i+1, err)
 
@@ -61,9 +62,9 @@ func ApplySubdomain(ctx context.Context, db *pgxpool.Pool, apihost, apitoken str
 		return fmt.Errorf("scan subdomain: %w", err)
 	}
 
-	sqlInsertPairDomain := `INSERT INTO brigades.domains_endpoints_ipv4 (domain_name, endpoint_ipv4) VALUES ($1,$2)`
+	sqlInsertPairDomain := `INSERT INTO brigades.domains_endpoints_ipv4 (domain_name, endpoint_ipv4, nameservers) VALUES ($1,$2,$3)`
 
-	if _, err := tx.Exec(ctx, sqlInsertPairDomain, domainName, endpointIPv4); err != nil {
+	if _, err := tx.Exec(ctx, sqlInsertPairDomain, domainName, endpointIPv4, nameservers); err != nil {
 		return fmt.Errorf("pair domain update: %w", err)
 	}
 
