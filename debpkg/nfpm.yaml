@@ -320,6 +320,12 @@ contents:
     mode: 0005
     owner: root
     group: root
+- src : bin/subdomain
+  dst : /opt/vg-dc-vpnapi/subdomain
+  file_info:
+    mode: 0005
+    owner: root
+    group: root
   
 - dst: /opt/vg-dc-stats
   type: dir
