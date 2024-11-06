@@ -59,9 +59,9 @@ func main() {
 		cfg.SSHKeyFile, cfg.DelegationSyncUser, cfg.DelegationSyncHost,
 		cfg.MgmtRandomResponses,
 	); err != nil {
-		logger.Error("error creating brigade", "error", err)
+		logger.Error("error deleting brigade", "error", err)
 
-		log.Fatalf("Error creating brigade: %s", err)
+		log.Fatalf("Error deleting brigade: %s", err)
 	}
 
 	// 3. delete control/endpoint pair

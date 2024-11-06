@@ -26,17 +26,26 @@ func CheckOrderStatusHandler(ctx context.Context, logger *slog.Logger, opts *Opt
 		return operations.NewCheckOrderStatusInternalServerError()
 	}
 
-	status, retryAfter, err := dcmgmtlib.VgsCheckOrderStatus(ctx, logger, opts.Db, opts.SqFmt, orderID)
+	brigadeID, status, retryAfter, err := dcmgmtlib.VgsCheckOrderStatus(ctx, logger, opts.Db, opts.SqFmt, orderID)
 	if err != nil {
 		logger.Error("error checking order status", "error", err)
 
 		return operations.NewCheckOrderStatusInternalServerError()
 	}
 
-	return operations.NewCreateBrigadeAccepted().WithPayload(&models.OrderStatus{
-		OrderID:    strfmt.UUID(orderID.String()),
-		Status:     swag.String(status),
-		RetryAfter: retryAfter,
-		Message:    swag.String("brigade creation order accepted"),
-	})
+	switch status {
+	case dcmgmtlib.VgsOrderStatusAccepted, dcmgmtlib.VgsOrderStatusProcessing, dcmgmtlib.VgsOrderStatusFailed:
+		return operations.NewCheckOrderStatusOK().WithPayload(&models.OrderStatus{
+			OrderID:    strfmt.UUID(params.OrderID),
+			Status:     swag.String(status),
+			RetryAfter: retryAfter,
+			Message:    swag.String("order status accepted"),
+		})
+	default:
+		return operations.NewCheckOrderStatusFound().WithPayload(&models.OrderStatus{
+			OrderID: strfmt.UUID(params.OrderID),
+			Status:  swag.String(status),
+			Message: swag.String("order status completed"),
+		}).WithLocation("/brigade/" + brigadeID.String())
+	}
 }
