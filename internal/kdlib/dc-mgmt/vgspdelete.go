@@ -205,11 +205,13 @@ func vgsUnregisterPair(ctx context.Context, _ *slog.Logger, db *pgxpool.Pool, sq
 	return nil
 }
 
-func vgsProcessPairDeleting(_ context.Context, logger *slog.Logger, app string, number int, _ string) error {
+func vgsProcessPairDeleting(_ context.Context, logger *slog.Logger, app string, number int, zone string) error {
 	var (
 		stderr bytes.Buffer
 		result VgsPairsResult
 	)
+
+	app = AssembleAppPath(app, zone)
 
 	cmd := exec.Command(app, "delete", fmt.Sprintf("%d", number))
 

@@ -23,11 +23,11 @@ require (
 	github.com/rs/cors v1.11.1
 	github.com/spf13/cobra v1.8.1
 	github.com/spf13/viper v1.19.0
-	github.com/vpngen/domain-commander v0.4.1
-	github.com/vpngen/keydesk v1.10.8
+	github.com/vpngen/domain-commander v0.4.3
+	github.com/vpngen/keydesk v1.10.11
 	github.com/vpngen/keydesk-snap v0.0.20
 	github.com/vpngen/vpngine v0.1.2-0.20240528050541-356825e04e77
-	github.com/vpngen/wordsgens v1.0.5-0.20240801234606-bf622613e5b7
+	github.com/vpngen/wordsgens v1.0.5
 	golang.org/x/crypto v0.28.0
 	golang.org/x/net v0.30.0
 )
@@ -39,7 +39,7 @@ require (
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 // indirect
 	github.com/btcsuite/btcd/btcutil v1.1.6 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
-	github.com/fsnotify/fsnotify v1.7.0 // indirect
+	github.com/fsnotify/fsnotify v1.8.0 // indirect
 	github.com/getkin/kin-openapi v0.128.0 // indirect
 	github.com/go-logr/logr v1.4.2 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect

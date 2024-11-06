@@ -171,6 +171,8 @@ func checkBrigade(db *pgxpool.Pool, schema string, brigadeID string) (netip.Addr
 		return emptyIP, emptyIP, fmt.Errorf("begin: %w", err)
 	}
 
+	defer tx.Rollback(ctx)
+
 	var (
 		controlIP   netip.Addr
 		keydeskIPv6 netip.Addr
@@ -185,10 +187,9 @@ func checkBrigade(db *pgxpool.Pool, schema string, brigadeID string) (netip.Addr
 		brigade_id=$1
 	AND
 		main=true
-	FOR UPDATE
 	`
 
-	err = tx.QueryRow(ctx,
+	if err = tx.QueryRow(ctx,
 		fmt.Sprintf(sqlGetControlIP,
 			(pgx.Identifier{schema, "meta_brigades"}.Sanitize()),
 		),
@@ -196,16 +197,8 @@ func checkBrigade(db *pgxpool.Pool, schema string, brigadeID string) (netip.Addr
 	).Scan(
 		&controlIP,
 		&keydeskIPv6,
-	)
-	if err != nil {
-		tx.Rollback(ctx)
-
+	); err != nil {
 		return emptyIP, emptyIP, fmt.Errorf("brigade query: %w", err)
-	}
-
-	err = tx.Commit(ctx)
-	if err != nil {
-		return emptyIP, emptyIP, fmt.Errorf("commit: %w", err)
 	}
 
 	return controlIP, keydeskIPv6, nil
