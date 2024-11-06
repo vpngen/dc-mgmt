@@ -58,6 +58,10 @@ const (
 	// PairsAppEnvName - the name of the environment variable that contains
 	// the name of the script which creates pairs.
 	PairsAppEnvName = "PAIRS_APP"
+
+	// MaxUsersEnvName - the name of the environment variable that contains
+	// the maximum number of users.
+	MaxUsersEnvName = "MAX_USERS"
 )
 
 const (
@@ -71,7 +75,7 @@ const (
 	DefaultLogLevel = slog.LevelInfo
 
 	// DefaultPairsApp - the default script which creates pairs.
-	DefaultPairsApp = "/opt/socket-control-endpoints/hetzner_pairs.sh"
+	DefaultPairsApp = "/opt/socket-control-endpoints%s/hetzner_pairs.sh"
 )
 
 const (
@@ -142,6 +146,24 @@ var (
 )
 
 const maxKeyFileSize = 1 << 20 // 1 MB
+
+func (c *Config) configMaxUsers() {
+	maxUsers := os.Getenv(MaxUsersEnvName)
+	if maxUsers == "" {
+		c.MaxUsers = defaultMaxUsers
+
+		return
+	}
+
+	i, err := strconv.Atoi(maxUsers)
+	if err != nil {
+		c.MaxUsers = defaultMaxUsers
+
+		return
+	}
+
+	c.MaxUsers = i
+}
 
 func (c *Config) configJWT() error {
 	var err error
@@ -463,6 +485,9 @@ func (c *Config) readEnv() error {
 	if err := c.sshConfig(); err != nil {
 		return fmt.Errorf("ssh config: %w", err)
 	}
+
+	// Max users.
+	c.configMaxUsers()
 
 	return nil // just for future cases
 }

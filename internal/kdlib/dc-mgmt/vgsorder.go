@@ -26,41 +26,42 @@ const (
 
 func VgsCheckOrderStatus(ctx context.Context, _ *slog.Logger, db *pgxpool.Pool, sqfmt sq.StatementBuilderType,
 	orderID uuid.UUID,
-) (string, int64, error) {
+) (uuid.UUID, string, int64, error) {
 	tx, err := db.Begin(ctx)
 	if err != nil {
-		return "", 0, fmt.Errorf("error starting transaction: %w", err)
+		return uuid.Nil, "", 0, fmt.Errorf("error starting transaction: %w", err)
 	}
 
 	defer tx.Rollback(ctx)
 
-	query := sqfmt.Select("completed_at", "failed_at").
+	query := sqfmt.Select("brigade_id", "completed_at", "failed_at").
 		From("pairs.pair_orders").
 		Where(sq.Eq{"order_id": orderID})
 
 	sql, args, err := query.ToSql()
 	if err != nil {
-		return "", 0, fmt.Errorf("error building SQL: %w", err)
+		return uuid.Nil, "", 0, fmt.Errorf("error building SQL: %w", err)
 	}
 
 	var (
 		completedAt pgtype.Timestamp
 		failedAt    pgtype.Timestamp
+		brigadeID   uuid.UUID
 	)
 
-	if err := tx.QueryRow(ctx, sql, args...).Scan(&completedAt, &failedAt); err != nil {
-		return "", 0, fmt.Errorf("error getting order status: %w", err)
+	if err := tx.QueryRow(ctx, sql, args...).Scan(&brigadeID, &completedAt, &failedAt); err != nil {
+		return uuid.Nil, "", 0, fmt.Errorf("error getting order status: %w", err)
 	}
 
 	if failedAt.Valid {
-		return VgsOrderStatusFailed, 0, nil
+		return brigadeID, VgsOrderStatusFailed, 0, nil
 	}
 
 	if completedAt.Valid {
-		return VgsOrderStatusCompleted, 0, nil
+		return brigadeID, VgsOrderStatusCompleted, 0, nil
 	}
 
-	return VgsOrderStatusProcessing, 0, nil
+	return brigadeID, VgsOrderStatusProcessing, 0, nil
 }
 
 func vgsSetOrderError(ctx context.Context, _ *slog.Logger, db *pgxpool.Pool, sqfmt sq.StatementBuilderType,

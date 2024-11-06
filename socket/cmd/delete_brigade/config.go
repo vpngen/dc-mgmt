@@ -39,7 +39,7 @@ const (
 	DefaultLogLevel = slog.LevelInfo
 
 	// DefaultPairsApp - the default script which creates pairs.
-	DefaultPairsApp = "/opt/socket-control-endpoints/hetzner_pairs.sh"
+	DefaultPairsApp = "/opt/socket-control-endpoints%s/hetzner_pairs.sh"
 )
 
 const sshkeyDefaultPath = "/etc/vg-dc-vpnapi"

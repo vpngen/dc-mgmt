@@ -216,11 +216,13 @@ type VgsPairsResult struct {
 	} `json:"endpoint,omitempty"`
 }
 
-func vgsProcessPair(_ context.Context, logger *slog.Logger, app string, number int, _ string) (netip.Addr, netip.Addr, error) {
+func vgsProcessPair(_ context.Context, logger *slog.Logger, app string, number int, zone string) (netip.Addr, netip.Addr, error) {
 	var (
 		stderr bytes.Buffer
 		result VgsPairsResult
 	)
+
+	app = AssembleAppPath(app, zone)
 
 	cmd := exec.Command(app, "create", fmt.Sprintf("%d", number))
 
@@ -259,4 +261,12 @@ func vgsProcessPair(_ context.Context, logger *slog.Logger, app string, number i
 	}
 
 	return result.Control.IP, result.Endpoint.IP, nil
+}
+
+func AssembleAppPath(app string, zone string) string {
+	if zone == "" {
+		return fmt.Sprintf(app, zone)
+	}
+
+	return fmt.Sprintf(app, "-"+zone)
 }
