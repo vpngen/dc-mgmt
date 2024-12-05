@@ -193,29 +193,41 @@ func makeGroupOfOperationsOperationsCmd() (*cobra.Command, error) {
 		Long: ``,
 	}
 
-	sub0, err := makeOperationOperationsCreateConfigCmd()
+	sub0, err := makeOperationOperationsBlockConfigCmd()
 	if err != nil {
 		return nil, err
 	}
 	parent.AddCommand(sub0)
 
-	sub1, err := makeOperationOperationsDeleteConfigCmd()
+	sub1, err := makeOperationOperationsCreateConfigCmd()
 	if err != nil {
 		return nil, err
 	}
 	parent.AddCommand(sub1)
 
-	sub2, err := makeOperationOperationsGetBrigadeActivityCmd()
+	sub2, err := makeOperationOperationsDeleteConfigCmd()
 	if err != nil {
 		return nil, err
 	}
 	parent.AddCommand(sub2)
 
-	sub3, err := makeOperationOperationsGetBrigadeSlotsCmd()
+	sub3, err := makeOperationOperationsGetBrigadeActivityCmd()
 	if err != nil {
 		return nil, err
 	}
 	parent.AddCommand(sub3)
+
+	sub4, err := makeOperationOperationsGetBrigadeSlotsCmd()
+	if err != nil {
+		return nil, err
+	}
+	parent.AddCommand(sub4)
+
+	sub5, err := makeOperationOperationsUnblockConfigCmd()
+	if err != nil {
+		return nil, err
+	}
+	parent.AddCommand(sub5)
 
 	return parent, nil
 }

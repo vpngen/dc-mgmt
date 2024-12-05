@@ -42,7 +42,7 @@ const (
 	CommandNotUsed    = "notused"
 )
 
-const updateTimeFreshness = 1 // hours
+const updateTimeFreshness = 2 // hours
 
 var errInlalidArgs = errors.New("invalid args")
 
@@ -329,7 +329,7 @@ func getNotUsed(db *pgxpool.Pool, igrp bool, users, days, num int) ([]byte, erro
 	WHERE
 		bs.update_time > now() - ($1 * INTERVAL '1 hours')
 	AND
-		(bs.last_seen IS NULL OR bs.last_seen < now() - ($2 * INTERVAL '1 days'))
+		(bs.last_seen IS NOT NULL AND bs.last_seen < now() - ($2 * INTERVAL '1 days'))
 	AND
 		bs.total_users_count<$4
 	AND
