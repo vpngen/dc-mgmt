@@ -329,6 +329,8 @@ func getNotUsed(db *pgxpool.Pool, igrp bool, users, days, num int) ([]byte, erro
 	WHERE
 		bs.update_time > now() - ($1 * INTERVAL '1 hours')
 	AND
+		(bs.created_at <  now() - ($2 * INTERVAL '1 days') OR bs.first_visit < now() - ($2 * INTERVAL '1 days')) -- it's for resolve migrated brigades
+	AND
 		(bs.last_seen IS NOT NULL AND bs.last_seen < now() - ($2 * INTERVAL '1 days'))
 	AND
 		bs.total_users_count<$4
