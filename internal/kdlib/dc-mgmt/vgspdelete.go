@@ -37,10 +37,10 @@ func VgsOrderDeleteBrigade(ctx context.Context, logger *slog.Logger, db *pgxpool
 
 	now := time.Now().UTC()
 
-	queryNumName := sqfmt.Select("l.endpoint_num", "b.brigadier", "p.pair_id", "p.control_ip", "p.zone").
+	queryNumName := sqfmt.Select("pe.endpoint_num", "b.brigadier", "p.pair_id", "p.control_ip", "p.zone").
 		From("brigades.brigades b").
 		Join("pairs.pairs p ON b.pair_id = p.pair_id").
-		Join("pairs.endpoint_num_links l ON b.endpoint_ipv4 = l.endpoint_ipv4").
+		Join("pairs.pairs_endpoints_ipv4 pe ON p.pair_id = pe.pair_id").
 		Where(sq.Eq{"b.brigade_id": brigadeID})
 
 	sql, args, err := queryNumName.ToSql()
@@ -88,7 +88,7 @@ func VgsOrderDeleteBrigade(ctx context.Context, logger *slog.Logger, db *pgxpool
 func VgsDeletePair(ctx context.Context, logger *slog.Logger, db *pgxpool.Pool, sqfmt sq.StatementBuilderType,
 	app string, orderID uuid.UUID, doNotCreatePhy bool,
 ) error {
-	num, zone, pairID, _, endpointIPv4, _, _, err := vgsGetOrderMeta(ctx, logger, db, sqfmt, orderID, false)
+	num, zone, pairID, onDemand, _, endpointIPv4, _, _, err := vgsGetOrderMeta(ctx, logger, db, sqfmt, orderID, false)
 	if err != nil {
 		return fmt.Errorf("error setting order processing: %w", err)
 	}
@@ -97,9 +97,9 @@ func VgsDeletePair(ctx context.Context, logger *slog.Logger, db *pgxpool.Pool, s
 
 	start := time.Now().UTC()
 
-	switch doNotCreatePhy {
-	case true:
-	default:
+	switch {
+	case doNotCreatePhy:
+	case onDemand:
 		if err := vgsProcessPairDeleting(ctx, logger, app, num, zone); err != nil {
 			if err := vgsSetOrderError(ctx, logger, db, sqfmt, orderID, err.Error()); err != nil {
 				return fmt.Errorf("error setting order error: %w", err)
@@ -107,16 +107,31 @@ func VgsDeletePair(ctx context.Context, logger *slog.Logger, db *pgxpool.Pool, s
 
 			return fmt.Errorf("error processing pair: %w", err)
 		}
+
+		logger.Info("pair physically deleted", "order_id", orderID, "endpoint_num", num, "duration", time.Since(start))
 	}
 
-	logger.Info("pair physically deleted", "order_id", orderID, "endpoint_num", num, "duration", time.Since(start))
+	switch {
+	case onDemand:
+		if err := vgsUnregisterPair(ctx, logger, db, sqfmt, pairID, endpointIPv4); err != nil {
+			if err := vgsSetOrderError(ctx, logger, db, sqfmt, orderID, err.Error()); err != nil {
+				return fmt.Errorf("error setting order error: %w", err)
+			}
 
-	if err := vgsUnregisterPair(ctx, logger, db, sqfmt, pairID, num, endpointIPv4); err != nil {
-		if err := vgsSetOrderError(ctx, logger, db, sqfmt, orderID, err.Error()); err != nil {
-			return fmt.Errorf("error setting order error: %w", err)
+			return fmt.Errorf("error registering pair: %w", err)
 		}
 
-		return fmt.Errorf("error registering pair: %w", err)
+		logger.Info("pair unregister", "order_id", orderID, "pair_id", pairID, "endpoint_num", num)
+	default:
+		if err := vgsUnregisterCommonPair(ctx, logger, db, sqfmt, endpointIPv4); err != nil {
+			if err := vgsSetOrderError(ctx, logger, db, sqfmt, orderID, err.Error()); err != nil {
+				return fmt.Errorf("error setting order error: %w", err)
+			}
+
+			return fmt.Errorf("error registering common pair: %w", err)
+		}
+
+		logger.Info("common pair unregister", "order_id", orderID, "pair_id", pairID, "endpoint_num", num)
 	}
 
 	if err := vgsSetOrderComplete(ctx, logger, db, sqfmt, orderID); err != nil {
@@ -132,8 +147,8 @@ func VgsDeletePair(ctx context.Context, logger *slog.Logger, db *pgxpool.Pool, s
 	return nil
 }
 
-func vgsUnregisterPair(ctx context.Context, _ *slog.Logger, db *pgxpool.Pool, sqfmt sq.StatementBuilderType,
-	pairID uuid.UUID, num int, endpointIPv4 netip.Addr,
+func vgsUnregisterCommonPair(ctx context.Context, _ *slog.Logger, db *pgxpool.Pool, sqfmt sq.StatementBuilderType,
+	endpointIPv4 netip.Addr,
 ) error {
 	tx, err := db.Begin(ctx)
 	if err != nil {
@@ -142,8 +157,9 @@ func vgsUnregisterPair(ctx context.Context, _ *slog.Logger, db *pgxpool.Pool, sq
 
 	defer tx.Rollback(ctx)
 
-	queryNum := sqfmt.Delete("pairs.endpoint_num_links").
-		Where(sq.Eq{"endpoint_num": num})
+	queryNum := sqfmt.Update("pairs.pairs_endpoints_ipv4").
+		Set("endpoint_num", 0).
+		Where(sq.Eq{"endpoint_ipv4": endpointIPv4})
 
 	sql, args, err := queryNum.ToSql()
 	if err != nil {
@@ -154,13 +170,30 @@ func vgsUnregisterPair(ctx context.Context, _ *slog.Logger, db *pgxpool.Pool, sq
 		return fmt.Errorf("error unlinking number: %w", err)
 	}
 
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("error committing transaction: %w", err)
+	}
+
+	return nil
+}
+
+func vgsUnregisterPair(ctx context.Context, _ *slog.Logger, db *pgxpool.Pool, sqfmt sq.StatementBuilderType,
+	pairID uuid.UUID, endpointIPv4 netip.Addr,
+) error {
+	tx, err := db.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("error starting transaction: %w", err)
+	}
+
+	defer tx.Rollback(ctx)
+
 	queryEndpointIP := sqfmt.Delete("pairs.pairs_endpoints_ipv4").
 		Where(sq.And{
 			sq.Eq{"pair_id": pairID},
 			sq.Eq{"endpoint_ipv4": endpointIPv4},
 		})
 
-	sql, args, err = queryEndpointIP.ToSql()
+	sql, args, err := queryEndpointIP.ToSql()
 	if err != nil {
 		return fmt.Errorf("error building SQL: %w", err)
 	}

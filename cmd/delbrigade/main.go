@@ -18,6 +18,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/vpngen/dc-mgmt/internal/kdlib"
@@ -408,6 +409,15 @@ func revokeSubdomain(ctx context.Context, db *pgxpool.Pool, subdomAPIHost, subdo
 		domain_name,
 	)
 	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) {
+			switch pgErr.ConstraintName {
+			case "domain_name_fk":
+
+				return nil
+			}
+		}
+
 		return fmt.Errorf("pair domain delete: %w", err)
 	}
 

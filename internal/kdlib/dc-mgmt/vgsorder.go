@@ -21,7 +21,8 @@ const (
 )
 
 const (
-	DefaultVgsOrderRetryAfter = 300 // seconds
+	DefaultVgsOrderRetryAfter        = 300 // seconds
+	DefaultVgsBrigadeOrderRetryAfter = 120 // seconds
 )
 
 func VgsCheckOrderStatus(ctx context.Context, _ *slog.Logger, db *pgxpool.Pool, sqfmt sq.StatementBuilderType,
@@ -133,16 +134,17 @@ func vgsSetOrderComplete(ctx context.Context, _ *slog.Logger, db *pgxpool.Pool, 
 // - num (unique virtual machine number)
 // - zone (availability zone)
 // - pairID (unique pair ID)
+// - OnDemand (socket or generator style)
 // - controlIP (control IP address)
 // - endpointIP (endpoint IP address)
 // - brigadeID (unique brigade ID)
 // - brigadeName (brigade name)
 func vgsGetOrderMeta(ctx context.Context, _ *slog.Logger, db *pgxpool.Pool, sqfmt sq.StatementBuilderType,
 	orderID uuid.UUID, short bool,
-) (int, string, uuid.UUID, netip.Addr, netip.Addr, uuid.UUID, string, error) {
+) (int, string, uuid.UUID, bool, netip.Addr, netip.Addr, uuid.UUID, string, error) {
 	tx, err := db.Begin(ctx)
 	if err != nil {
-		return 0, "", uuid.Nil, netip.Addr{}, netip.Addr{}, uuid.Nil, "", fmt.Errorf("error starting transaction: %w", err)
+		return 0, "", uuid.Nil, false, netip.Addr{}, netip.Addr{}, uuid.Nil, "", fmt.Errorf("error starting transaction: %w", err)
 	}
 
 	defer tx.Rollback(ctx)
@@ -158,7 +160,7 @@ func vgsGetOrderMeta(ctx context.Context, _ *slog.Logger, db *pgxpool.Pool, sqfm
 
 	sql, args, err := queryNum.ToSql()
 	if err != nil {
-		return 0, "", uuid.Nil, netip.Addr{}, netip.Addr{}, uuid.Nil, "", fmt.Errorf("error building SQL: %w", err)
+		return 0, "", uuid.Nil, false, netip.Addr{}, netip.Addr{}, uuid.Nil, "", fmt.Errorf("error building SQL: %w", err)
 	}
 
 	var (
@@ -169,35 +171,40 @@ func vgsGetOrderMeta(ctx context.Context, _ *slog.Logger, db *pgxpool.Pool, sqfm
 	)
 
 	if err := tx.QueryRow(ctx, sql, args...).Scan(&numID, &zone, &brigadeID, &brigadeName); err != nil {
-		return 0, "", uuid.Nil, netip.Addr{}, netip.Addr{}, uuid.Nil, "", fmt.Errorf("error getting number ID: %w", err)
+		return 0, "", uuid.Nil, false, netip.Addr{}, netip.Addr{}, uuid.Nil, "", fmt.Errorf("error getting number ID: %w", err)
 	}
 
 	if short {
-		return numID, zone, uuid.Nil, netip.Addr{}, netip.Addr{}, brigadeID, brigadeName, nil
+		return numID, zone, uuid.Nil, false, netip.Addr{}, netip.Addr{}, brigadeID, brigadeName, nil
 	}
 
-	queryPair := sqfmt.Select("p.pair_id", "pei.endpoint_ipv4", "p.control_ip").
-		From("pairs.endpoint_num_links enl").
-		Join("pairs.pairs_endpoints_ipv4 pei ON enl.endpoint_ipv4 = pei.endpoint_ipv4").
+	queryPair := sqfmt.Select("p.pair_id", "pei.endpoint_ipv4", "p.control_ip", "p.on_demand").
+		From("pairs.endpoint_nums pn").
+		Join("pairs.pairs_endpoints_ipv4 pei ON pei.endpoint_num=pn.endpoint_num").
 		Join("pairs.pairs p ON pei.pair_id = p.pair_id").
-		Where(sq.Eq{"enl.endpoint_num": numID})
+		Where(sq.And{
+			sq.Eq{"pn.endpoint_num": numID},
+			sq.Eq{"pn.zone": zone},
+			sq.Eq{"p.zone": zone},
+		})
 
 	sql, args, err = queryPair.ToSql()
 	if err != nil {
-		return 0, "", uuid.Nil, netip.Addr{}, netip.Addr{}, uuid.Nil, "", fmt.Errorf("error building SQL: %w", err)
+		return 0, "", uuid.Nil, false, netip.Addr{}, netip.Addr{}, uuid.Nil, "", fmt.Errorf("error building SQL: %w", err)
 	}
 
 	var (
 		pairID     uuid.UUID
 		endpointIP netip.Addr
 		controlIP  netip.Addr
+		onDemand   bool
 	)
 
-	if err := tx.QueryRow(ctx, sql, args...).Scan(&pairID, &endpointIP, &controlIP); err != nil {
-		return 0, "", uuid.Nil, netip.Addr{}, netip.Addr{}, uuid.Nil, "", fmt.Errorf("error getting pair ID: %w", err)
+	if err := tx.QueryRow(ctx, sql, args...).Scan(&pairID, &endpointIP, &controlIP, &onDemand); err != nil {
+		return 0, "", uuid.Nil, false, netip.Addr{}, netip.Addr{}, uuid.Nil, "", fmt.Errorf("error getting pair ID: %w", err)
 	}
 
-	return numID, zone, pairID, controlIP, endpointIP, brigadeID, brigadeName, nil
+	return numID, zone, pairID, onDemand, controlIP, endpointIP, brigadeID, brigadeName, nil
 }
 
 const (

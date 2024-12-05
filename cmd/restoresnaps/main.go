@@ -287,14 +287,13 @@ func checkReservation(ctx context.Context, tx pgx.Tx, caddr, addr netip.Addr, ri
 }
 
 func checkBrigade(ctx context.Context, tx pgx.Tx,
-	data *storage.Brigade, bid uuid.UUID, name string,
+	data *storage.Brigade, bid uuid.UUID,
 ) (bool, uuid.UUID, error) {
 	sqlSelectBrigade := `
 		SELECT
 			brigade_id,
 			instance_id,
 			pair_id,
-			brigadier,
 			endpoint_ipv4,
 			dns_ipv4,
 			dns_ipv6,
@@ -312,7 +311,6 @@ func checkBrigade(ctx context.Context, tx pgx.Tx,
 
 	var (
 		brigadeID, instanceID, pairID uuid.UUID
-		brigadier                     string
 		endpointIPv4                  netip.Addr
 		dnsIPv4, dnsIPv6              netip.Addr
 		keydeskIPv6                   netip.Addr
@@ -324,7 +322,6 @@ func checkBrigade(ctx context.Context, tx pgx.Tx,
 		fmt.Sprintf(sqlSelectBrigade, (pgx.Identifier{defaultBrigadesSchema, "brigades"}.Sanitize())),
 		bid, data.EndpointIPv4,
 	).Scan(&brigadeID, &instanceID, &pairID,
-		&brigadier,
 		&endpointIPv4,
 		&dnsIPv4, &dnsIPv6,
 		&keydeskIPv6,
@@ -343,12 +340,36 @@ func checkBrigade(ctx context.Context, tx pgx.Tx,
 		dnsIPv6.String() == data.DNSv6.String() ||
 		keydeskIPv6.String() == data.KeydeskIPv6.String() ||
 		ipv4CGNAT.String() == data.IPv4CGNAT.String() ||
-		ipv6ULA.String() == data.IPv6ULA.String() ||
-		brigadier == name {
+		ipv6ULA.String() == data.IPv6ULA.String() {
 		return true, instanceID, nil
 	}
 
 	return false, instanceID, fmt.Errorf("%w: %s", ErrInvalidSnapshotData, brigadeID)
+}
+
+func getBrigadeName(ctx context.Context, tx pgx.Tx, bid uuid.UUID) (string, namesgenerator.Person, error) {
+	sqlSelectBrigade := `
+		SELECT
+			brigadier,
+			person
+		FROM
+			brigades.brigades
+		WHERE
+			brigade_id=$1
+                        AND brigadier <> ''
+                LIMIT 1
+		`
+
+	var (
+		brigadier string
+		person    namesgenerator.Person
+	)
+
+	if err := tx.QueryRow(ctx, sqlSelectBrigade, bid).Scan(&brigadier, &person); err != nil {
+		return "", person, fmt.Errorf("select brigade: %w", err)
+	}
+
+	return brigadier, person, nil
 }
 
 func insertBrigade(ctx context.Context, tx pgx.Tx, data *storage.Brigade,
@@ -428,28 +449,18 @@ func recreateBrigade(db *pgxpool.Pool, rid string, data *storage.Brigade, caddr,
 		return fmt.Errorf("%w: decode brigade id: %s", ErrInvalidSnapshotData, err)
 	}
 
-	var brigadier *storage.User
-	for _, u := range data.Users {
-		if u.IsBrigadier {
-			brigadier = u
-
-			break
-		}
+	name, person, err := getBrigadeName(ctx, tx, uuid.UUID(brigadeID))
+	if err != nil {
+		return fmt.Errorf("get brigade name: %w", err)
 	}
 
-	if brigadier == nil {
-		return fmt.Errorf("%w: no brigadier", ErrInvalidSnapshotData)
-	}
-
-	name := strings.TrimLeft(brigadier.Name, "0123456789 ")
-
-	exists, instanceID, err := checkBrigade(ctx, tx, data, uuid.UUID(brigadeID), name)
+	exists, instanceID, err := checkBrigade(ctx, tx, data, uuid.UUID(brigadeID))
 	if err != nil {
 		return fmt.Errorf("check brigade: %w", err)
 	}
 
 	if !exists {
-		instanceID, err = insertBrigade(ctx, tx, data, uuid.UUID(brigadeID), pairID, name, brigadier.Person)
+		instanceID, err = insertBrigade(ctx, tx, data, uuid.UUID(brigadeID), pairID, name, person)
 		if err != nil {
 			return fmt.Errorf("insert brigade: %w", err)
 		}
