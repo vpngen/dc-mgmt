@@ -56,6 +56,8 @@ type ClientOption func(*runtime.ClientOperation)
 
 // ClientService is the interface for Client methods
 type ClientService interface {
+	BlockConfig(params *BlockConfigParams, authInfo runtime.ClientAuthInfoWriter, opts ...ClientOption) (*BlockConfigOK, error)
+
 	CreateConfig(params *CreateConfigParams, authInfo runtime.ClientAuthInfoWriter, opts ...ClientOption) (*CreateConfigCreated, error)
 
 	DeleteConfig(params *DeleteConfigParams, authInfo runtime.ClientAuthInfoWriter, opts ...ClientOption) (*DeleteConfigOK, error)
@@ -64,7 +66,48 @@ type ClientService interface {
 
 	GetBrigadeSlots(params *GetBrigadeSlotsParams, authInfo runtime.ClientAuthInfoWriter, opts ...ClientOption) (*GetBrigadeSlotsOK, error)
 
+	UnblockConfig(params *UnblockConfigParams, authInfo runtime.ClientAuthInfoWriter, opts ...ClientOption) (*UnblockConfigOK, error)
+
 	SetTransport(transport runtime.ClientTransport)
+}
+
+/*
+BlockConfig blocks v p n config
+*/
+func (a *Client) BlockConfig(params *BlockConfigParams, authInfo runtime.ClientAuthInfoWriter, opts ...ClientOption) (*BlockConfigOK, error) {
+	// TODO: Validate the params before sending
+	if params == nil {
+		params = NewBlockConfigParams()
+	}
+	op := &runtime.ClientOperation{
+		ID:                 "blockConfig",
+		Method:             "PATCH",
+		PathPattern:        "/config/{config_id}/block",
+		ProducesMediaTypes: []string{"application/json"},
+		ConsumesMediaTypes: []string{"application/json"},
+		Schemes:            []string{"http"},
+		Params:             params,
+		Reader:             &BlockConfigReader{formats: a.formats},
+		AuthInfo:           authInfo,
+		Context:            params.Context,
+		Client:             params.HTTPClient,
+	}
+	for _, opt := range opts {
+		opt(op)
+	}
+
+	result, err := a.transport.Submit(op)
+	if err != nil {
+		return nil, err
+	}
+	success, ok := result.(*BlockConfigOK)
+	if ok {
+		return success, nil
+	}
+	// unexpected success response
+	// safeguard: normally, absent a default response, unknown success responses return an error above: so this is a codegen issue
+	msg := fmt.Sprintf("unexpected success response for blockConfig: API contract not enforced by server. Client expected to get an error, but got: %T", result)
+	panic(msg)
 }
 
 /*
@@ -220,6 +263,45 @@ func (a *Client) GetBrigadeSlots(params *GetBrigadeSlotsParams, authInfo runtime
 	// unexpected success response
 	// safeguard: normally, absent a default response, unknown success responses return an error above: so this is a codegen issue
 	msg := fmt.Sprintf("unexpected success response for getBrigadeSlots: API contract not enforced by server. Client expected to get an error, but got: %T", result)
+	panic(msg)
+}
+
+/*
+UnblockConfig unblocks v p n config
+*/
+func (a *Client) UnblockConfig(params *UnblockConfigParams, authInfo runtime.ClientAuthInfoWriter, opts ...ClientOption) (*UnblockConfigOK, error) {
+	// TODO: Validate the params before sending
+	if params == nil {
+		params = NewUnblockConfigParams()
+	}
+	op := &runtime.ClientOperation{
+		ID:                 "unblockConfig",
+		Method:             "PATCH",
+		PathPattern:        "/config/{config_id}/unblock",
+		ProducesMediaTypes: []string{"application/json"},
+		ConsumesMediaTypes: []string{"application/json"},
+		Schemes:            []string{"http"},
+		Params:             params,
+		Reader:             &UnblockConfigReader{formats: a.formats},
+		AuthInfo:           authInfo,
+		Context:            params.Context,
+		Client:             params.HTTPClient,
+	}
+	for _, opt := range opts {
+		opt(op)
+	}
+
+	result, err := a.transport.Submit(op)
+	if err != nil {
+		return nil, err
+	}
+	success, ok := result.(*UnblockConfigOK)
+	if ok {
+		return success, nil
+	}
+	// unexpected success response
+	// safeguard: normally, absent a default response, unknown success responses return an error above: so this is a codegen issue
+	msg := fmt.Sprintf("unexpected success response for unblockConfig: API contract not enforced by server. Client expected to get an error, but got: %T", result)
 	panic(msg)
 }
 

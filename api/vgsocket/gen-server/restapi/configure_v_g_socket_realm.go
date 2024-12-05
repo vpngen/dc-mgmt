@@ -50,6 +50,11 @@ func configureAPI(api *operations.VGSocketRealmAPI) http.Handler {
 	// Example:
 	// api.APIAuthorizer = security.Authorized()
 
+	if api.BlockConfigHandler == nil {
+		api.BlockConfigHandler = operations.BlockConfigHandlerFunc(func(params operations.BlockConfigParams, principal *models.Principal) middleware.Responder {
+			return middleware.NotImplemented("operation operations.BlockConfig has not yet been implemented")
+		})
+	}
 	if api.CreateConfigHandler == nil {
 		api.CreateConfigHandler = operations.CreateConfigHandlerFunc(func(params operations.CreateConfigParams, principal *models.Principal) middleware.Responder {
 			return middleware.NotImplemented("operation operations.CreateConfig has not yet been implemented")
@@ -68,6 +73,11 @@ func configureAPI(api *operations.VGSocketRealmAPI) http.Handler {
 	if api.GetBrigadeSlotsHandler == nil {
 		api.GetBrigadeSlotsHandler = operations.GetBrigadeSlotsHandlerFunc(func(params operations.GetBrigadeSlotsParams, principal *models.Principal) middleware.Responder {
 			return middleware.NotImplemented("operation operations.GetBrigadeSlots has not yet been implemented")
+		})
+	}
+	if api.UnblockConfigHandler == nil {
+		api.UnblockConfigHandler = operations.UnblockConfigHandlerFunc(func(params operations.UnblockConfigParams, principal *models.Principal) middleware.Responder {
+			return middleware.NotImplemented("operation operations.UnblockConfig has not yet been implemented")
 		})
 	}
 
