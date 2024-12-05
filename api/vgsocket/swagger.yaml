@@ -107,6 +107,120 @@ paths:
           schema:
             $ref: '#/definitions/ServiceTemporarilyUnavailable'
 
+  /config/{config_id}/block:
+
+    patch:
+      security:
+        - JWT:
+          - manager
+      summary: Block VPN config
+      operationId: blockConfig
+      consumes:
+        - application/json
+      produces:
+        - application/json
+      parameters:
+        - in: path
+          name: config_id
+          required: true
+          type: string
+          description: Config ID
+        - in: body
+          name: body
+          required: true
+          description: Brigade ID
+          schema:
+            type: object
+            required:
+              - brigade_id
+            properties:
+              brigade_id:
+                type: string
+                format: uuid
+                description: Brigade ID
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: "#/definitions/FreeSlots"
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/Error'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/Error'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/Error'
+        "503":
+          description: Service Temporarily Unavailable
+          schema:
+            $ref: '#/definitions/ServiceTemporarilyUnavailable'
+
+  /config/{config_id}/unblock:
+  
+      patch:
+        security:
+          - JWT:
+            - manager
+        summary: Unblock VPN config
+        operationId: unblockConfig
+        consumes:
+          - application/json
+        produces:
+          - application/json
+        parameters:
+          - in: path
+            name: config_id
+            required: true
+            type: string
+            description: Config ID
+          - in: body
+            name: body
+            required: true
+            description: Brigade ID
+            schema:
+              type: object
+              required:
+                - brigade_id
+              properties:
+                brigade_id:
+                  type: string
+                  format: uuid
+                  description: Brigade ID
+        responses:
+          "200":
+            description: OK
+            schema:
+              $ref: "#/definitions/FreeSlots"
+          "400":
+            description: Bad Request
+            schema:
+              $ref: '#/definitions/Error'
+          "404":
+            description: Not Found
+            schema:
+              $ref: '#/definitions/Error'
+          "401":
+            description: Unauthorized
+            schema:
+              $ref: '#/definitions/Error'
+          "500":
+            description: Internal Server Error
+            schema:
+              $ref: '#/definitions/Error'
+          "503":
+            description: Service Temporarily Unavailable
+            schema:
+              $ref: '#/definitions/ServiceTemporarilyUnavailable'
+
   /brigade/{brigade_id}/slots:
 
     get:
