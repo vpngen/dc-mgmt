@@ -240,8 +240,9 @@ func updateStats(db *pgxpool.Pool, statsSchema string, stats *Stats) error {
 		active_users_count,
 		total_traffic_rx,
 		total_traffic_tx,
+		last_activity,
 		update_time
-	) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+	) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
 	ON CONFLICT (brigade_id, instance_id) DO UPDATE
 	SET 
 		first_visit=$4,
@@ -250,7 +251,8 @@ func updateStats(db *pgxpool.Pool, statsSchema string, stats *Stats) error {
 		active_users_count=$7,
 		total_traffic_rx=$8,
 		total_traffic_tx=$9,
-		update_time=$10
+		last_activity=$10,
+		update_time=$11
 	`
 
 	_, err = tx.Exec(
@@ -265,6 +267,7 @@ func updateStats(db *pgxpool.Pool, statsSchema string, stats *Stats) error {
 		stats.ActiveUsersCount,
 		stats.TotalTraffic.Rx,
 		stats.TotalTraffic.Tx,
+		stats.LastActivity,
 		stats.UpdateTime,
 	)
 	if err != nil {

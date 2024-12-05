@@ -3,18 +3,28 @@ package main
 import (
 	"context"
 	"fmt"
+	"log"
 	"net/netip"
+	"os"
 	"strings"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/vpngen/dc-mgmt/internal/kdlib"
 )
 
-// getBrigadesGroups - returns brigades lists on per pair basis.
-func getBrigadesGroups(db *pgxpool.Pool, extFilter, ctrlFilter string) (GroupsList, error) {
+func main() {
+	ctx := context.Background()
+
+	db, err := kdlib.CreateDBPool(ctx, "postgresql:///vgrealm")
+	if err != nil {
+		log.Fatalf("Can't create db pool: %s\n", err)
+	}
+
+	defer db.Close()
+
 	const (
-		sqlGetBrigadesGroups = `
+		query = `
 	SELECT
 		p.control_ip,
 		ARRAY_AGG(b.brigade_id) AS brigade_group,
@@ -34,30 +44,26 @@ func getBrigadesGroups(db *pgxpool.Pool, extFilter, ctrlFilter string) (GroupsLi
 	`
 	)
 
-	extPrefixes, err := getFilter(extFilter)
+	extPrefix, err := getFilter("49.13.215.145/32,167.235.205.64/32")
 	if err != nil {
-		return nil, fmt.Errorf("get ext filter: %w", err)
+		log.Fatalf("get ext filter: %s", err)
 	}
 
-	ctrlPrefixes, err := getFilter(ctrlFilter)
+	ctrlPrefix, err := getFilter("10.100.0.2/32")
 	if err != nil {
-		return nil, fmt.Errorf("get ctrl filter: %w", err)
+		log.Fatalf("get ctrl filter: %s", err)
 	}
-
-	var list GroupsList
-
-	ctx := context.Background()
 
 	tx, err := db.Begin(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("begin: %w", err)
+		log.Fatalf("begin: %s", err)
 	}
 
 	defer tx.Rollback(ctx)
 
-	rows, err := tx.Query(ctx, sqlGetBrigadesGroups, extPrefixes, ctrlPrefixes)
+	rows, err := tx.Query(ctx, query, extPrefix, ctrlPrefix)
 	if err != nil {
-		return nil, fmt.Errorf("brigades groups: %w", err)
+		log.Fatalf("brigades groups: %s", err)
 	}
 
 	var (
@@ -67,27 +73,12 @@ func getBrigadesGroups(db *pgxpool.Pool, extFilter, ctrlFilter string) (GroupsLi
 	)
 
 	if _, err := pgx.ForEachRow(rows, []any{&addr, &brigades, &instances}, func() error {
-		group := BrigadeGroup{
-			ConnectAddr: addr,
-			Brigades:    make(map[uuid.UUID]uuid.UUID),
-		}
-
-		for i, b := range brigades {
-			group.Brigades[b] = instances[i]
-		}
-
-		list = append(list, group)
+		fmt.Fprintf(os.Stderr, "addr: %s, brigades: %v, instances: %v\n", addr, brigades, instances)
 
 		return nil
 	}); err != nil {
-		return nil, fmt.Errorf("brigade group row: %w", err)
+		log.Fatalf("brigade group row: %s", err)
 	}
-
-	if err := tx.Commit(ctx); err != nil {
-		return nil, fmt.Errorf("commit: %w", err)
-	}
-
-	return list, nil
 }
 
 func getFilter(filter string) ([]netip.Prefix, error) {

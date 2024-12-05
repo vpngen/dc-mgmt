@@ -9,13 +9,18 @@ echo "schema: $SCHEMA_PAIRS"
 
 pair_id="$1"
 control_ip="$2"
-shift; shift
+srvzone="$3"
+shift; shift; shift
 
-
-if [ -z "${pair_id}" ] || [ -z "${control_ip}" ]; then
+if [ -z "${pair_id}" ] || [ -z "${control_ip}"  ] || [ -z "${srvzone}" ]; then
     echo "Usage: $0 <pair_id> <control_ip> <external ip>..."
     exit 1
 fi
+
+if [ "${srvzone}" = " " ]; then
+        srvzone=""
+fi
+
 
 for ep in "$@" ; do
     endpoints="${endpoints}
@@ -24,11 +29,12 @@ done
 
 ON_ERROR_STOP=yes psql -v -a -d "${DBNAME}" \
     --set schema_name="${SCHEMA_PAIRS}" \
+    --set zone="${srvzone}" \
     --set pair_id="${pair_id}" \
     --set control_ip="${control_ip}" <<EOF
 BEGIN;
 
-INSERT INTO :"schema_name".pairs (pair_id,control_ip,is_active) VALUES (:'pair_id', :'control_ip', false);
+INSERT INTO :"schema_name".pairs (pair_id,control_ip,zone,is_active) VALUES (:'pair_id', :'control_ip', :'zone', false);
 ${endpoints}
 
 -- WITH qid AS (

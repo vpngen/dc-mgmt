@@ -70,7 +70,7 @@ func VgsCreateBrigade(ctx context.Context, logger *slog.Logger, db *pgxpool.Pool
 ) error {
 	logger.Info("creating brigade", "order_id", orderID)
 
-	_, zone, pairID, controlIP, endpointIP, brigadeID, brigadeName, err := vgsGetOrderMeta(ctx, logger, db, sqfmt, orderID, false)
+	_, zone, pairID, _, controlIP, endpointIP, brigadeID, brigadeName, err := vgsGetOrderMeta(ctx, logger, db, sqfmt, orderID, false)
 	if err != nil {
 		return fmt.Errorf("error getting order brigade meta: %w", err)
 	}

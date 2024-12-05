@@ -33,6 +33,15 @@ func VgsOrderCreateBrigade(ctx context.Context, logger *slog.Logger, db *pgxpool
 ) (uuid.UUID, string, int64, error) {
 	logger.Info("creating brigade order", "brigade_id", brigadeID, "brigade_name", brigadeName, "zone", zone)
 
+	if orderID, err := tryCreateCommonBrigade(ctx, logger, db, sqfmt, brigadeID, brigadeName, zone); err == nil ||
+		!errors.Is(err, ErrNoCommonPairs) {
+		if err != nil {
+			return uuid.Nil, "", 0, fmt.Errorf("error trying to create common brigade: %w", err)
+		}
+
+		return orderID, VgsOrderStatusAccepted, DefaultVgsBrigadeOrderRetryAfter, nil
+	}
+
 	tx, err := db.Begin(ctx)
 	if err != nil {
 		return uuid.Nil, "", 0, fmt.Errorf("error starting transaction: %w", err)
@@ -43,8 +52,8 @@ func VgsOrderCreateBrigade(ctx context.Context, logger *slog.Logger, db *pgxpool
 	now := time.Now().UTC()
 
 	queryNum := sqfmt.Insert("pairs.endpoint_nums").
-		Columns("update_time").
-		Values(now).
+		Columns("update_time", "zone").
+		Values(now, zone).
 		Suffix("RETURNING endpoint_num")
 
 	sql, args, err := queryNum.ToSql()
@@ -55,7 +64,7 @@ func VgsOrderCreateBrigade(ctx context.Context, logger *slog.Logger, db *pgxpool
 	var numID int
 
 	if err := tx.QueryRow(ctx, sql, args...).Scan(&numID); err != nil {
-		return uuid.Nil, "", 0, fmt.Errorf("error inserting number: %w", err)
+		return uuid.Nil, "", 0, fmt.Errorf("error inserting number (1): %w", err)
 	}
 
 	query := sqfmt.Insert("pairs.pair_orders").
@@ -86,7 +95,7 @@ func VgsOrderCreateBrigade(ctx context.Context, logger *slog.Logger, db *pgxpool
 func VgsCreatePair(ctx context.Context, logger *slog.Logger, db *pgxpool.Pool, sqfmt sq.StatementBuilderType,
 	app string, orderID uuid.UUID, doNotCreatePhy bool,
 ) error {
-	num, zone, _, _, _, _, _, err := vgsGetOrderMeta(ctx, logger, db, sqfmt, orderID, true)
+	num, zone, _, _, _, _, _, _, err := vgsGetOrderMeta(ctx, logger, db, sqfmt, orderID, true)
 	if err != nil {
 		return fmt.Errorf("error setting order processing: %w", err)
 	}
@@ -144,8 +153,8 @@ func vgsRegisterPair(ctx context.Context, _ *slog.Logger, db *pgxpool.Pool, sqfm
 	newid := uuid.New()
 
 	query := sqfmt.Insert("pairs.pairs").
-		Columns("pair_id", "control_ip", "zone", "is_active").
-		Values(newid, controlIP, zone, true).
+		Columns("pair_id", "control_ip", "zone", "on_demand", "is_active").
+		Values(newid, controlIP, zone, true, true).
 		Suffix("ON CONFLICT (control_ip) DO UPDATE SET is_active=TRUE RETURNING pair_id")
 
 	sql, args, err := query.ToSql()
@@ -172,9 +181,9 @@ func vgsRegisterPair(ctx context.Context, _ *slog.Logger, db *pgxpool.Pool, sqfm
 		return uuid.Nil, fmt.Errorf("error inserting endpoint IP: %w", err)
 	}
 
-	queryNum := sqfmt.Insert("pairs.endpoint_num_links").
-		Columns("endpoint_ipv4", "endpoint_num").
-		Values(endpointIP, num)
+	queryNum := sqfmt.Update("pairs.pairs_endpoints_ipv4").
+		Set("endpoint_num", num).
+		Where(sq.Eq{"endpoint_ipv4": endpointIP})
 
 	sql, args, err = queryNum.ToSql()
 	if err != nil {
