@@ -34,7 +34,7 @@ func VgsDeleteBrigade(ctx context.Context, logger *slog.Logger, db *pgxpool.Pool
 ) error {
 	logger.Info("deleting brigade", "order_id", orderID)
 
-	_, _, _, controlIP, _, brigadeID, _, err := vgsGetOrderMeta(ctx, logger, db, sqfmt, orderID, false)
+	_, _, _, _, controlIP, _, brigadeID, _, err := vgsGetOrderMeta(ctx, logger, db, sqfmt, orderID, false)
 	if err != nil {
 		return fmt.Errorf("error getting order brigade meta: %w", err)
 	}

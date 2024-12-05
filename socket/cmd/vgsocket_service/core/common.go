@@ -29,7 +29,10 @@ func GetControlAddr(ctx context.Context, _ *slog.Logger,
 	query := sqfmt.Select("p.control_ip").
 		From("brigades.brigades b").
 		Join("pairs.pairs p ON b.pair_id = p.pair_id").
-		Where(sq.Eq{"b.brigade_id": brigadeID})
+		Where(sq.And{
+			sq.Eq{"b.brigade_id": brigadeID},
+			sq.Eq{"b.main": true},
+		})
 
 	sql, args, err := query.ToSql()
 	if err != nil {
