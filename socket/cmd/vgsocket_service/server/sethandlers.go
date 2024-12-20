@@ -104,6 +104,18 @@ func SetUserHandlers(ctx context.Context, opts *APIOpts) {
 
 		return handlers.DeleteUserHandler(ctx, logger, hopts, params, principal)
 	})
+
+	opts.API.BlockConfigHandler = operations.BlockConfigHandlerFunc(func(params operations.BlockConfigParams, principal *models.Principal) middleware.Responder {
+		logger := NewLogger(opts.Logger, params.HTTPRequest, principal)
+
+		return handlers.BlockUserHandler(ctx, logger, hopts, params, principal)
+	})
+
+	opts.API.UnblockConfigHandler = operations.UnblockConfigHandlerFunc(func(params operations.UnblockConfigParams, principal *models.Principal) middleware.Responder {
+		logger := NewLogger(opts.Logger, params.HTTPRequest, principal)
+
+		return handlers.UnblockUserHandler(ctx, logger, hopts, params, principal)
+	})
 }
 
 // MakeVGSocketRealmAPIHandler - finally create a HTTP handler for the API.

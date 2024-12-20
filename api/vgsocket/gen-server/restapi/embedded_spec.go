@@ -198,6 +198,9 @@ func init() {
             "schema": {
               "$ref": "#/definitions/ServiceTemporarilyUnavailable"
             }
+          },
+          "507": {
+            "description": "Not Enough Free Slots"
           }
         }
       }
@@ -286,6 +289,176 @@ func init() {
           }
         }
       }
+    },
+    "/config/{config_id}/block": {
+      "patch": {
+        "security": [
+          {
+            "JWT": [
+              "manager"
+            ]
+          }
+        ],
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "summary": "Block VPN config",
+        "operationId": "blockConfig",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "Config ID",
+            "name": "config_id",
+            "in": "path",
+            "required": true
+          },
+          {
+            "description": "Brigade ID",
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": [
+                "brigade_id"
+              ],
+              "properties": {
+                "brigade_id": {
+                  "description": "Brigade ID",
+                  "type": "string",
+                  "format": "uuid"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/FreeSlots"
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            }
+          },
+          "503": {
+            "description": "Service Temporarily Unavailable",
+            "schema": {
+              "$ref": "#/definitions/ServiceTemporarilyUnavailable"
+            }
+          }
+        }
+      }
+    },
+    "/config/{config_id}/unblock": {
+      "patch": {
+        "security": [
+          {
+            "JWT": [
+              "manager"
+            ]
+          }
+        ],
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "summary": "Unblock VPN config",
+        "operationId": "unblockConfig",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "Config ID",
+            "name": "config_id",
+            "in": "path",
+            "required": true
+          },
+          {
+            "description": "Brigade ID",
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": [
+                "brigade_id"
+              ],
+              "properties": {
+                "brigade_id": {
+                  "description": "Brigade ID",
+                  "type": "string",
+                  "format": "uuid"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/FreeSlots"
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            }
+          },
+          "503": {
+            "description": "Service Temporarily Unavailable",
+            "schema": {
+              "$ref": "#/definitions/ServiceTemporarilyUnavailable"
+            }
+          }
+        }
+      }
     }
   },
   "definitions": {
@@ -293,12 +466,27 @@ func init() {
       "type": "object",
       "required": [
         "last_seen",
+        "total_traffic",
+        "monthly_traffic",
+        "prev_day_traffic",
         "updated"
       ],
       "properties": {
         "last_seen": {
           "type": "string",
           "format": "date-time"
+        },
+        "monthly_traffic": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "prev_day_traffic": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "total_traffic": {
+          "type": "integer",
+          "format": "int64"
         },
         "updated": {
           "type": "string",
@@ -707,6 +895,9 @@ func init() {
             "schema": {
               "$ref": "#/definitions/ServiceTemporarilyUnavailable"
             }
+          },
+          "507": {
+            "description": "Not Enough Free Slots"
           }
         }
       }
@@ -795,6 +986,176 @@ func init() {
           }
         }
       }
+    },
+    "/config/{config_id}/block": {
+      "patch": {
+        "security": [
+          {
+            "JWT": [
+              "manager"
+            ]
+          }
+        ],
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "summary": "Block VPN config",
+        "operationId": "blockConfig",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "Config ID",
+            "name": "config_id",
+            "in": "path",
+            "required": true
+          },
+          {
+            "description": "Brigade ID",
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": [
+                "brigade_id"
+              ],
+              "properties": {
+                "brigade_id": {
+                  "description": "Brigade ID",
+                  "type": "string",
+                  "format": "uuid"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/FreeSlots"
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            }
+          },
+          "503": {
+            "description": "Service Temporarily Unavailable",
+            "schema": {
+              "$ref": "#/definitions/ServiceTemporarilyUnavailable"
+            }
+          }
+        }
+      }
+    },
+    "/config/{config_id}/unblock": {
+      "patch": {
+        "security": [
+          {
+            "JWT": [
+              "manager"
+            ]
+          }
+        ],
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "summary": "Unblock VPN config",
+        "operationId": "unblockConfig",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "Config ID",
+            "name": "config_id",
+            "in": "path",
+            "required": true
+          },
+          {
+            "description": "Brigade ID",
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": [
+                "brigade_id"
+              ],
+              "properties": {
+                "brigade_id": {
+                  "description": "Brigade ID",
+                  "type": "string",
+                  "format": "uuid"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/FreeSlots"
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            }
+          },
+          "503": {
+            "description": "Service Temporarily Unavailable",
+            "schema": {
+              "$ref": "#/definitions/ServiceTemporarilyUnavailable"
+            }
+          }
+        }
+      }
     }
   },
   "definitions": {
@@ -802,12 +1163,27 @@ func init() {
       "type": "object",
       "required": [
         "last_seen",
+        "total_traffic",
+        "monthly_traffic",
+        "prev_day_traffic",
         "updated"
       ],
       "properties": {
         "last_seen": {
           "type": "string",
           "format": "date-time"
+        },
+        "monthly_traffic": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "prev_day_traffic": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "total_traffic": {
+          "type": "integer",
+          "format": "int64"
         },
         "updated": {
           "type": "string",

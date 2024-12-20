@@ -27,7 +27,7 @@ type walkConfig struct {
 
 // pairsWalk - walk through pairs and collect snapshots.
 func pairsWalk(opts *walkConfig) error {
-	groups, err := getBrigadesGroups(opts.db, opts.pairsSchema, opts.brigadesSchema, opts.extFilter, opts.ctrlFilter)
+	groups, err := getBrigadesGroups(opts.db, opts.extFilter, opts.ctrlFilter)
 	if err != nil {
 		return fmt.Errorf("get brigades groups: %w", err)
 	}

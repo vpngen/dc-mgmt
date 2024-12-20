@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/netip"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -11,7 +12,7 @@ import (
 )
 
 // getBrigadesGroups - returns brigades lists on per pair basis.
-func getBrigadesGroups(db *pgxpool.Pool, schema_pairs, schema_brigades string, extFilter, ctrlFilter string) (GroupsList, error) {
+func getBrigadesGroups(db *pgxpool.Pool, extFilter, ctrlFilter string) (GroupsList, error) {
 	const (
 		sqlGetBrigadesGroups = `
 	SELECT
@@ -19,13 +20,13 @@ func getBrigadesGroups(db *pgxpool.Pool, schema_pairs, schema_brigades string, e
 		ARRAY_AGG(b.brigade_id) AS brigade_group,
 		ARRAY_AGG(b.instance_id) AS instance_group
 	FROM
-		%s AS p
+		pairs.pairs AS p
 	LEFT JOIN
-		%s AS b ON p.pair_id = b.pair_id
+		brigades.brigades AS b ON p.pair_id = b.pair_id
 	WHERE
-		b.endpoint_ipv4 <<= $1::cidr
+		b.endpoint_ipv4 <<= ANY($1::cidr[])
 	AND
-		p.control_ip <<= $2::cidr
+		p.control_ip <<= ANY($2::cidr[])
 	GROUP BY
 		p.pair_id
 	HAVING
@@ -33,12 +34,12 @@ func getBrigadesGroups(db *pgxpool.Pool, schema_pairs, schema_brigades string, e
 	`
 	)
 
-	extPrefix, err := getFilter(extFilter)
+	extPrefixes, err := getFilter(extFilter)
 	if err != nil {
 		return nil, fmt.Errorf("get ext filter: %w", err)
 	}
 
-	ctrlPrefix, err := getFilter(ctrlFilter)
+	ctrlPrefixes, err := getFilter(ctrlFilter)
 	if err != nil {
 		return nil, fmt.Errorf("get ctrl filter: %w", err)
 	}
@@ -54,14 +55,7 @@ func getBrigadesGroups(db *pgxpool.Pool, schema_pairs, schema_brigades string, e
 
 	defer tx.Rollback(ctx)
 
-	rows, err := tx.Query(ctx,
-		fmt.Sprintf(sqlGetBrigadesGroups,
-			(pgx.Identifier{schema_pairs, "pairs"}.Sanitize()),
-			(pgx.Identifier{schema_brigades, "brigades"}.Sanitize()),
-		),
-		extPrefix,
-		ctrlPrefix,
-	)
+	rows, err := tx.Query(ctx, sqlGetBrigadesGroups, extPrefixes, ctrlPrefixes)
 	if err != nil {
 		return nil, fmt.Errorf("brigades groups: %w", err)
 	}
@@ -96,15 +90,25 @@ func getBrigadesGroups(db *pgxpool.Pool, schema_pairs, schema_brigades string, e
 	return list, nil
 }
 
-func getFilter(filter string) (netip.Prefix, error) {
+func getFilter(filter string) ([]netip.Prefix, error) {
+	filter = strings.TrimSpace(filter)
+
 	if filter == "" {
-		return netip.PrefixFrom(netip.IPv4Unspecified(), 0), nil
+		return []netip.Prefix{netip.PrefixFrom(netip.IPv4Unspecified(), 0)}, nil
 	}
 
-	prefix, err := netip.ParsePrefix(filter)
-	if err != nil {
-		return netip.Prefix{}, fmt.Errorf("parse prefix: %w", err)
+	nets := strings.Split(filter, ",")
+
+	prefixes := make([]netip.Prefix, 0, len(nets))
+
+	for _, p := range nets {
+		prefix, err := netip.ParsePrefix(strings.TrimSpace(p))
+		if err != nil {
+			return nil, fmt.Errorf("parse prefix: %w", err)
+		}
+
+		prefixes = append(prefixes, prefix)
 	}
 
-	return prefix, nil
+	return prefixes, nil
 }

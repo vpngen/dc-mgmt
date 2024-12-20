@@ -54,6 +54,12 @@ func (o *CreateConfigReader) ReadResponse(response runtime.ClientResponse, consu
 			return nil, err
 		}
 		return nil, result
+	case 507:
+		result := NewCreateConfigInsufficientStorage()
+		if err := result.readResponse(response, consumer, o.formats); err != nil {
+			return nil, err
+		}
+		return nil, result
 	default:
 		return nil, runtime.NewAPIError("[POST /config] createConfig", response, response.Code())
 	}
@@ -405,6 +411,62 @@ func (o *CreateConfigServiceUnavailable) readResponse(response runtime.ClientRes
 	if err := consumer.Consume(response.Body(), o.Payload); err != nil && err != io.EOF {
 		return err
 	}
+
+	return nil
+}
+
+// NewCreateConfigInsufficientStorage creates a CreateConfigInsufficientStorage with default headers values
+func NewCreateConfigInsufficientStorage() *CreateConfigInsufficientStorage {
+	return &CreateConfigInsufficientStorage{}
+}
+
+/*
+CreateConfigInsufficientStorage describes a response with status code 507, with default header values.
+
+Not Enough Free Slots
+*/
+type CreateConfigInsufficientStorage struct {
+}
+
+// IsSuccess returns true when this create config insufficient storage response has a 2xx status code
+func (o *CreateConfigInsufficientStorage) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this create config insufficient storage response has a 3xx status code
+func (o *CreateConfigInsufficientStorage) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this create config insufficient storage response has a 4xx status code
+func (o *CreateConfigInsufficientStorage) IsClientError() bool {
+	return false
+}
+
+// IsServerError returns true when this create config insufficient storage response has a 5xx status code
+func (o *CreateConfigInsufficientStorage) IsServerError() bool {
+	return true
+}
+
+// IsCode returns true when this create config insufficient storage response a status code equal to that given
+func (o *CreateConfigInsufficientStorage) IsCode(code int) bool {
+	return code == 507
+}
+
+// Code gets the status code for the create config insufficient storage response
+func (o *CreateConfigInsufficientStorage) Code() int {
+	return 507
+}
+
+func (o *CreateConfigInsufficientStorage) Error() string {
+	return fmt.Sprintf("[POST /config][%d] createConfigInsufficientStorage", 507)
+}
+
+func (o *CreateConfigInsufficientStorage) String() string {
+	return fmt.Sprintf("[POST /config][%d] createConfigInsufficientStorage", 507)
+}
+
+func (o *CreateConfigInsufficientStorage) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
 	return nil
 }

@@ -190,6 +190,8 @@ func parseOperationOperationsCreateConfigResult(resp0 *operations.CreateConfigCr
 			}
 		}
 
+		// Non schema case: warning createConfigInsufficientStorage is not supported
+
 		return "", respErr
 	}
 

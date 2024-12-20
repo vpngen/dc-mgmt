@@ -44,6 +44,9 @@ func NewVGSocketRealmAPI(spec *loads.Document) *VGSocketRealmAPI {
 
 		JSONProducer: runtime.JSONProducer(),
 
+		BlockConfigHandler: BlockConfigHandlerFunc(func(params BlockConfigParams, principal *models.Principal) middleware.Responder {
+			return middleware.NotImplemented("operation BlockConfig has not yet been implemented")
+		}),
 		CreateConfigHandler: CreateConfigHandlerFunc(func(params CreateConfigParams, principal *models.Principal) middleware.Responder {
 			return middleware.NotImplemented("operation CreateConfig has not yet been implemented")
 		}),
@@ -55,6 +58,9 @@ func NewVGSocketRealmAPI(spec *loads.Document) *VGSocketRealmAPI {
 		}),
 		GetBrigadeSlotsHandler: GetBrigadeSlotsHandlerFunc(func(params GetBrigadeSlotsParams, principal *models.Principal) middleware.Responder {
 			return middleware.NotImplemented("operation GetBrigadeSlots has not yet been implemented")
+		}),
+		UnblockConfigHandler: UnblockConfigHandlerFunc(func(params UnblockConfigParams, principal *models.Principal) middleware.Responder {
+			return middleware.NotImplemented("operation UnblockConfig has not yet been implemented")
 		}),
 
 		JWTAuth: func(token string, scopes []string) (*models.Principal, error) {
@@ -105,6 +111,8 @@ type VGSocketRealmAPI struct {
 	// APIAuthorizer provides access control (ACL/RBAC/ABAC) by providing access to the request and authenticated principal
 	APIAuthorizer runtime.Authorizer
 
+	// BlockConfigHandler sets the operation handler for the block config operation
+	BlockConfigHandler BlockConfigHandler
 	// CreateConfigHandler sets the operation handler for the create config operation
 	CreateConfigHandler CreateConfigHandler
 	// DeleteConfigHandler sets the operation handler for the delete config operation
@@ -113,6 +121,8 @@ type VGSocketRealmAPI struct {
 	GetBrigadeActivityHandler GetBrigadeActivityHandler
 	// GetBrigadeSlotsHandler sets the operation handler for the get brigade slots operation
 	GetBrigadeSlotsHandler GetBrigadeSlotsHandler
+	// UnblockConfigHandler sets the operation handler for the unblock config operation
+	UnblockConfigHandler UnblockConfigHandler
 
 	// ServeError is called when an error is received, there is a default handler
 	// but you can set your own with this
@@ -194,6 +204,9 @@ func (o *VGSocketRealmAPI) Validate() error {
 		unregistered = append(unregistered, "JWTAuth")
 	}
 
+	if o.BlockConfigHandler == nil {
+		unregistered = append(unregistered, "BlockConfigHandler")
+	}
 	if o.CreateConfigHandler == nil {
 		unregistered = append(unregistered, "CreateConfigHandler")
 	}
@@ -205,6 +218,9 @@ func (o *VGSocketRealmAPI) Validate() error {
 	}
 	if o.GetBrigadeSlotsHandler == nil {
 		unregistered = append(unregistered, "GetBrigadeSlotsHandler")
+	}
+	if o.UnblockConfigHandler == nil {
+		unregistered = append(unregistered, "UnblockConfigHandler")
 	}
 
 	if len(unregistered) > 0 {
@@ -304,6 +320,10 @@ func (o *VGSocketRealmAPI) initHandlerCache() {
 		o.handlers = make(map[string]map[string]http.Handler)
 	}
 
+	if o.handlers["PATCH"] == nil {
+		o.handlers["PATCH"] = make(map[string]http.Handler)
+	}
+	o.handlers["PATCH"]["/config/{config_id}/block"] = NewBlockConfig(o.context, o.BlockConfigHandler)
 	if o.handlers["POST"] == nil {
 		o.handlers["POST"] = make(map[string]http.Handler)
 	}
@@ -320,6 +340,10 @@ func (o *VGSocketRealmAPI) initHandlerCache() {
 		o.handlers["GET"] = make(map[string]http.Handler)
 	}
 	o.handlers["GET"]["/brigade/{brigade_id}/slots"] = NewGetBrigadeSlots(o.context, o.GetBrigadeSlotsHandler)
+	if o.handlers["PATCH"] == nil {
+		o.handlers["PATCH"] = make(map[string]http.Handler)
+	}
+	o.handlers["PATCH"]["/config/{config_id}/unblock"] = NewUnblockConfig(o.context, o.UnblockConfigHandler)
 }
 
 // Serve creates a http handler to serve the API over HTTP
