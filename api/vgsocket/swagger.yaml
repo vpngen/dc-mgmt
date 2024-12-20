@@ -49,6 +49,8 @@ paths:
           description: Service Temporarily Unavailable
           schema:
             $ref: '#/definitions/ServiceTemporarilyUnavailable'
+        "507":
+          description: Not Enough Free Slots
 
   /config/{config_id}:
 
@@ -447,11 +449,23 @@ definitions:
     type: object
     required:
       - last_seen
+      - total_traffic
+      - monthly_traffic
+      - prev_day_traffic
       - updated
     properties:
       last_seen:
         type: string
         format: date-time
+      total_traffic:
+        type: integer
+        format: int64
+      monthly_traffic:
+        type: integer
+        format: int64
+      prev_day_traffic:
+        type: integer
+        format: int64
       updated:
         type: string
         format: date-time

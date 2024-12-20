@@ -52,6 +52,8 @@ type ConfigRequest struct {
 	Configs []string `json:"configs"`
 }
 
+var ErrNoFreeSlots = fmt.Errorf("no free slots")
+
 func callForConfig(ctx context.Context, logger *slog.Logger, token string,
 	brigadeID uuid.UUID, controlIP netip.Addr, configType string,
 ) (*models.VPNConfig, string, int, error) {
@@ -87,6 +89,10 @@ func callForConfig(ctx context.Context, logger *slog.Logger, token string,
 
 		if resp.StatusCode != http.StatusCreated {
 			logger.Debug("unexpected status code", "status_code", resp.StatusCode)
+
+			if resp.StatusCode == http.StatusInsufficientStorage {
+				return nil, "", 0, ErrNoFreeSlots
+			}
 
 			continue
 		}

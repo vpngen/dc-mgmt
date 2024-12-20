@@ -237,3 +237,28 @@ func (o *CreateConfigServiceUnavailable) WriteResponse(rw http.ResponseWriter, p
 		}
 	}
 }
+
+// CreateConfigInsufficientStorageCode is the HTTP code returned for type CreateConfigInsufficientStorage
+const CreateConfigInsufficientStorageCode int = 507
+
+/*
+CreateConfigInsufficientStorage Not Enough Free Slots
+
+swagger:response createConfigInsufficientStorage
+*/
+type CreateConfigInsufficientStorage struct {
+}
+
+// NewCreateConfigInsufficientStorage creates CreateConfigInsufficientStorage with default headers values
+func NewCreateConfigInsufficientStorage() *CreateConfigInsufficientStorage {
+
+	return &CreateConfigInsufficientStorage{}
+}
+
+// WriteResponse to the client
+func (o *CreateConfigInsufficientStorage) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
+
+	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
+
+	rw.WriteHeader(507)
+}

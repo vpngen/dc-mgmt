@@ -22,6 +22,18 @@ func registerModelAcitivityDataFlags(depth int, cmdPrefix string, cmd *cobra.Com
 		return err
 	}
 
+	if err := registerAcitivityDataPropMonthlyTraffic(depth, cmdPrefix, cmd); err != nil {
+		return err
+	}
+
+	if err := registerAcitivityDataPropPrevDayTraffic(depth, cmdPrefix, cmd); err != nil {
+		return err
+	}
+
+	if err := registerAcitivityDataPropTotalTraffic(depth, cmdPrefix, cmd); err != nil {
+		return err
+	}
+
 	if err := registerAcitivityDataPropUpdated(depth, cmdPrefix, cmd); err != nil {
 		return err
 	}
@@ -44,6 +56,69 @@ func registerAcitivityDataPropLastSeen(depth int, cmdPrefix string, cmd *cobra.C
 	}
 
 	_ = cmd.PersistentFlags().String(flagLastSeenName, "", flagLastSeenDescription)
+
+	return nil
+}
+
+func registerAcitivityDataPropMonthlyTraffic(depth int, cmdPrefix string, cmd *cobra.Command) error {
+	if depth > maxDepth {
+		return nil
+	}
+
+	flagMonthlyTrafficDescription := `Required. `
+
+	var flagMonthlyTrafficName string
+	if cmdPrefix == "" {
+		flagMonthlyTrafficName = "monthly_traffic"
+	} else {
+		flagMonthlyTrafficName = fmt.Sprintf("%v.monthly_traffic", cmdPrefix)
+	}
+
+	var flagMonthlyTrafficDefault int64
+
+	_ = cmd.PersistentFlags().Int64(flagMonthlyTrafficName, flagMonthlyTrafficDefault, flagMonthlyTrafficDescription)
+
+	return nil
+}
+
+func registerAcitivityDataPropPrevDayTraffic(depth int, cmdPrefix string, cmd *cobra.Command) error {
+	if depth > maxDepth {
+		return nil
+	}
+
+	flagPrevDayTrafficDescription := `Required. `
+
+	var flagPrevDayTrafficName string
+	if cmdPrefix == "" {
+		flagPrevDayTrafficName = "prev_day_traffic"
+	} else {
+		flagPrevDayTrafficName = fmt.Sprintf("%v.prev_day_traffic", cmdPrefix)
+	}
+
+	var flagPrevDayTrafficDefault int64
+
+	_ = cmd.PersistentFlags().Int64(flagPrevDayTrafficName, flagPrevDayTrafficDefault, flagPrevDayTrafficDescription)
+
+	return nil
+}
+
+func registerAcitivityDataPropTotalTraffic(depth int, cmdPrefix string, cmd *cobra.Command) error {
+	if depth > maxDepth {
+		return nil
+	}
+
+	flagTotalTrafficDescription := `Required. `
+
+	var flagTotalTrafficName string
+	if cmdPrefix == "" {
+		flagTotalTrafficName = "total_traffic"
+	} else {
+		flagTotalTrafficName = fmt.Sprintf("%v.total_traffic", cmdPrefix)
+	}
+
+	var flagTotalTrafficDefault int64
+
+	_ = cmd.PersistentFlags().Int64(flagTotalTrafficName, flagTotalTrafficDefault, flagTotalTrafficDescription)
 
 	return nil
 }
@@ -76,6 +151,24 @@ func retrieveModelAcitivityDataFlags(depth int, m *models.AcitivityData, cmdPref
 		return err, false
 	}
 	retAdded = retAdded || LastSeenAdded
+
+	err, MonthlyTrafficAdded := retrieveAcitivityDataPropMonthlyTrafficFlags(depth, m, cmdPrefix, cmd)
+	if err != nil {
+		return err, false
+	}
+	retAdded = retAdded || MonthlyTrafficAdded
+
+	err, PrevDayTrafficAdded := retrieveAcitivityDataPropPrevDayTrafficFlags(depth, m, cmdPrefix, cmd)
+	if err != nil {
+		return err, false
+	}
+	retAdded = retAdded || PrevDayTrafficAdded
+
+	err, TotalTrafficAdded := retrieveAcitivityDataPropTotalTrafficFlags(depth, m, cmdPrefix, cmd)
+	if err != nil {
+		return err, false
+	}
+	retAdded = retAdded || TotalTrafficAdded
 
 	err, UpdatedAdded := retrieveAcitivityDataPropUpdatedFlags(depth, m, cmdPrefix, cmd)
 	if err != nil {
@@ -111,6 +204,90 @@ func retrieveAcitivityDataPropLastSeenFlags(depth int, m *models.AcitivityData, 
 			return err, false
 		}
 		m.LastSeen = &flagLastSeenValue
+
+		retAdded = true
+	}
+
+	return nil, retAdded
+}
+
+func retrieveAcitivityDataPropMonthlyTrafficFlags(depth int, m *models.AcitivityData, cmdPrefix string, cmd *cobra.Command) (error, bool) {
+	if depth > maxDepth {
+		return nil, false
+	}
+	retAdded := false
+
+	flagMonthlyTrafficName := fmt.Sprintf("%v.monthly_traffic", cmdPrefix)
+	if cmd.Flags().Changed(flagMonthlyTrafficName) {
+
+		var flagMonthlyTrafficName string
+		if cmdPrefix == "" {
+			flagMonthlyTrafficName = "monthly_traffic"
+		} else {
+			flagMonthlyTrafficName = fmt.Sprintf("%v.monthly_traffic", cmdPrefix)
+		}
+
+		flagMonthlyTrafficValue, err := cmd.Flags().GetInt64(flagMonthlyTrafficName)
+		if err != nil {
+			return err, false
+		}
+		m.MonthlyTraffic = &flagMonthlyTrafficValue
+
+		retAdded = true
+	}
+
+	return nil, retAdded
+}
+
+func retrieveAcitivityDataPropPrevDayTrafficFlags(depth int, m *models.AcitivityData, cmdPrefix string, cmd *cobra.Command) (error, bool) {
+	if depth > maxDepth {
+		return nil, false
+	}
+	retAdded := false
+
+	flagPrevDayTrafficName := fmt.Sprintf("%v.prev_day_traffic", cmdPrefix)
+	if cmd.Flags().Changed(flagPrevDayTrafficName) {
+
+		var flagPrevDayTrafficName string
+		if cmdPrefix == "" {
+			flagPrevDayTrafficName = "prev_day_traffic"
+		} else {
+			flagPrevDayTrafficName = fmt.Sprintf("%v.prev_day_traffic", cmdPrefix)
+		}
+
+		flagPrevDayTrafficValue, err := cmd.Flags().GetInt64(flagPrevDayTrafficName)
+		if err != nil {
+			return err, false
+		}
+		m.PrevDayTraffic = &flagPrevDayTrafficValue
+
+		retAdded = true
+	}
+
+	return nil, retAdded
+}
+
+func retrieveAcitivityDataPropTotalTrafficFlags(depth int, m *models.AcitivityData, cmdPrefix string, cmd *cobra.Command) (error, bool) {
+	if depth > maxDepth {
+		return nil, false
+	}
+	retAdded := false
+
+	flagTotalTrafficName := fmt.Sprintf("%v.total_traffic", cmdPrefix)
+	if cmd.Flags().Changed(flagTotalTrafficName) {
+
+		var flagTotalTrafficName string
+		if cmdPrefix == "" {
+			flagTotalTrafficName = "total_traffic"
+		} else {
+			flagTotalTrafficName = fmt.Sprintf("%v.total_traffic", cmdPrefix)
+		}
+
+		flagTotalTrafficValue, err := cmd.Flags().GetInt64(flagTotalTrafficName)
+		if err != nil {
+			return err, false
+		}
+		m.TotalTraffic = &flagTotalTrafficValue
 
 		retAdded = true
 	}

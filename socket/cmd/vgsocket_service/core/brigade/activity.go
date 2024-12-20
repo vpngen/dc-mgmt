@@ -12,6 +12,7 @@ import (
 
 	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/strfmt/conv"
+	"github.com/go-openapi/swag"
 	"github.com/google/uuid"
 	"github.com/vpngen/dc-mgmt/api/vgsocket/gen-server/models"
 	"github.com/vpngen/dc-mgmt/socket/cmd/vgsocket_service/core"
@@ -101,7 +102,12 @@ func toModel(acts BrigadeActivity) models.BrigadeActivity {
 	for k, v := range acts {
 		model[k] = models.AcitivityData{
 			LastSeen: conv.DateTime(strfmt.DateTime(v.LastSeen)),
-			Updated:  conv.DateTime(strfmt.DateTime(v.Updated)),
+
+			TotalTraffic:   swag.Int64(v.TotalTraffic),
+			MonthlyTraffic: swag.Int64(v.MonthlyTraffic),
+			PrevDayTraffic: swag.Int64(v.PrevDayTraffic),
+
+			Updated: conv.DateTime(strfmt.DateTime(v.Updated)),
 		}
 	}
 
