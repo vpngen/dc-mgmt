@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 
 	"github.com/go-openapi/runtime/middleware"
@@ -48,6 +49,10 @@ func PostConfigHandler(ctx context.Context, logger *slog.Logger, opts *Options,
 	conf, slots, err := vpnconfig.GreateUser(ctx, logger, &opts.Options, brigadeID, swag.StringValue((*string)(params.Body.ConfigType)))
 	if err != nil {
 		logger.Error("create config error", "error", err)
+
+		if errors.Is(err, vpnconfig.ErrNoFreeSlots) {
+			return operations.NewCreateConfigInsufficientStorage()
+		}
 
 		return operations.NewCreateConfigInternalServerError()
 	}
