@@ -198,6 +198,9 @@ func init() {
             "schema": {
               "$ref": "#/definitions/ServiceTemporarilyUnavailable"
             }
+          },
+          "507": {
+            "description": "Not Enough Free Slots"
           }
         }
       }
@@ -463,12 +466,27 @@ func init() {
       "type": "object",
       "required": [
         "last_seen",
+        "total_traffic",
+        "monthly_traffic",
+        "prev_day_traffic",
         "updated"
       ],
       "properties": {
         "last_seen": {
           "type": "string",
           "format": "date-time"
+        },
+        "monthly_traffic": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "prev_day_traffic": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "total_traffic": {
+          "type": "integer",
+          "format": "int64"
         },
         "updated": {
           "type": "string",
@@ -877,6 +895,9 @@ func init() {
             "schema": {
               "$ref": "#/definitions/ServiceTemporarilyUnavailable"
             }
+          },
+          "507": {
+            "description": "Not Enough Free Slots"
           }
         }
       }
@@ -1142,12 +1163,27 @@ func init() {
       "type": "object",
       "required": [
         "last_seen",
+        "total_traffic",
+        "monthly_traffic",
+        "prev_day_traffic",
         "updated"
       ],
       "properties": {
         "last_seen": {
           "type": "string",
           "format": "date-time"
+        },
+        "monthly_traffic": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "prev_day_traffic": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "total_traffic": {
+          "type": "integer",
+          "format": "int64"
         },
         "updated": {
           "type": "string",

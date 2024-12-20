@@ -24,6 +24,18 @@ type AcitivityData struct {
 	// Format: date-time
 	LastSeen *strfmt.DateTime `json:"last_seen"`
 
+	// monthly traffic
+	// Required: true
+	MonthlyTraffic *int64 `json:"monthly_traffic"`
+
+	// prev day traffic
+	// Required: true
+	PrevDayTraffic *int64 `json:"prev_day_traffic"`
+
+	// total traffic
+	// Required: true
+	TotalTraffic *int64 `json:"total_traffic"`
+
 	// updated
 	// Required: true
 	// Format: date-time
@@ -35,6 +47,18 @@ func (m *AcitivityData) Validate(formats strfmt.Registry) error {
 	var res []error
 
 	if err := m.validateLastSeen(formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.validateMonthlyTraffic(formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.validatePrevDayTraffic(formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.validateTotalTraffic(formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -55,6 +79,33 @@ func (m *AcitivityData) validateLastSeen(formats strfmt.Registry) error {
 	}
 
 	if err := validate.FormatOf("last_seen", "body", "date-time", m.LastSeen.String(), formats); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (m *AcitivityData) validateMonthlyTraffic(formats strfmt.Registry) error {
+
+	if err := validate.Required("monthly_traffic", "body", m.MonthlyTraffic); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (m *AcitivityData) validatePrevDayTraffic(formats strfmt.Registry) error {
+
+	if err := validate.Required("prev_day_traffic", "body", m.PrevDayTraffic); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (m *AcitivityData) validateTotalTraffic(formats strfmt.Registry) error {
+
+	if err := validate.Required("total_traffic", "body", m.TotalTraffic); err != nil {
 		return err
 	}
 

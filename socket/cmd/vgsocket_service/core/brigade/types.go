@@ -9,7 +9,12 @@ type BrigadeSlots struct {
 
 type ActivityData struct {
 	LastSeen time.Time `json:"last_seen"`
-	Updated  time.Time `json:"updated"`
+
+	TotalTraffic   int64 `json:"total_traffic"`
+	MonthlyTraffic int64 `json:"monthly_traffic"`
+	PrevDayTraffic int64 `json:"prev_day_traffic"`
+
+	Updated time.Time `json:"updated"`
 }
 
 type BrigadeActivity map[string]ActivityData
