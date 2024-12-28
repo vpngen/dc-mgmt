@@ -25,6 +25,9 @@ type VPNConfig struct {
 	// outline config
 	OutlineConfig *OutlineConfig `json:"OutlineConfig,omitempty"`
 
+	// proto0 config
+	Proto0Config *Proto0Config `json:"Proto0Config,omitempty"`
+
 	// v p n gen config
 	VPNGenConfig *VPNGenConfig `json:"VPNGenConfig,omitempty"`
 
@@ -54,6 +57,10 @@ func (m *VPNConfig) Validate(formats strfmt.Registry) error {
 	}
 
 	if err := m.validateOutlineConfig(formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.validateProto0Config(formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -113,6 +120,25 @@ func (m *VPNConfig) validateOutlineConfig(formats strfmt.Registry) error {
 				return ve.ValidateName("OutlineConfig")
 			} else if ce, ok := err.(*errors.CompositeError); ok {
 				return ce.ValidateName("OutlineConfig")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *VPNConfig) validateProto0Config(formats strfmt.Registry) error {
+	if swag.IsZero(m.Proto0Config) { // not required
+		return nil
+	}
+
+	if m.Proto0Config != nil {
+		if err := m.Proto0Config.Validate(formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("Proto0Config")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("Proto0Config")
 			}
 			return err
 		}
@@ -202,6 +228,10 @@ func (m *VPNConfig) ContextValidate(ctx context.Context, formats strfmt.Registry
 		res = append(res, err)
 	}
 
+	if err := m.contextValidateProto0Config(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
 	if err := m.contextValidateVPNGenConfig(ctx, formats); err != nil {
 		res = append(res, err)
 	}
@@ -250,6 +280,27 @@ func (m *VPNConfig) contextValidateOutlineConfig(ctx context.Context, formats st
 				return ve.ValidateName("OutlineConfig")
 			} else if ce, ok := err.(*errors.CompositeError); ok {
 				return ce.ValidateName("OutlineConfig")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *VPNConfig) contextValidateProto0Config(ctx context.Context, formats strfmt.Registry) error {
+
+	if m.Proto0Config != nil {
+
+		if swag.IsZero(m.Proto0Config) { // not required
+			return nil
+		}
+
+		if err := m.Proto0Config.ContextValidate(ctx, formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("Proto0Config")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("Proto0Config")
 			}
 			return err
 		}
