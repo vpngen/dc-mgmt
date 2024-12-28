@@ -540,7 +540,8 @@ func init() {
       "enum": [
         "wireguard",
         "outline",
-        "universal"
+        "universal",
+        "proto0"
       ]
     },
     "CreateConfigRequest": {
@@ -1237,7 +1238,8 @@ func init() {
       "enum": [
         "wireguard",
         "outline",
-        "universal"
+        "universal",
+        "proto0"
       ]
     },
     "CreateConfigRequest": {
