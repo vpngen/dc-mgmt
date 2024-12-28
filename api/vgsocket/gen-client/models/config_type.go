@@ -38,6 +38,9 @@ const (
 
 	// ConfigTypeUniversal captures enum value "universal"
 	ConfigTypeUniversal ConfigType = "universal"
+
+	// ConfigTypeProto0 captures enum value "proto0"
+	ConfigTypeProto0 ConfigType = "proto0"
 )
 
 // for schema
@@ -45,7 +48,7 @@ var configTypeEnum []interface{}
 
 func init() {
 	var res []ConfigType
-	if err := json.Unmarshal([]byte(`["wireguard","outline","universal"]`), &res); err != nil {
+	if err := json.Unmarshal([]byte(`["wireguard","outline","universal","proto0"]`), &res); err != nil {
 		panic(err)
 	}
 	for _, v := range res {
