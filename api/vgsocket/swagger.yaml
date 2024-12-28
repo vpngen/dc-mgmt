@@ -330,6 +330,7 @@ definitions:
       - wireguard
       - outline
       - universal
+      - proto0
 
   OutlineConfig:
     type: object
