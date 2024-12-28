@@ -156,6 +156,14 @@ func kmodelToModel(nu *SocketNewUser) (*models.VPNConfig, string, int, error) {
 		return m, nu.Name, nu.FreeSlots, nil
 	}
 
+	if nu.Configs.Proto0 != nil {
+		m.Proto0Config = &models.Proto0Config{
+			AccessKey: swag.String(nu.Configs.Proto0.AccessKey),
+		}
+
+		return m, nu.Name, nu.FreeSlots, nil
+	}
+
 	if nu.Configs.Vgc != nil {
 		m.VPNGenConfig = &models.VPNGenConfig{
 			AccessKey: nu.Configs.Vgc,

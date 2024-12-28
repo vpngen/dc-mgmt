@@ -340,6 +340,13 @@ definitions:
       access_key:
         type: string
   
+  Proto0Config:
+    properties:
+      access_key:
+        type: string
+    required:
+      - access_key
+
   AmneziaOVCConfig:
     type: object
     required:
@@ -392,6 +399,9 @@ definitions:
         type: string
       OutlineConfig:
         $ref: '#/definitions/OutlineConfig'
+        x-omitempty: true
+      Proto0Config:
+        $ref: '#/definitions/Proto0Config'
         x-omitempty: true
       AmneziaOVCConfig:
         $ref: '#/definitions/AmneziaOVCConfig'
