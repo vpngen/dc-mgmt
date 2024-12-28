@@ -26,6 +26,10 @@ func registerModelVPNConfigFlags(depth int, cmdPrefix string, cmd *cobra.Command
 		return err
 	}
 
+	if err := registerVPNConfigPropProto0Config(depth, cmdPrefix, cmd); err != nil {
+		return err
+	}
+
 	if err := registerVPNConfigPropVPNGenConfig(depth, cmdPrefix, cmd); err != nil {
 		return err
 	}
@@ -81,6 +85,25 @@ func registerVPNConfigPropOutlineConfig(depth int, cmdPrefix string, cmd *cobra.
 	}
 
 	if err := registerModelOutlineConfigFlags(depth+1, flagOutlineConfigName, cmd); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func registerVPNConfigPropProto0Config(depth int, cmdPrefix string, cmd *cobra.Command) error {
+	if depth > maxDepth {
+		return nil
+	}
+
+	var flagProto0ConfigName string
+	if cmdPrefix == "" {
+		flagProto0ConfigName = "Proto0Config"
+	} else {
+		flagProto0ConfigName = fmt.Sprintf("%v.Proto0Config", cmdPrefix)
+	}
+
+	if err := registerModelProto0ConfigFlags(depth+1, flagProto0ConfigName, cmd); err != nil {
 		return err
 	}
 
@@ -193,6 +216,12 @@ func retrieveModelVPNConfigFlags(depth int, m *models.VPNConfig, cmdPrefix strin
 	}
 	retAdded = retAdded || OutlineConfigAdded
 
+	err, Proto0ConfigAdded := retrieveVPNConfigPropProto0ConfigFlags(depth, m, cmdPrefix, cmd)
+	if err != nil {
+		return err, false
+	}
+	retAdded = retAdded || Proto0ConfigAdded
+
 	err, VPNGenConfigAdded := retrieveVPNConfigPropVPNGenConfigFlags(depth, m, cmdPrefix, cmd)
 	if err != nil {
 		return err, false
@@ -275,6 +304,33 @@ func retrieveVPNConfigPropOutlineConfigFlags(depth int, m *models.VPNConfig, cmd
 	retAdded = retAdded || OutlineConfigAdded
 	if OutlineConfigAdded {
 		m.OutlineConfig = flagOutlineConfigValue
+	}
+
+	return nil, retAdded
+}
+
+func retrieveVPNConfigPropProto0ConfigFlags(depth int, m *models.VPNConfig, cmdPrefix string, cmd *cobra.Command) (error, bool) {
+	if depth > maxDepth {
+		return nil, false
+	}
+	retAdded := false
+
+	flagProto0ConfigName := fmt.Sprintf("%v.Proto0Config", cmdPrefix)
+	if cmd.Flags().Changed(flagProto0ConfigName) {
+		// info: complex object Proto0Config Proto0Config is retrieved outside this Changed() block
+	}
+	flagProto0ConfigValue := m.Proto0Config
+	if swag.IsZero(flagProto0ConfigValue) {
+		flagProto0ConfigValue = &models.Proto0Config{}
+	}
+
+	err, Proto0ConfigAdded := retrieveModelProto0ConfigFlags(depth+1, flagProto0ConfigValue, flagProto0ConfigName, cmd)
+	if err != nil {
+		return err, false
+	}
+	retAdded = retAdded || Proto0ConfigAdded
+	if Proto0ConfigAdded {
+		m.Proto0Config = flagProto0ConfigValue
 	}
 
 	return nil, retAdded

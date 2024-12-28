@@ -610,6 +610,16 @@ func init() {
         }
       }
     },
+    "Proto0Config": {
+      "required": [
+        "access_key"
+      ],
+      "properties": {
+        "access_key": {
+          "type": "string"
+        }
+      }
+    },
     "ServiceTemporarilyUnavailable": {
       "type": "object",
       "required": [
@@ -641,6 +651,10 @@ func init() {
         "OutlineConfig": {
           "x-omitempty": true,
           "$ref": "#/definitions/OutlineConfig"
+        },
+        "Proto0Config": {
+          "x-omitempty": true,
+          "$ref": "#/definitions/Proto0Config"
         },
         "VPNGenConfig": {
           "x-omitempty": true,
@@ -1308,6 +1322,16 @@ func init() {
         }
       }
     },
+    "Proto0Config": {
+      "required": [
+        "access_key"
+      ],
+      "properties": {
+        "access_key": {
+          "type": "string"
+        }
+      }
+    },
     "ServiceTemporarilyUnavailable": {
       "type": "object",
       "required": [
@@ -1339,6 +1363,10 @@ func init() {
         "OutlineConfig": {
           "x-omitempty": true,
           "$ref": "#/definitions/OutlineConfig"
+        },
+        "Proto0Config": {
+          "x-omitempty": true,
+          "$ref": "#/definitions/Proto0Config"
         },
         "VPNGenConfig": {
           "x-omitempty": true,
