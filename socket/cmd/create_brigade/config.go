@@ -81,6 +81,7 @@ type Config struct {
 	OVC     string // OVC configs
 	IPsec   string // IPsec configs
 	Outline string // Outline configs
+	Proto0  string // Proto0 configs
 
 	SSHKeyFile string // SSH key file
 
@@ -201,11 +202,13 @@ func (c *Config) vpnConfigTypes() error {
 	ovc := os.Getenv("OVC_CONFIGS")
 	ipsec := os.Getenv("IPSEC_CONFIGS")
 	outline := os.Getenv("OUTLINE_CONFIGS")
+	proto0 := os.Getenv("PROTO0_CONFIGS")
 
 	c.WG = wg
 	c.OVC = ovc
 	c.IPsec = ipsec
 	c.Outline = outline
+	c.Proto0 = proto0
 
 	return nil
 }
