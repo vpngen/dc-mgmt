@@ -81,6 +81,7 @@ func main() {
 		OVC:     cfg.OVC,
 		IPsec:   cfg.IPsec,
 		Outline: cfg.Outline,
+		Proto0:  cfg.Proto0,
 
 		SSHKeyFile: cfg.SSHKeyFile,
 		MaxUsers:   cfg.MaxUsers,
