@@ -70,6 +70,7 @@ func main() {
 			Ovc:     cfg.OVC,
 			Ipsec:   cfg.IPsec,
 			Outline: cfg.Outline,
+			Proto0:  cfg.Proto0,
 		},
 		cfg.MaxUsers,
 		cfg.MgmtRandomResponses,

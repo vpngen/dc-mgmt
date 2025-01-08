@@ -44,6 +44,7 @@ type VpnCfgs struct {
 	Ovc     string
 	Ipsec   string
 	Outline string
+	Proto0  string
 }
 
 type brigadeOpts struct {
@@ -346,6 +347,10 @@ WHERE
 
 		if vpnCfgs.Outline != "" {
 			cmd += fmt.Sprintf(" -outline %s", vpnCfgs.Outline)
+		}
+
+		if vpnCfgs.Proto0 != "" {
+			cmd += fmt.Sprintf(" -proto0 %s", vpnCfgs.Proto0)
 		}
 	}
 
