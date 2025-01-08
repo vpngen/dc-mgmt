@@ -40,6 +40,7 @@ type PollConfig struct {
 	OVC     string // OVC configs
 	IPsec   string // IPsec configs
 	Outline string // Outline configs
+	Proto0  string // Proto0 configs
 
 	SSHKeyFile string // SSH key file
 	MaxUsers   int
@@ -136,6 +137,7 @@ func checkNewCreateBrigadeOrder(ctx context.Context, logger *slog.Logger, opts *
 			Ovc:     opts.OVC,
 			Ipsec:   opts.IPsec,
 			Outline: opts.Outline,
+			Proto0:  opts.Proto0,
 		}, opts.MaxUsers, opts.MgmtRandomResponses); err != nil {
 		return fmt.Errorf("creating brigade: %w", err)
 	}
@@ -161,6 +163,7 @@ func checkPairCompletedCreateBrigadeOrder(ctx context.Context, logger *slog.Logg
 			Ovc:     opts.OVC,
 			Ipsec:   opts.IPsec,
 			Outline: opts.Outline,
+			Proto0:  opts.Proto0,
 		}, opts.MaxUsers, opts.MgmtRandomResponses); err != nil {
 		return fmt.Errorf("creating brigade: %w", err)
 	}
