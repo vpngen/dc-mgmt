@@ -341,6 +341,7 @@ definitions:
         type: string
   
   Proto0Config:
+    type: object
     properties:
       access_key:
         type: string
