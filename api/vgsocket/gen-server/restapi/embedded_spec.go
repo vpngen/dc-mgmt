@@ -611,6 +611,7 @@ func init() {
       }
     },
     "Proto0Config": {
+      "type": "object",
       "required": [
         "access_key"
       ],
@@ -1323,6 +1324,7 @@ func init() {
       }
     },
     "Proto0Config": {
+      "type": "object",
       "required": [
         "access_key"
       ],

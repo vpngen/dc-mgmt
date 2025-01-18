@@ -249,12 +249,9 @@ definitions:
       - brigade_id
       - brigade_name
       - max_users
-      - deleted
+      - free_slots
       - zone
     properties:
-      deleted:
-        type: boolean
-        description: Deleted
       brigade_id:
         type: string
         format: uuid
@@ -265,6 +262,9 @@ definitions:
       max_users:
         type: integer
         description: Max users
+      free_slots:
+        type: integer
+        description: Free slots
       zone:
         type: string
         description: Virtual machine zone

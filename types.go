@@ -38,10 +38,10 @@ type AggrSnaps struct {
 	UpdateTime time.Time `json:"update_time"`
 
 	// ExternalIPFiltered is a filtered prefix if applicable.
-	ExternalIPFiltered netip.Prefix `json:"ext_ip_filtered,omitempty"`
+	ExternalIPFiltered []netip.Prefix `json:"ext_ip_filtered,omitempty"`
 
 	// ControlNodeFiltered is a filtered prefix if applicable.
-	ControlNodeFiltered netip.Prefix `json:"ctrl_node_filtered,omitempty"`
+	ControlNodeFiltered []netip.Prefix `json:"ctrl_node_filtered,omitempty"`
 
 	// DatacenterID is a datacenter id.
 	DatacenterID string `json:"datacenter_id"`
@@ -114,4 +114,23 @@ type RestorePlan struct {
 // ControlNodeRestorePlan - control node restore plan.
 type ControlNodeRestorePlan struct {
 	Plan []*storage.Brigade `json:"plan"`
+}
+
+// ScannedSnap - scanned snapshot.
+type ScannedSnap struct {
+	BrigadeID    string   `json:"brigade_id"`
+	EndpointIPv4 string   `json:"endpoint_ipv4"`
+	DomainNames  []string `json:"domain_names"`
+}
+
+// SnapshotNodeConfig - snapshot node config.
+type SnapshotNodeConfig struct {
+	ControlIP string        `json:"control_ip"`
+	Snaps     []ScannedSnap `json:"snaps"`
+}
+
+// SnapshotNodeConfig - snapshot node config.
+type SnapshotPlan struct {
+	Name string               `json:"name,omitempty"`
+	Plan []SnapshotNodeConfig `json:"plan"`
 }
