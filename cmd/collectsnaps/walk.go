@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"net/netip"
 	"sync"
 	"time"
 
@@ -27,9 +26,22 @@ type walkConfig struct {
 
 // pairsWalk - walk through pairs and collect snapshots.
 func pairsWalk(opts *walkConfig) error {
-	groups, err := getBrigadesGroups(opts.db, opts.extFilter, opts.ctrlFilter)
-	if err != nil {
-		return fmt.Errorf("get brigades groups: %w", err)
+	var (
+		err    error
+		groups GroupsList
+	)
+
+	switch opts.plan {
+	case nil:
+		groups, err = getBrigadesGroups(opts.db, opts.extFilter, opts.ctrlFilter)
+		if err != nil {
+			return fmt.Errorf("get brigades groups: %w", err)
+		}
+	default:
+		groups, err = getBrigadesGroupsFromPlan(opts.db, opts.plan)
+		if err != nil {
+			return fmt.Errorf("get brigades groups from plan: %w", err)
+		}
 	}
 
 	data := &dcmgmt.AggrSnaps{
@@ -44,13 +56,8 @@ func pairsWalk(opts *walkConfig) error {
 		EncryptedPreSharedSecret: opts.epsk,
 	}
 
-	if opts.extFilter != "" {
-		data.ExternalIPFiltered, _ = netip.ParsePrefix(opts.extFilter)
-	}
-
-	if opts.ctrlFilter != "" {
-		data.ControlNodeFiltered, _ = netip.ParsePrefix(opts.ctrlFilter)
-	}
+	data.ExternalIPFiltered = opts.extFilter
+	data.ControlNodeFiltered = opts.ctrlFilter
 
 	sem := make(chan struct{}, ParallelCollectorsLimit) // Semaphore for limiting parallel collectors.
 	var wgg sync.WaitGroup

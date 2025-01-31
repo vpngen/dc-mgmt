@@ -26,7 +26,7 @@ func registerModelBrigadeFlags(depth int, cmdPrefix string, cmd *cobra.Command) 
 		return err
 	}
 
-	if err := registerBrigadePropDeleted(depth, cmdPrefix, cmd); err != nil {
+	if err := registerBrigadePropFreeSlots(depth, cmdPrefix, cmd); err != nil {
 		return err
 	}
 
@@ -81,23 +81,23 @@ func registerBrigadePropBrigadeName(depth int, cmdPrefix string, cmd *cobra.Comm
 	return nil
 }
 
-func registerBrigadePropDeleted(depth int, cmdPrefix string, cmd *cobra.Command) error {
+func registerBrigadePropFreeSlots(depth int, cmdPrefix string, cmd *cobra.Command) error {
 	if depth > maxDepth {
 		return nil
 	}
 
-	flagDeletedDescription := `Required. Deleted`
+	flagFreeSlotsDescription := `Required. Free slots`
 
-	var flagDeletedName string
+	var flagFreeSlotsName string
 	if cmdPrefix == "" {
-		flagDeletedName = "deleted"
+		flagFreeSlotsName = "free_slots"
 	} else {
-		flagDeletedName = fmt.Sprintf("%v.deleted", cmdPrefix)
+		flagFreeSlotsName = fmt.Sprintf("%v.free_slots", cmdPrefix)
 	}
 
-	var flagDeletedDefault bool
+	var flagFreeSlotsDefault int64
 
-	_ = cmd.PersistentFlags().Bool(flagDeletedName, flagDeletedDefault, flagDeletedDescription)
+	_ = cmd.PersistentFlags().Int64(flagFreeSlotsName, flagFreeSlotsDefault, flagFreeSlotsDescription)
 
 	return nil
 }
@@ -160,11 +160,11 @@ func retrieveModelBrigadeFlags(depth int, m *models.Brigade, cmdPrefix string, c
 	}
 	retAdded = retAdded || BrigadeNameAdded
 
-	err, DeletedAdded := retrieveBrigadePropDeletedFlags(depth, m, cmdPrefix, cmd)
+	err, FreeSlotsAdded := retrieveBrigadePropFreeSlotsFlags(depth, m, cmdPrefix, cmd)
 	if err != nil {
 		return err, false
 	}
-	retAdded = retAdded || DeletedAdded
+	retAdded = retAdded || FreeSlotsAdded
 
 	err, MaxUsersAdded := retrieveBrigadePropMaxUsersFlags(depth, m, cmdPrefix, cmd)
 	if err != nil {
@@ -241,27 +241,27 @@ func retrieveBrigadePropBrigadeNameFlags(depth int, m *models.Brigade, cmdPrefix
 	return nil, retAdded
 }
 
-func retrieveBrigadePropDeletedFlags(depth int, m *models.Brigade, cmdPrefix string, cmd *cobra.Command) (error, bool) {
+func retrieveBrigadePropFreeSlotsFlags(depth int, m *models.Brigade, cmdPrefix string, cmd *cobra.Command) (error, bool) {
 	if depth > maxDepth {
 		return nil, false
 	}
 	retAdded := false
 
-	flagDeletedName := fmt.Sprintf("%v.deleted", cmdPrefix)
-	if cmd.Flags().Changed(flagDeletedName) {
+	flagFreeSlotsName := fmt.Sprintf("%v.free_slots", cmdPrefix)
+	if cmd.Flags().Changed(flagFreeSlotsName) {
 
-		var flagDeletedName string
+		var flagFreeSlotsName string
 		if cmdPrefix == "" {
-			flagDeletedName = "deleted"
+			flagFreeSlotsName = "free_slots"
 		} else {
-			flagDeletedName = fmt.Sprintf("%v.deleted", cmdPrefix)
+			flagFreeSlotsName = fmt.Sprintf("%v.free_slots", cmdPrefix)
 		}
 
-		flagDeletedValue, err := cmd.Flags().GetBool(flagDeletedName)
+		flagFreeSlotsValue, err := cmd.Flags().GetInt64(flagFreeSlotsName)
 		if err != nil {
 			return err, false
 		}
-		m.Deleted = &flagDeletedValue
+		m.FreeSlots = &flagFreeSlotsValue
 
 		retAdded = true
 	}

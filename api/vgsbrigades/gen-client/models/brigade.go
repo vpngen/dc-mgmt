@@ -28,9 +28,9 @@ type Brigade struct {
 	// Required: true
 	BrigadeName *string `json:"brigade_name"`
 
-	// Deleted
+	// Free slots
 	// Required: true
-	Deleted *bool `json:"deleted"`
+	FreeSlots *int64 `json:"free_slots"`
 
 	// Max users
 	// Required: true
@@ -53,7 +53,7 @@ func (m *Brigade) Validate(formats strfmt.Registry) error {
 		res = append(res, err)
 	}
 
-	if err := m.validateDeleted(formats); err != nil {
+	if err := m.validateFreeSlots(formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -93,9 +93,9 @@ func (m *Brigade) validateBrigadeName(formats strfmt.Registry) error {
 	return nil
 }
 
-func (m *Brigade) validateDeleted(formats strfmt.Registry) error {
+func (m *Brigade) validateFreeSlots(formats strfmt.Registry) error {
 
-	if err := validate.Required("deleted", "body", m.Deleted); err != nil {
+	if err := validate.Required("free_slots", "body", m.FreeSlots); err != nil {
 		return err
 	}
 
