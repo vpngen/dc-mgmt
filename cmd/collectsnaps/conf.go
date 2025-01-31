@@ -2,11 +2,15 @@ package main
 
 import (
 	"crypto/rsa"
+	"encoding/json"
 	"flag"
 	"fmt"
+	"net/netip"
 	"os"
 	"path/filepath"
+	"strings"
 
+	dcroot "github.com/vpngen/dc-mgmt"
 	"github.com/vpngen/dc-mgmt/internal/kdlib"
 	snapsCrypto "github.com/vpngen/keydesk-snap/core/crypto"
 )
@@ -52,8 +56,10 @@ type config struct {
 
 	maintenanceMode int64
 
-	extFilter  string
-	ctrlFilter string
+	extFilter  []netip.Prefix
+	ctrlFilter []netip.Prefix
+
+	plan *dcroot.SnapshotPlan
 }
 
 var (
@@ -69,6 +75,7 @@ func parseArgs(opts *config) error {
 	maintenance := flag.Int64("mnt", 0, "maintenance mode")
 	extFilter := flag.String("net", "", "filter by prefix")
 	ctrlFilter := flag.String("ctrl", "", "filter by control nodes")
+	plan := flag.String("plan", "", "plan file")
 
 	flag.Parse()
 
@@ -82,10 +89,77 @@ func parseArgs(opts *config) error {
 
 	opts.maintenanceMode = *maintenance
 
-	opts.extFilter = *extFilter
-	opts.ctrlFilter = *ctrlFilter
+	ef, err := getFilter(*extFilter)
+	if err != nil {
+		return fmt.Errorf("get ext filter: %w", err)
+	}
+
+	cf, err := getFilter(*ctrlFilter)
+	if err != nil {
+		return fmt.Errorf("get ctrl filter: %w", err)
+	}
+
+	opts.extFilter = ef
+	opts.ctrlFilter = cf
+
+	opts.plan, err = readPlan(*plan, ef, cf)
+	if err != nil {
+		return fmt.Errorf("read plan: %w", err)
+	}
 
 	return nil
+}
+
+func readPlan(plan string, extPrefixes, ctrlPrefixes []netip.Prefix) (*dcroot.SnapshotPlan, error) {
+	if plan == "" {
+		return nil, nil
+	}
+
+	f, err := os.OpenFile(plan, os.O_RDONLY, 0)
+	if err != nil {
+		return nil, fmt.Errorf("read plan: %w", err)
+	}
+
+	defer f.Close()
+
+	var p dcroot.SnapshotPlan
+
+	dec := json.NewDecoder(f)
+	if err := dec.Decode(&p); err != nil {
+		return nil, fmt.Errorf("decode plan: %w", err)
+	}
+
+	for i, s := range p.Plan {
+		cip, _ := netip.ParseAddr(s.ControlIP)
+		if !inPrexixes(ctrlPrefixes, cip) {
+			p.Plan = append(p.Plan[:i], p.Plan[i+1:]...)
+
+			fmt.Fprintf(os.Stderr, "control ip %s is not in the control prefix\n", cip)
+
+			continue
+		}
+
+		for j, r := range s.Snaps {
+			rip, _ := netip.ParseAddr(r.EndpointIPv4)
+			if !inPrexixes(extPrefixes, rip) {
+				p.Plan[i].Snaps = append(p.Plan[i].Snaps[:j], p.Plan[i].Snaps[j+1:]...)
+
+				fmt.Fprintf(os.Stderr, "endpoint ip %s is not in the external prefix\n", rip)
+			}
+		}
+	}
+
+	return &p, nil
+}
+
+func inPrexixes(prefixes []netip.Prefix, addr netip.Addr) bool {
+	for _, p := range prefixes {
+		if p.Contains(addr) {
+			return true
+		}
+	}
+
+	return false
 }
 
 // readConfigs - reads configs from environment variables.
@@ -153,4 +227,27 @@ func readConfigs() (*config, error) {
 		realmsKeysPath: realmsKeysPath,
 		realmRSA:       realmRSA,
 	}, nil
+}
+
+func getFilter(filter string) ([]netip.Prefix, error) {
+	filter = strings.TrimSpace(filter)
+
+	if filter == "" {
+		return []netip.Prefix{netip.PrefixFrom(netip.IPv4Unspecified(), 0)}, nil
+	}
+
+	nets := strings.Split(filter, ",")
+
+	prefixes := make([]netip.Prefix, 0, len(nets))
+
+	for _, p := range nets {
+		prefix, err := netip.ParsePrefix(strings.TrimSpace(p))
+		if err != nil {
+			return nil, fmt.Errorf("parse prefix: %w", err)
+		}
+
+		prefixes = append(prefixes, prefix)
+	}
+
+	return prefixes, nil
 }
