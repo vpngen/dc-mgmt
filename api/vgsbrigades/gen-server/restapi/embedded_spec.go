@@ -311,7 +311,7 @@ func init() {
         "brigade_id",
         "brigade_name",
         "max_users",
-        "deleted",
+        "free_slots",
         "zone"
       ],
       "properties": {
@@ -324,9 +324,9 @@ func init() {
           "description": "Brigade name",
           "type": "string"
         },
-        "deleted": {
-          "description": "Deleted",
-          "type": "boolean"
+        "free_slots": {
+          "description": "Free slots",
+          "type": "integer"
         },
         "max_users": {
           "description": "Max users",
@@ -742,7 +742,7 @@ func init() {
         "brigade_id",
         "brigade_name",
         "max_users",
-        "deleted",
+        "free_slots",
         "zone"
       ],
       "properties": {
@@ -755,9 +755,9 @@ func init() {
           "description": "Brigade name",
           "type": "string"
         },
-        "deleted": {
-          "description": "Deleted",
-          "type": "boolean"
+        "free_slots": {
+          "description": "Free slots",
+          "type": "integer"
         },
         "max_users": {
           "description": "Max users",

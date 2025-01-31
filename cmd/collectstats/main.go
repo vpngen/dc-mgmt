@@ -245,6 +245,7 @@ func updateStats(db *pgxpool.Pool, statsSchema string, stats *Stats) error {
 	) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
 	ON CONFLICT (brigade_id, instance_id) DO UPDATE
 	SET 
+		created_at=$3,
 		first_visit=$4,
 		total_users_count=$5,
 		throttled_users_count=$6,
