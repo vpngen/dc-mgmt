@@ -19,21 +19,17 @@ import (
 )
 
 const (
-	maxPostgresqlNameLen = 63
-	defaultDatabaseURL   = "postgresql:///vgrealm"
-)
-
-const (
-	defaultBrigadesSchema      = "brigades"
-	defaultBrigadesStatsSchema = "stats"
+	defaultDatabaseURL = "postgresql:///vgrealm"
 )
 
 const (
 	defaultFirstVisitDaysLimit        = 1
 	defaultActiveCreatedAtMonthsLimit = 1
+	defaultCreationDaysLimit          = 7
 	defaultMinActiveUsers             = 5
 	defaultLastSeenDaysLimit          = 7
 	defaultMaxResultRows              = 10
+	defaultActiveUserDeep             = 30
 )
 
 const (
@@ -90,7 +86,7 @@ func main() {
 			fmt.Fprintf(os.Stderr, "WARNING!!! This command should be run on the first day of the month\n")
 		}
 
-		output, err = getInactive(db, igrp, months, num, x)
+		output, err = getInactive(db, igrp, days, months, num, x)
 		if err != nil {
 			log.Fatalf("%s: Can't get brigades: %s\n", LogTag, err)
 		}
@@ -122,10 +118,18 @@ func main() {
 }
 
 // getInactive - returns list of inactive brigades.
-func getInactive(db *pgxpool.Pool, igrp bool, months, num, min int) ([]byte, error) {
+func getInactive(db *pgxpool.Pool, igrp bool, days, months, num, min int) ([]byte, error) {
 	t := time.Now().UTC()
-	firstDayOfMonth := time.Date(t.Year(), t.Month(), 1, 0, 0, 0, 0, time.UTC)
-	maxCreatedAt := firstDayOfMonth.AddDate(0, -months, 0)
+
+	var maxCreatedAt time.Time
+
+	switch days {
+	case 0:
+		firstDayOfMonth := time.Date(t.Year(), t.Month(), 1, 0, 0, 0, 0, time.UTC)
+		maxCreatedAt = firstDayOfMonth.AddDate(0, -months, 0)
+	default:
+		maxCreatedAt = t.AddDate(0, 0, -days)
+	}
 
 	ctx := context.Background()
 
@@ -133,6 +137,8 @@ func getInactive(db *pgxpool.Pool, igrp bool, months, num, min int) ([]byte, err
 	if err != nil {
 		return nil, fmt.Errorf("begin: %w", err)
 	}
+
+	fmt.Fprintf(os.Stderr, "maxCreatedAt: %s\nupdateTimeFreshness: %d\ndefaultActiveUserDeep: %d\n", maxCreatedAt, updateTimeFreshness, defaultActiveUserDeep)
 
 	sqlGetInactive := `
 	SELECT 
@@ -148,14 +154,13 @@ func getInactive(db *pgxpool.Pool, igrp bool, months, num, min int) ([]byte, err
 	LEFT JOIN 
 		brigades.reserved_endpoints_ipv4 AS rei ON b.endpoint_ipv4 = rei.endpoint_ipv4
 	WHERE
-		(
-			(bs.update_time > now() - ($1 * INTERVAL '1 days'))
-		OR
-			-- it's for resolve corrupted brigade deletion
-			((bs.update_time < now() - ($1 * INTERVAL '1 days')) AND (bs.update_time>=$2))
-		)
+		(bs.update_time > now() - ($1 * INTERVAL '1 days'))
 	AND
-		(bs.created_at < $3 OR bs.first_visit < $3) -- it's for resolve migrated brigades
+		(
+			(date_trunc('day',bs.created_at) = date_trunc('day',bs.instance_created_at) AND bs.created_at < $2)
+		OR
+			(date_trunc('day',bs.created_at) <> date_trunc('day',bs.instance_created_at) AND bs.instance_created_at < now() - ($3 * INTERVAL '1 days')) -- it's for resolve migrated brigades
+		)
 	AND 
 		bs.active_users_count < $4::int
 	AND
@@ -172,8 +177,8 @@ func getInactive(db *pgxpool.Pool, igrp bool, months, num, min int) ([]byte, err
 	rows, err := tx.Query(ctx,
 		sqlGetInactive,
 		updateTimeFreshness,
-		firstDayOfMonth,
 		maxCreatedAt,
+		defaultActiveUserDeep,
 		min,
 		num,
 	)
@@ -229,15 +234,15 @@ func getNotVisited(db *pgxpool.Pool, igrp bool, days, num int) ([]byte, error) {
 	SELECT 
 		bs.brigade_id, p.igrp_id
 	FROM 
-		%s bs
+		stats.brigades_stats bs
 	JOIN 
-		%s b ON bs.brigade_id = b.brigade_id
+		brigades.brigades b ON bs.brigade_id = b.brigade_id
 	JOIN 
 		pairs.pairs AS p ON b.pair_id = p.pair_id
 	LEFT JOIN
-		%s b2 ON b.brigade_id = b2.brigade_id AND b2.main = false
+		brigades.brigades b2 ON b.brigade_id = b2.brigade_id AND b2.main = false
 	LEFT JOIN 
-		%s AS rei ON b.endpoint_ipv4 = rei.endpoint_ipv4
+		brigades.reserved_endpoints_ipv4 AS rei ON b.endpoint_ipv4 = rei.endpoint_ipv4
 	WHERE
 		bs.update_time > now() - ($1 * INTERVAL '1 hours')
 	AND
@@ -257,16 +262,7 @@ func getNotVisited(db *pgxpool.Pool, igrp bool, days, num int) ([]byte, error) {
 		bs.created_at ASC
 	LIMIT $3::int
 	`
-	rows, err := tx.Query(ctx,
-		fmt.Sprintf(sqlGetNotVisited,
-			pgx.Identifier{defaultBrigadesStatsSchema, "brigades_stats"}.Sanitize(),      // !!!!
-			pgx.Identifier{defaultBrigadesSchema, "brigades"}.Sanitize(),                 // !!!!
-			pgx.Identifier{defaultBrigadesSchema, "brigades"}.Sanitize(),                 // !!!!
-			pgx.Identifier{defaultBrigadesSchema, "reserved_endpoints_ipv4"}.Sanitize()), // !!!!
-		updateTimeFreshness,
-		days,
-		num,
-	)
+	rows, err := tx.Query(ctx, sqlGetNotVisited, updateTimeFreshness, days, num)
 	if err != nil {
 		tx.Rollback(ctx)
 
@@ -317,15 +313,15 @@ func getNotUsed(db *pgxpool.Pool, igrp bool, users, days, num int) ([]byte, erro
 	SELECT 
 		bs.brigade_id, p.igrp_id
 	FROM 
-		%s bs
+		brigades.brigades_stats bs
 	JOIN 
-		%s b ON bs.brigade_id = b.brigade_id
+		brigades.brigades b ON bs.brigade_id = b.brigade_id
 	JOIN 
 		pairs.pairs AS p ON b.pair_id = p.pair_id
 	LEFT JOIN
-		%s b2 ON b.brigade_id = b2.brigade_id AND b2.main = false
+		brigades.brigades b2 ON b.brigade_id = b2.brigade_id AND b2.main = false
 	LEFT JOIN 
-		%s AS rei ON b.endpoint_ipv4 = rei.endpoint_ipv4
+		brigades.reserved_endpoints_ipv4 AS rei ON b.endpoint_ipv4 = rei.endpoint_ipv4
 	WHERE
 		bs.update_time > now() - ($1 * INTERVAL '1 hours')
 	AND
@@ -345,17 +341,7 @@ func getNotUsed(db *pgxpool.Pool, igrp bool, users, days, num int) ([]byte, erro
 		bs.created_at ASC
 	LIMIT $3::int
 	`
-	rows, err := tx.Query(ctx,
-		fmt.Sprintf(sqlGetNotUsed,
-			pgx.Identifier{defaultBrigadesStatsSchema, "brigades_stats"}.Sanitize(),      // !!!!
-			pgx.Identifier{defaultBrigadesSchema, "brigades"}.Sanitize(),                 // !!!!
-			pgx.Identifier{defaultBrigadesSchema, "brigades"}.Sanitize(),                 // !!!!
-			pgx.Identifier{defaultBrigadesSchema, "reserved_endpoints_ipv4"}.Sanitize()), // !!!!
-		updateTimeFreshness,
-		days,
-		num,
-		users,
-	)
+	rows, err := tx.Query(ctx, sqlGetNotUsed, updateTimeFreshness, days, num, users)
 	if err != nil {
 		tx.Rollback(ctx)
 
@@ -439,7 +425,8 @@ func parseArgs() (bool, bool, string, int, int, int, int, error) {
 		return *chunked, *igrp, CommandNotVisited, *days, 0, *num, 0, nil
 	case CommandInactive:
 		inactiveFlags := flag.NewFlagSet(CommandInactive, flag.ExitOnError)
-		months := inactiveFlags.Int("m", defaultActiveCreatedAtMonthsLimit, "months limit from registration")
+		months := inactiveFlags.Int("m", 0, "months limit from registration")
+		days := inactiveFlags.Int("d", 0, "days limit from registration")
 		x := inactiveFlags.Int("x", defaultMinActiveUsers, "minmium active users count for live")
 		num := inactiveFlags.Int("n", defaultMaxResultRows, "how many max rows will return")
 		igrp := inactiveFlags.Bool("igrp", false, "use isolated groups")
@@ -450,11 +437,11 @@ func parseArgs() (bool, bool, string, int, int, int, int, error) {
 
 		inactiveFlags.Parse(flag.Args()[1:])
 
-		if *num < 1 || *x < 1 || *months < 1 {
-			return false, false, "", 0, 0, 0, 0, fmt.Errorf("num/x: %w", errInlalidArgs)
+		if *num < 1 || *x < 1 || (*months < 1 && *days < 1) {
+			return false, false, "", 0, 0, 0, 0, fmt.Errorf("num/x/d: %w", errInlalidArgs)
 		}
 
-		return *chunked, *igrp, CommandInactive, 0, *months, *num, *x, nil
+		return *chunked, *igrp, CommandInactive, *days, *months, *num, *x, nil
 	case CommandNotUsed:
 		notusedFlags := flag.NewFlagSet(CommandNotUsed, flag.ExitOnError)
 		days := notusedFlags.Int("d", defaultLastSeenDaysLimit, "days limit to last seen")
