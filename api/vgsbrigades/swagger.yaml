@@ -307,3 +307,4 @@ securityDefinitions:
     scopes:
       admin: Admin scope
       manager: Manager scope
+

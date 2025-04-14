@@ -26,6 +26,36 @@ if [ -s "/etc/vg-dc-snaps/collectsnaps.env" ]; then
         . "/etc/vg-dc-snaps/collectsnaps.env"
 fi
 
+EXTRA_ARGS=""
+
+if [ -n "${KEEP_LAST}" ]; then
+        EXTRA_ARGS="${EXTRA_ARGS} -keep_last ${KEEP_LAST}"
+fi
+
+if [ -n "${KEEP_WITHIN}" ]; then
+        EXTRA_ARGS="${EXTRA_ARGS} -keep_within ${KEEP_WITHIN}"
+fi
+
+if [ -n "${KEEP_HOURLY}" ]; then
+        EXTRA_ARGS="${EXTRA_ARGS} -keep_hourly ${KEEP_HOURLY}"
+fi
+
+if [ -n "${KEEP_DAILY}" ]; then
+        EXTRA_ARGS="${EXTRA_ARGS} -keep_daily ${KEEP_DAILY}"
+fi
+
+if [ -n "${KEEP_WEEKLY}" ]; then
+        EXTRA_ARGS="${EXTRA_ARGS} -keep_weekly ${KEEP_WEEKLY}"
+fi
+
+if [ -n "${KEEP_MONTHLY}" ]; then
+        EXTRA_ARGS="${EXTRA_ARGS} -keep_monthly ${KEEP_MONTHLY}"
+fi
+
+if [ -n "${KEEP_YEARLY}" ]; then
+        EXTRA_ARGS="${EXTRA_ARGS} -keep_yearly ${KEEP_YEARLY}"
+fi
+
 DB_URL="${DB_URL}" \
 DC_ID="${DC_ID}" \
 DC_NAME="${DC_NAME}" \
@@ -33,4 +63,4 @@ SSH_KEY="${SSH_KEY}" \
 REALM_FP="${REALM_FP}" \
 REALMS_KEYS_PATH="${REALMS_KEYS_PATH}" \
 SNAPSHOTS_BASE_DIR="${SNAPSHOTS_BASE_DIR}" \
-flock -x -n /tmp/collectsnaps.lock "${basedir}"/collectsnaps "$@"
+"${basedir}"/collectsnaps "$@"
