@@ -8,7 +8,10 @@ import (
 	"net/netip"
 	"os"
 	"path/filepath"
+	"regexp"
+	"strconv"
 	"strings"
+	"time"
 
 	dcroot "github.com/vpngen/dc-mgmt"
 	"github.com/vpngen/dc-mgmt/internal/kdlib"
@@ -59,6 +62,8 @@ type config struct {
 	extFilter  []netip.Prefix
 	ctrlFilter []netip.Prefix
 
+	keep rotateConfig
+
 	plan *dcroot.SnapshotPlan
 }
 
@@ -77,7 +82,33 @@ func parseArgs(opts *config) error {
 	ctrlFilter := flag.String("ctrl", "", "filter by control nodes")
 	plan := flag.String("plan", "", "plan file")
 
+	keepDaily := flag.Int("keep-daily", 0, "keep daily snapshots")
+	keepWeekly := flag.Int("keep-weekly", 0, "keep weekly snapshots")
+	keepMonthly := flag.Int("keep-monthly", 0, "keep monthly snapshots")
+	keepYearly := flag.Int("keep-yearly", 0, "keep yearly snapshots")
+	keepHourly := flag.Int("keep-hourly", 0, "keep hourly snapshots")
+	keepLast := flag.Int("keep-last", 0, "keep last snapshots")
+	keepWithin := flag.String("keep-within", "", "keep snapshots within duration (1h, 1d, 1w, 1m, 1y)")
+
 	flag.Parse()
+
+	opts.keep = rotateConfig{
+		keepDaily:   *keepDaily,
+		keepWeekly:  *keepWeekly,
+		keepMonthly: *keepMonthly,
+		keepYearly:  *keepYearly,
+		keepHourly:  *keepHourly,
+		keepLast:    *keepLast,
+	}
+
+	if *keepWithin != "" {
+		dur, err := parseDuration(*keepWithin)
+		if err != nil {
+			return fmt.Errorf("parse keep-within: %w", err)
+		}
+
+		opts.keep.keepWithin = dur
+	}
 
 	if *tag == "" {
 		return ErrEmptyTag
@@ -250,4 +281,51 @@ func getFilter(filter string) ([]netip.Prefix, error) {
 	}
 
 	return prefixes, nil
+}
+
+var (
+	ErrUnknownDurationUnit   = fmt.Errorf("unknown duration unit")
+	ErrInvalidDurationFormat = fmt.Errorf("invalid duration format")
+)
+
+func parseDuration(durationStr string) (time.Duration, error) {
+	var (
+		duration time.Duration
+		err      error
+	)
+
+	durationStr = strings.TrimSpace(durationStr)
+	if durationStr == "" {
+		return 0, nil
+	}
+
+	// Remove spaces and convert to lowercase
+	re := regexp.MustCompile(`(\d+)([hdwmy])`)
+	matches := re.FindStringSubmatch(durationStr)
+
+	if len(matches) != 3 {
+		return 0, fmt.Errorf("%w: %s", ErrInvalidDurationFormat, durationStr)
+	}
+
+	value, err := strconv.Atoi(matches[1])
+	if err != nil {
+		return 0, err
+	}
+
+	switch matches[2] {
+	case "h":
+		duration = time.Hour * time.Duration(value)
+	case "d":
+		duration = time.Hour * 24 * time.Duration(value)
+	case "w":
+		duration = time.Hour * 24 * 7 * time.Duration(value)
+	case "m":
+		duration = time.Hour * 24 * 30 * time.Duration(value) // Approximate month as 30 days
+	case "y":
+		duration = time.Hour * 24 * 365 * time.Duration(value) // Approximate year as 365 days
+	default:
+		return 0, fmt.Errorf("%w: %s", ErrUnknownDurationUnit, matches[2])
+	}
+
+	return duration, nil
 }

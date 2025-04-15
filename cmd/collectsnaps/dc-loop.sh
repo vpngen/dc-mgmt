@@ -16,5 +16,5 @@ EOF
 basedir=$(dirname "$0")
 
 for net in ${nets}; do
-        "${basedir}"/collectsnaps.sh -tag "periodic-hourly-${net}" -ad -r -net "${net}/24"
+        flock -x -n /tmp/collectsnaps-"${net}".lock "${basedir}"/collectsnaps.sh -tag "periodic-hourly-${net}" -ad -net "${net}/24"
 done

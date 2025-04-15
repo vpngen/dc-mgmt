@@ -432,6 +432,12 @@ contents:
     mode: 0005
     owner: root
     group: root
+- src: dc-mgmt/cmd/switchreplica/switch_replica.sh
+  dst: /opt/vg-dc-snaps/switch_replica.sh
+  file_info:
+    mode: 0005
+    owner: root
+    group: root
 - src: dc-mgmt/cmd/acceptremotemigr/accept_remote_migr.sh
   dst: /opt/vg-dc-snaps/accept_remote_migr.sh
   file_info:
@@ -554,6 +560,19 @@ contents:
     mode: 0440
     owner: root
     group: vgs_admin
+
+- src: bin/recodesnaps
+  dst: /opt/vg-dc-snaps/recodesnaps
+  file_info:
+    mode: 0005
+    owner: root
+    group: root
+- src: bin/recodesnapmap
+  dst: /opt/vg-dc-snaps/recodesnapmap
+  file_info:
+    mode: 0005
+    owner: root
+    group: root
 
 overrides:
   deb:
