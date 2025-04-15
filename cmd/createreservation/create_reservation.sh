@@ -180,8 +180,8 @@ FROM
         JOIN :"brigades_schema".active_pairs p ON s.pair_id = p.pair_id
 WHERE
         s.domain_name IS NULL
-        AND s.control_ip << :'control_network'
-        AND s.endpoint_ipv4 << :'endpoint_network'
+        AND s.control_ip <<= :'control_network'
+        AND s.endpoint_ipv4 <<= :'endpoint_network'
 EOF
 )
 
@@ -194,10 +194,11 @@ EOF
 
         reservation_uuid=$(psql -d "${DBNAME}" -q -t -A \
                 --set brigades_schema="${BRIGADES_SCHEMA}" \
+                --set filter="-in ${CONTROL_NETWORK} -en ${ENDPOINT_NETWORK}" \
                 --set ON_ERROR_STOP=yes  <<EOF
 BEGIN;
 
-INSERT INTO :"brigades_schema".reservations (dismission) VALUES (FALSE) RETURNING reservation_id;
+INSERT INTO :"brigades_schema".reservations (dismission, filter) VALUES (FALSE, :'filter') RETURNING reservation_id;
 
 COMMIT;
 EOF
@@ -223,8 +224,8 @@ FROM
         JOIN :"brigades_schema".active_pairs p ON s.pair_id = p.pair_id
 WHERE
         s.domain_name IS NULL
-        AND s.control_ip << :'control_network'
-        AND s.endpoint_ipv4 << :'endpoint_network'
+        AND s.control_ip <<= :'control_network'
+        AND s.endpoint_ipv4 <<= :'endpoint_network'
 ORDER BY
         p.free_slots_count DESC
 LIMIT :'number';
@@ -343,14 +344,15 @@ show () {
                 --set ON_ERROR_STOP=yes  <<EOF
 SELECT
         r.reservation_id,
-        COUNT(CASE WHEN e.endpoint_ipv4 IS NOT NULL THEN 1 END) AS reserved_slots
+        COUNT(CASE WHEN e.endpoint_ipv4 IS NOT NULL THEN 1 END) AS reserved_slots,
+        r.filter AS filter
 FROM
         :"brigades_schema".reservations r
         LEFT JOIN :"brigades_schema".reserved_endpoints_ipv4 e ON r.reservation_id = e.reservation_id
 WHERE
         r.reservation_id = :'reservation_uuid'
 GROUP BY
-        r.reservation_id;
+        r.reservation_id, r.filter;
 EOF
 
         if [ -n "${DO_LIST}" ]; then
@@ -386,12 +388,13 @@ list () {
 
 SELECT
         r.reservation_id,
-        COUNT(CASE WHEN e.endpoint_ipv4 IS NOT NULL THEN 1 END) AS reserved_slots
+        COUNT(CASE WHEN e.endpoint_ipv4 IS NOT NULL THEN 1 END) AS reserved_slots,
+        r.filter AS filter
 FROM
         :"brigades_schema".reservations r
         LEFT JOIN :"brigades_schema".reserved_endpoints_ipv4 e ON r.reservation_id = e.reservation_id
 GROUP BY
-        r.reservation_id
+        r.reservation_id, r.filter
 ORDER BY
         r.reservation_id;
 
