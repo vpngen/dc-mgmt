@@ -49,6 +49,7 @@ type cfg struct {
 	dburl string
 
 	onlyBase bool
+	patch    bool // replication (patch)
 }
 
 type opts struct {
@@ -66,6 +67,7 @@ type opts struct {
 	db *pgxpool.Pool
 
 	onlyBase bool
+	patch    bool // replication (patch)
 }
 
 var (
@@ -155,7 +157,8 @@ func ckconfdefs(c *cfg) error {
 
 func parseArgs(c *cfg) error {
 	rpk := flag.String("k", "", "realm private key file")
-	reservation := flag.String("r", "", "reservation id")
+	reservation := flag.String("r", "", "reservation or replication id")
+	replication := flag.Bool("p", false, "replication (patch)")
 	inet := flag.String("inet", "0.0.0.0/0", "control network for filtering inside reservation")
 	enet := flag.String("enet", "0.0.0.0/0", "external network for filtering inside reservation")
 	planfile := flag.String("f", "", "plan file")
@@ -182,6 +185,7 @@ func parseArgs(c *cfg) error {
 	c.inet = *inet
 	c.enet = *enet
 	c.onlyBase = *onlyBase
+	c.patch = *replication
 
 	return nil
 }

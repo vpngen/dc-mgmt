@@ -58,7 +58,12 @@ func main() {
 		log.Fatalf("%s: Can't create db pool: %s\n", LogTag, err)
 	}
 
+	// baseTag - tag from arguments
+	// opts.tag - tag with date if applicable
+	// stime - start time UNIX time
 	baseTag, stime := adjustTag(opts)
+	// path = opts.storageDir + baseTag
+	// fn = baseTag + opts.tag + ".json"
 	snapFile, err := composeFilename(opts.storageDir, baseTag, opts.tag)
 	if err != nil {
 		log.Fatalf("%s: Can't compose filename: %s\n", LogTag, err)
@@ -83,8 +88,24 @@ func main() {
 		log.Fatalf("%s: Can't collect stats: %s\n", LogTag, err)
 	}
 
-	if err := rotateSnapshots(opts.storageDir, baseTag, opts.tag); err != nil {
-		log.Fatalf("%s: Can't rotate snapshots: %s\n", LogTag, err)
+	if opts.replace {
+		if err := replaceSnapshots(opts.storageDir, baseTag, opts.tag); err != nil {
+			log.Fatalf("%s: Can't rotate snapshots: %s\n", LogTag, err)
+		}
+
+		return
+	}
+
+	if opts.keep.keepDaily > 0 ||
+		opts.keep.keepHourly > 0 ||
+		opts.keep.keepMonthly > 0 ||
+		opts.keep.keepWeekly > 0 ||
+		opts.keep.keepYearly > 0 ||
+		opts.keep.keepLast > 0 ||
+		opts.keep.keepWithin > 0 {
+		if err := proceedRotateArchives(opts.storageDir, opts.tag, opts.keep); err != nil {
+			log.Fatalf("%s: Can't rotate archives: %s\n", LogTag, err)
+		}
 	}
 }
 
@@ -116,8 +137,8 @@ func composeFilename(basePath, baseTag, tag string) (string, error) {
 	return filepath.Join(path, fn), nil
 }
 
-// rotateSnapshots - rotate snapshots.
-func rotateSnapshots(basePath, baseTag, tag string) error {
+// replaceSnapshots - rotate snapshots.
+func replaceSnapshots(basePath, baseTag, tag string) error {
 	path := filepath.Join(basePath, baseTag)
 	fn := fmt.Sprintf("%s.json", tag)
 
