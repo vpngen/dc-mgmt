@@ -555,6 +555,19 @@ contents:
     owner: root
     group: vgs_admin
 
+- src: bin/recodesnaps
+  dst: /opt/vg-dc-snaps/recodesnaps
+  file_info:
+    mode: 0005
+    owner: root
+    group: root
+- src: bin/recodesnapmap
+  dst: /opt/vg-dc-snaps/recodesnapmap
+  file_info:
+    mode: 0005
+    owner: root
+    group: root
+
 overrides:
   deb:
     scripts:
