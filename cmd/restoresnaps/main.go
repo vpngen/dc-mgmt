@@ -109,7 +109,7 @@ CTRL:
 		}
 
 		// request control to restore
-		cleanup, err := putBrigadesBySSH(o.sshconf, caddr, *controlPlan)
+		cleanup, err := putBrigadesBySSH(o.sshconf, caddr, *controlPlan, o.patch)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "ERROR: control_ip: %s put brigades: %s\n", controls.ControlIP, err)
 		}
@@ -121,8 +121,11 @@ CTRL:
 }
 
 // putBrigadesBySSH - put brigades by ssh.
-func putBrigadesBySSH(sshconf *ssh.ClientConfig, addr netip.Addr, plan dcmgmt.ControlNodeRestorePlan) (func(string), error) {
+func putBrigadesBySSH(sshconf *ssh.ClientConfig, addr netip.Addr, plan dcmgmt.ControlNodeRestorePlan, patch bool) (func(string), error) {
 	cmd := "restorebrigades"
+	if patch {
+		cmd = "patchbrigades"
+	}
 
 	fmt.Fprintf(os.Stderr, "%s#%s:22 -> %s\n", sshkeyRemoteUsername, addr, cmd)
 
@@ -190,7 +193,7 @@ func restoreSnap(snap *dcmgmt.PreparedSnap, o *opts, caddr netip.Addr) (*storage
 	}
 
 	// recreateBrigade
-	if err := recreateBrigade(o.db, o.reservationID, brigade, caddr, addr); err != nil {
+	if err := recreateBrigade(o.db, o.reservationID, brigade, caddr, addr, o.patch); err != nil {
 		return nil, fmt.Errorf("recreate brigade: %w", err)
 	}
 
@@ -254,9 +257,9 @@ func checkReservation(ctx context.Context, tx pgx.Tx, caddr, addr netip.Addr, ri
 		SELECT
 			p.pair_id
 		FROM
-			%s AS p -- pairs.pairs
-			JOIN %s AS pei ON p.pair_id = pei.pair_id -- pairs.pairs_endpoints_ipv4
-			JOIN %s AS re ON pei.endpoint_ipv4 = re.endpoint_ipv4 -- reservations.reserved_endpoints_ipv4
+			pairs.pairs AS p -- pairs.pairs
+			JOIN pairs.pairs_endpoints_ipv4 AS pei ON p.pair_id = pei.pair_id
+			JOIN brigades.reserved_endpoints_ipv4 AS re ON pei.endpoint_ipv4 = re.endpoint_ipv4
 		WHERE
 			p.control_ip=$1
 		AND
@@ -267,20 +270,43 @@ func checkReservation(ctx context.Context, tx pgx.Tx, caddr, addr netip.Addr, ri
 
 	var pairID uuid.UUID
 
-	if err := tx.QueryRow(
-		ctx,
-		fmt.Sprintf(sqlCheckReservation,
-			(pgx.Identifier{defaultPairsSchema, "pairs"}.Sanitize()),
-			(pgx.Identifier{defaultPairsSchema, "pairs_endpoints_ipv4"}.Sanitize()),
-			(pgx.Identifier{defaultBrigadesSchema, "reserved_endpoints_ipv4"}.Sanitize()),
-		),
-		caddr.String(), addr.String(), rid,
-	).Scan(&pairID); err != nil {
+	if err := tx.QueryRow(ctx, sqlCheckReservation, caddr.String(), addr.String(), rid).Scan(&pairID); err != nil {
 		return pairID, fmt.Errorf("check reservation: %w", err)
 	}
 
 	if pairID == uuid.Nil {
 		return pairID, ErrReservationMismatch
+	}
+
+	return pairID, nil
+}
+
+var ErrReplicationMismatch = errors.New("replication mismatch")
+
+func checkReplication(ctx context.Context, tx pgx.Tx, caddr, addr netip.Addr, rid string) (uuid.UUID, error) {
+	sqlCheckReplication := `
+		SELECT
+			p.pair_id
+		FROM
+			pairs.pairs AS p -- pairs.pairs
+			JOIN pairs.pairs_endpoints_ipv4 AS pei ON p.pair_id = pei.pair_id
+			JOIN brigades.replicated_endpoints_ipv4 AS re ON pei.endpoint_ipv4 = re.endpoint_ipv4
+		WHERE
+			p.control_ip=$1
+		AND
+			pei.endpoint_ipv4=$2
+		AND
+			re.replication_id=$3
+`
+
+	var pairID uuid.UUID
+
+	if err := tx.QueryRow(ctx, sqlCheckReplication, caddr.String(), addr.String(), rid).Scan(&pairID); err != nil {
+		return pairID, fmt.Errorf("check replication: %w", err)
+	}
+
+	if pairID == uuid.Nil {
+		return pairID, ErrReplicationMismatch
 	}
 
 	return pairID, nil
@@ -429,7 +455,7 @@ func insertBrigade(ctx context.Context, tx pgx.Tx, data *storage.Brigade,
 	return instanceID, nil
 }
 
-func recreateBrigade(db *pgxpool.Pool, rid string, data *storage.Brigade, caddr, addr netip.Addr) error {
+func recreateBrigade(db *pgxpool.Pool, rid string, data *storage.Brigade, caddr, addr netip.Addr, patch bool) error {
 	ctx := context.Background()
 
 	tx, err := db.Begin(ctx)
@@ -439,9 +465,19 @@ func recreateBrigade(db *pgxpool.Pool, rid string, data *storage.Brigade, caddr,
 
 	defer tx.Rollback(ctx)
 
-	pairID, err := checkReservation(ctx, tx, caddr, addr, rid)
-	if err != nil {
-		return fmt.Errorf("check reservation: %w", err)
+	var pairID uuid.UUID
+
+	switch patch {
+	case true:
+		pairID, err = checkReplication(ctx, tx, caddr, addr, rid)
+		if err != nil {
+			return fmt.Errorf("check replication: %w", err)
+		}
+	default:
+		pairID, err = checkReservation(ctx, tx, caddr, addr, rid)
+		if err != nil {
+			return fmt.Errorf("check reservation: %w", err)
+		}
 	}
 
 	brigadeID, err := base32.StdEncoding.WithPadding(base32.NoPadding).DecodeString(data.BrigadeID)
