@@ -29,31 +29,31 @@ fi
 EXTRA_ARGS=""
 
 if [ -n "${KEEP_LAST}" ]; then
-        EXTRA_ARGS="${EXTRA_ARGS} -keep_last ${KEEP_LAST}"
+        EXTRA_ARGS="${EXTRA_ARGS} -keep-last ${KEEP_LAST}"
 fi
 
 if [ -n "${KEEP_WITHIN}" ]; then
-        EXTRA_ARGS="${EXTRA_ARGS} -keep_within ${KEEP_WITHIN}"
+        EXTRA_ARGS="${EXTRA_ARGS} -keep-within ${KEEP_WITHIN}"
 fi
 
 if [ -n "${KEEP_HOURLY}" ]; then
-        EXTRA_ARGS="${EXTRA_ARGS} -keep_hourly ${KEEP_HOURLY}"
+        EXTRA_ARGS="${EXTRA_ARGS} -keep-hourly ${KEEP_HOURLY}"
 fi
 
 if [ -n "${KEEP_DAILY}" ]; then
-        EXTRA_ARGS="${EXTRA_ARGS} -keep_daily ${KEEP_DAILY}"
+        EXTRA_ARGS="${EXTRA_ARGS} -keep-daily ${KEEP_DAILY}"
 fi
 
 if [ -n "${KEEP_WEEKLY}" ]; then
-        EXTRA_ARGS="${EXTRA_ARGS} -keep_weekly ${KEEP_WEEKLY}"
+        EXTRA_ARGS="${EXTRA_ARGS} -keep-weekly ${KEEP_WEEKLY}"
 fi
 
 if [ -n "${KEEP_MONTHLY}" ]; then
-        EXTRA_ARGS="${EXTRA_ARGS} -keep_monthly ${KEEP_MONTHLY}"
+        EXTRA_ARGS="${EXTRA_ARGS} -keep-monthly ${KEEP_MONTHLY}"
 fi
 
 if [ -n "${KEEP_YEARLY}" ]; then
-        EXTRA_ARGS="${EXTRA_ARGS} -keep_yearly ${KEEP_YEARLY}"
+        EXTRA_ARGS="${EXTRA_ARGS} -keep-yearly ${KEEP_YEARLY}"
 fi
 
 DB_URL="${DB_URL}" \
