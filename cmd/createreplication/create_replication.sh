@@ -40,6 +40,8 @@ POPPED_BRIGADE=""
 
 pop_value() {
   if [ -z "${UNASSIGNED_BRIGADES}" ]; then
+    POPPED_BRIGADE=""
+
     return
   fi
 
@@ -98,6 +100,7 @@ FROM
         JOIN pairs.pairs p ON pe.pair_id = p.pair_id
 WHERE
         r.replication_id = :'replication_uuid'
+        AND r.src_dst = false
 GROUP BY 
         p.pair_id
 ORDER BY 
@@ -207,7 +210,7 @@ genconf () {
         echo "Generate configuration for replication: ${replication_uuid}" >&2
         echo >&2
 
-        out="{\"replication_id\":\"${replication_uuid}\", \"plan\":["
+        out="{\"replication_id\":\"${replication_uuid}\", \"reservation_id\":\"${replication_uuid}\", \"plan\":["
 
         groups=$(psql -d "${DBNAME}" -q -t -A \
                 --set replication_uuid="${replication_uuid}" \

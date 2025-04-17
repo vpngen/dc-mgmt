@@ -25,7 +25,7 @@ type rotateConfig struct {
 }
 
 func proceedRotateArchives(dir, tag string, plan rotateConfig) error {
-	archives, err := parseArchives(os.DirFS(dir), "snap")
+	archives, err := parseArchives(os.DirFS(dir), tag)
 	if err != nil {
 		return fmt.Errorf("parsing archives: %w", err)
 	}

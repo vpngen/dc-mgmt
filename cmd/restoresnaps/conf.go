@@ -132,6 +132,7 @@ func conf() (*opts, error) {
 		db: db,
 
 		onlyBase: c.onlyBase,
+		patch:    c.patch,
 	}, nil
 }
 
