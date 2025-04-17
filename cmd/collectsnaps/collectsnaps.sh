@@ -63,4 +63,4 @@ SSH_KEY="${SSH_KEY}" \
 REALM_FP="${REALM_FP}" \
 REALMS_KEYS_PATH="${REALMS_KEYS_PATH}" \
 SNAPSHOTS_BASE_DIR="${SNAPSHOTS_BASE_DIR}" \
-"${basedir}"/collectsnaps "$@"
+"${basedir}"/collectsnaps "$@" ${EXTRA_ARGS}
