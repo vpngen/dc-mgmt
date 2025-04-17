@@ -86,6 +86,9 @@ cleanInstall() {
         
         systemctl enable vg-dc-snaps.timer ||:
 	systemctl start vg-dc-snaps.timer ||:
+
+        systemctl enable vg-dc-replication.timer ||:
+        systemctl start vg-dc-replication.timer ||:
 }
 
 upgrade() {

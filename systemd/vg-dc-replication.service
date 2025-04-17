@@ -1,0 +1,13 @@
+[Unit]
+Description=Brigades replication
+Wants=vg-dc-replication.timer
+
+[Service]
+Type=oneshot
+User=vgmigr
+Group=vgmigr
+WorkingDirectory=/home/vgmigr
+ExecStart=/opt/vg-dc-snaps/replication.sh
+
+[Install]
+WantedBy=multi-user.target

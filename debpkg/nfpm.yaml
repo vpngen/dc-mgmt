@@ -439,6 +439,12 @@ contents:
     mode: 0005
     owner: root
     group: root
+- src: dc-mgmt/cmd/replication/replication.sh
+  dst: /opt/vg-dc-snaps/replication.sh
+  file_info:
+    mode: 0005
+    owner: root
+    group: root
 - src: dc-mgmt/cmd/switchlocalmigr/switch_local_migr.sh
   dst: /opt/vg-dc-snaps/switch_local_migr.sh
   file_info:
@@ -482,6 +488,20 @@ contents:
     mode: 0644
     owner: root
     group: root
+
+- src: dc-mgmt/systemd/vg-dc-replication.timer
+  dst: /etc/systemd/system/vg-dc-replication.timer
+  file_info:
+    mode: 0644
+    owner: root
+    group: root
+- src: dc-mgmt/systemd/vg-dc-replication.service
+  dst: /etc/systemd/system/vg-dc-replication.service
+  file_info:
+    mode: 0644
+    owner: root
+    group: root
+
 
 - dst: /opt/vg-dc-socket
   type: dir
