@@ -115,6 +115,10 @@ upgrade() {
         systemctl enable vg-dc-snaps.timer ||:
         systemctl enable vg-dc-snaps.service ||:
 	systemctl restart vg-dc-snaps.timer ||:
+
+        systemctl enable vg-dc-replication.timer ||:
+        systemctl enable vg-dc-replication.service ||:
+	systemctl restart vg-dc-replication.timer ||:
 }
 
 # Step 2, check if this is a clean install or an upgrade

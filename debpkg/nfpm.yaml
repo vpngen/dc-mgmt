@@ -35,6 +35,13 @@ contents:
     owner: root
     group: root
 
+- src: dc-mgmt/debpkg/src/vgmigr-vgvpnapi.sudoers.conf
+  dst: /etc/sudoers.d/vgmigr-vgvpnapi
+  file_info:
+    mode: 0440
+    owner: root
+    group: root
+
 - src: dc-mgmt/debpkg/src/dc-name.env-sample
   dst: /etc/vg-dc-mgmt/dc-name.env-sample
   file_info:

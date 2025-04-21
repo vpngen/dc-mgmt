@@ -179,6 +179,7 @@ func main() {
 
 var (
 	ErrReservedSlot       = errors.New("reserved slot")
+	ErrBlockedSlot        = errors.New("blocked slot")
 	ErrNoDeletebleBrigade = errors.New("no deleteble brigade")
 )
 
@@ -189,6 +190,7 @@ func getBrigadeControlIP(db *pgxpool.Pool, brigadeID string, secondary bool) (ne
 		controlIP     netip.Addr
 		instanceID    uuid.UUID
 		reservationID pgtype.UUID
+		enabled       bool
 	)
 
 	tx, err := db.Begin(ctx)
@@ -228,11 +230,14 @@ func getBrigadeControlIP(db *pgxpool.Pool, brigadeID string, secondary bool) (ne
 	SELECT
 		mb.control_ip,
 		mb.instance_id,
-		rei.reservation_id
+		rei.reservation_id,
+		pei.enabled
 	FROM 
-		%s AS mb
+		brigades.meta_brigades AS mb
 	LEFT JOIN 
-		%s AS rei ON mb.endpoint_ipv4 = rei.endpoint_ipv4
+		brigades.reserved_endpoints_ipv4 AS rei ON mb.endpoint_ipv4 = rei.endpoint_ipv4
+	LEFT JOIN
+		pairs.pairs_endpoints_ipv4 AS pei ON mb.endpoint_ipv4 = pei.endpoint_ipv4
 	WHERE
 		mb.brigade_id=$1
 	AND
@@ -241,22 +246,24 @@ func getBrigadeControlIP(db *pgxpool.Pool, brigadeID string, secondary bool) (ne
 	`
 
 	if err := tx.QueryRow(ctx,
-		fmt.Sprintf(sqlGetControlIP,
-			(pgx.Identifier{defaultBrigadesSchema, "meta_brigades"}.Sanitize()),
-			(pgx.Identifier{defaultBrigadesSchema, "reserved_endpoints_ipv4"}.Sanitize()),
-		),
+		sqlGetControlIP,
 		brigadeID,
 		!secondary,
 	).Scan(
 		&controlIP,
 		&instanceID,
 		&reservationID,
+		&enabled,
 	); err != nil {
 		return controlIP, instanceID, fmt.Errorf("brigade query: %w", err)
 	}
 
 	if reservationID.Valid {
 		return controlIP, instanceID, fmt.Errorf("%w: %s (%s)", ErrReservedSlot, brigadeID, uuid.UUID(reservationID.Bytes).String())
+	}
+
+	if !enabled {
+		return controlIP, instanceID, fmt.Errorf("%w: %s", ErrBlockedSlot, brigadeID)
 	}
 
 	return controlIP, instanceID, nil
