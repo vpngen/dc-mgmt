@@ -103,7 +103,11 @@ func main() {
 		opts.keep.keepYearly > 0 ||
 		opts.keep.keepLast > 0 ||
 		opts.keep.keepWithin > 0 {
-		if err := proceedRotateArchives(opts.storageDir, opts.tag, opts.keep); err != nil {
+		fmt.Fprintf(os.Stderr, "%s: Rotate archives: %s: %s: h: %d, d: %d, m: %d. w: %d, y: %d, l: %d, p: %d\n", LogTag,
+			opts.storageDir, baseTag,
+			opts.keep.keepHourly, opts.keep.keepDaily, opts.keep.keepMonthly,
+			opts.keep.keepWeekly, opts.keep.keepYearly, opts.keep.keepLast, opts.keep.keepWithin)
+		if err := proceedRotateArchives(opts.storageDir, baseTag, opts.keep); err != nil {
 			log.Fatalf("%s: Can't rotate archives: %s\n", LogTag, err)
 		}
 	}

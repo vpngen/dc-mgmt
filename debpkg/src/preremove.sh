@@ -11,6 +11,8 @@ remove() {
         systemctl stop --force vg-dc-gfsn.service ||:
         systemctl stop --force vg-dc-snaps.timer ||:
         systemctl stop --force vg-dc-snaps.service ||:
+        systemctl stop --force vg-dc-replication.timer ||:
+        systemctl stop --force vg-dc-replication.service ||:
 
 }
 
