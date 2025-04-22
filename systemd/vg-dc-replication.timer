@@ -1,0 +1,10 @@
+[Unit]
+Description=Brigades replication
+Requires=vg-dc-replication.service
+
+[Timer]
+Unit=vg-dc-replication.service
+OnCalendar=*:0/15
+
+[Install]
+WantedBy=timers.target

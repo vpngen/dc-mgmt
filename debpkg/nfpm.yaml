@@ -28,6 +28,20 @@ contents:
     owner: root
     group: root
 
+- src: dc-mgmt/debpkg/src/vgmigr-vgsnaps.sudoers.conf
+  dst: /etc/sudoers.d/vgmigr-vgsnaps
+  file_info:
+    mode: 0440
+    owner: root
+    group: root
+
+- src: dc-mgmt/debpkg/src/vgmigr-vgvpnapi.sudoers.conf
+  dst: /etc/sudoers.d/vgmigr-vgvpnapi
+  file_info:
+    mode: 0440
+    owner: root
+    group: root
+
 - src: dc-mgmt/debpkg/src/dc-name.env-sample
   dst: /etc/vg-dc-mgmt/dc-name.env-sample
   file_info:
@@ -426,6 +440,18 @@ contents:
     mode: 0005
     owner: root
     group: root
+- src: dc-mgmt/cmd/createreplication/create_replication.sh
+  dst: /opt/vg-dc-snaps/create_replication.sh
+  file_info:
+    mode: 0005
+    owner: root
+    group: root
+- src: dc-mgmt/cmd/replication/replication.sh
+  dst: /opt/vg-dc-snaps/replication.sh
+  file_info:
+    mode: 0005
+    owner: root
+    group: root
 - src: dc-mgmt/cmd/switchlocalmigr/switch_local_migr.sh
   dst: /opt/vg-dc-snaps/switch_local_migr.sh
   file_info:
@@ -469,6 +495,20 @@ contents:
     mode: 0644
     owner: root
     group: root
+
+- src: dc-mgmt/systemd/vg-dc-replication.timer
+  dst: /etc/systemd/system/vg-dc-replication.timer
+  file_info:
+    mode: 0644
+    owner: root
+    group: root
+- src: dc-mgmt/systemd/vg-dc-replication.service
+  dst: /etc/systemd/system/vg-dc-replication.service
+  file_info:
+    mode: 0644
+    owner: root
+    group: root
+
 
 - dst: /opt/vg-dc-socket
   type: dir
@@ -569,6 +609,37 @@ contents:
     group: root
 - src: bin/recodesnapmap
   dst: /opt/vg-dc-snaps/recodesnapmap
+  file_info:
+    mode: 0005
+    owner: root
+    group: root
+
+- src: dc-mgmt/cmd/defragnet/01-admin-defragnet-prepare.sh
+  dst: /home/vgadmin/01-admin-defragnet-prepare.sh
+  file_info:
+    mode: 0005
+    owner: root
+    group: root
+- src: dc-mgmt/cmd/defragnet/01-migr-defragnet-propagade.sh
+  dst: /home/vgmigr/01-migr-defragnet-propagade.sh
+  file_info:
+    mode: 0005
+    owner: root
+    group: root
+- src: dc-mgmt/cmd/defragnet/02-admin-defragnet-cleanup.sh
+  dst: /home/vgadmin/02-admin-defragnet-cleanup.sh
+  file_info:
+    mode: 0005
+    owner: root
+    group: root
+- src: dc-mgmt/cmd/defragnet/02-migr-defragnet-swith.sh
+  dst: /home/vgmigr/02-migr-defragnet-swith.sh
+  file_info:
+    mode: 0005
+    owner: root
+    group: root
+- src: dc-mgmt/cmd/defragnet/03-migr-defragnet-cleanup.sh
+  dst: /home/vgmigr/03-migr-defragnet-cleanup.sh
   file_info:
     mode: 0005
     owner: root
