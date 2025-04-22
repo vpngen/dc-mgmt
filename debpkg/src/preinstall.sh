@@ -82,6 +82,9 @@ upgrade() {
 
         systemctl stop vg-dc-snaps.timer ||:
         systemctl stop vg-dc-snaps.service ||:
+
+        systemctl stop vg-dc-replication.timer ||:
+        systemctl stop vg-dc-replication.service ||:
 }
 
 # Step 2, check if this is a clean install or an upgrade

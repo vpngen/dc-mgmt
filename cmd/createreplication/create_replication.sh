@@ -40,6 +40,8 @@ POPPED_BRIGADE=""
 
 pop_value() {
   if [ -z "${UNASSIGNED_BRIGADES}" ]; then
+    POPPED_BRIGADE=""
+
     return
   fi
 
@@ -98,6 +100,7 @@ FROM
         JOIN pairs.pairs p ON pe.pair_id = p.pair_id
 WHERE
         r.replication_id = :'replication_uuid'
+        AND r.src_dst = false
 GROUP BY 
         p.pair_id
 ORDER BY 
@@ -207,7 +210,7 @@ genconf () {
         echo "Generate configuration for replication: ${replication_uuid}" >&2
         echo >&2
 
-        out="{\"replication_id\":\"${replication_uuid}\", \"plan\":["
+        out="{\"replication_id\":\"${replication_uuid}\", \"reservation_id\":\"${replication_uuid}\", \"plan\":["
 
         groups=$(psql -d "${DBNAME}" -q -t -A \
                 --set replication_uuid="${replication_uuid}" \
@@ -633,6 +636,71 @@ ORDER BY
 EOF
 }
 
+
+filter_string=""
+
+split_filter () {
+        src_in=""
+        src_en=""
+        replication_id="$1"
+
+        if [ -z "${replication_id}" ]; then
+                printdef "replication UUID not specified"
+                exit 1
+        fi
+
+        set -- $filter_string
+
+        while [ "$#" -gt 0 ]; do
+        case "$1" in
+                -src-in)
+                src_in="$2"
+                shift 2
+                ;;
+                -src-en)
+                src_en="$2"
+                shift 2
+                ;;
+                *)
+                shift
+                ;;
+        esac
+        done
+
+        echo "${replication_id}|${src_in}|${src_en}"
+}
+
+auto_list () {
+        list="$(psql -d "${DBNAME}" -qtA --set ON_ERROR_STOP=yes  <<EOF
+
+SELECT
+        r.replication_id
+FROM
+        brigades.replications r
+ORDER BY
+        r.replication_id;
+
+EOF
+)"
+
+        for line in ${list}; do
+                filter_string="$(psql -d "${DBNAME}" -qtA \
+                        --set replication_id="${line}" \
+                        --set ON_ERROR_STOP=yes  <<EOF
+SELECT
+        r.src_filter
+FROM   
+        brigades.replications r
+WHERE
+        r.replication_id = :'replication_id'
+EOF
+)"
+
+                split_filter "${line}"
+
+        done
+}
+
 delete () {
         while [ "$#" -gt 0 ]; do
                 case "$1" in
@@ -722,6 +790,9 @@ case "${COMMAND}" in
                 ;;
         list)
                 list "$@"
+                ;;
+        autolist)
+                auto_list "$@"
                 ;;
         show)
                 show "$@"
