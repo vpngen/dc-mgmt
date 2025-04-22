@@ -614,6 +614,37 @@ contents:
     owner: root
     group: root
 
+- src: dc-mgmt/cmd/defragnet/01-admin-defragnet-prepare.sh
+  dst: /home/vgadmin/01-admin-defragnet-prepare.sh
+  file_info:
+    mode: 0005
+    owner: root
+    group: root
+- src: dc-mgmt/cmd/defragnet/01-migr-defragnet-propagade.sh
+  dst: /home/vgmigr/01-migr-defragnet-propagade.sh
+  file_info:
+    mode: 0005
+    owner: root
+    group: root
+- src: dc-mgmt/cmd/defragnet/02-admin-defragnet-cleanup.sh
+  dst: /home/vgadmin/02-admin-defragnet-cleanup.sh
+  file_info:
+    mode: 0005
+    owner: root
+    group: root
+- src: dc-mgmt/cmd/defragnet/02-migr-defragnet-swith.sh
+  dst: /home/vgmigr/02-migr-defragnet-swith.sh
+  file_info:
+    mode: 0005
+    owner: root
+    group: root
+- src: dc-mgmt/cmd/defragnet/03-migr-defragnet-cleanup.sh
+  dst: /home/vgmigr/03-migr-defragnet-cleanup.sh
+  file_info:
+    mode: 0005
+    owner: root
+    group: root
+
 overrides:
   deb:
     scripts:
