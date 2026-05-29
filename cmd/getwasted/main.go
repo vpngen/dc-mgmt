@@ -29,7 +29,7 @@ const (
 	defaultMinActiveUsers             = 5
 	defaultLastSeenDaysLimit          = 7
 	defaultMaxResultRows              = 10
-	defaultActiveUserDeep             = 30
+	defaultActiveUserDeep             = 8
 )
 
 const (

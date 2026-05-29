@@ -96,7 +96,7 @@ type opts struct {
 func main() {
 	var w io.WriteCloser
 
-	chunked, secondary, base32String, uuidString, err := parseArgs()
+	chunked, secondary, force, base32String, uuidString, err := parseArgs()
 	if err != nil {
 		log.Fatalf("%s: Can't parse args: %s\n", LogTag, err)
 	}
@@ -133,10 +133,17 @@ func main() {
 
 	orphan := false
 
+	ee := &ssh.ExitError{}
 	// attention! brigadeID - base32-style.
 	output, err := revokeBrigade(sshconf, base32String, controlIP)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s: Can't revoke brigade: %s\n", LogTag, err)
+		if (!force && errors.Is(err, ErrVIPBrigade)) || errors.Is(err, ErrDeleteAttemptsCountExceeded) ||
+			(errors.As(err, &ee) && ee.ExitStatus() == 2) {
+			fmt.Fprintf(os.Stderr, "%s: Will not remove brigade from database\n", LogTag)
+
+			os.Exit(2)
+		}
 
 		orphan = true
 	}
@@ -454,7 +461,10 @@ func revokeSubdomain(ctx context.Context, db *pgxpool.Pool, subdomAPIHost, subdo
 	return nil
 }
 
-var ErrDeleteAttemptsCountExceeded = errors.New("delete attempts count exceeded")
+var (
+	ErrDeleteAttemptsCountExceeded = errors.New("delete attempts count exceeded")
+	ErrVIPBrigade                  = errors.New("vip brigade")
+)
 
 func revokeBrigade(sshconf *ssh.ClientConfig, brigadeID string, control_ip netip.Addr) ([]byte, error) {
 	cmd := fmt.Sprintf("destroy -id %s -ch", brigadeID)
@@ -498,6 +508,12 @@ func revokeBrigade(sshconf *ssh.ClientConfig, brigadeID string, control_ip netip
 		}()
 
 		if err := session.Run(cmd); err != nil {
+			for line := range strings.SplitSeq(b.String(), "\n") {
+				if strings.Contains(line, `"code": 403`) {
+					return nil, fmt.Errorf("%w: %s", ErrVIPBrigade, line)
+				}
+			}
+
 			return nil, fmt.Errorf("ssh run: %w", err)
 		}
 
@@ -521,11 +537,12 @@ func createDBPool(dburl string) (*pgxpool.Pool, error) {
 	return pool, nil
 }
 
-func parseArgs() (bool, bool, string, string, error) {
+func parseArgs() (bool, bool, bool, string, string, error) {
 	brigadeID := flag.String("id", "", "brigadier_id in base32 form")
 	brigadeUUID := flag.String("uuid", "", "brigadier_id in uuid form")
 	chunked := flag.Bool("ch", false, "chunked output")
 	secondary := flag.Bool("s", false, "secondary brigade")
+	force := flag.Bool("f", false, "force delete even if brigade is vip")
 
 	flag.Parse()
 
@@ -534,26 +551,26 @@ func parseArgs() (bool, bool, string, string, error) {
 		// brigadeID must be base32 decodable.
 		buf, err := base32.StdEncoding.WithPadding(base32.NoPadding).DecodeString(*brigadeID)
 		if err != nil {
-			return false, false, "", "", fmt.Errorf("id base32: %s: %w", *brigadeID, err)
+			return false, false, false, "", "", fmt.Errorf("id base32: %s: %w", *brigadeID, err)
 		}
 
 		id, err := uuid.FromBytes(buf)
 		if err != nil {
-			return false, false, "", "", fmt.Errorf("id uuid: %s: %w", *brigadeID, err)
+			return false, false, false, "", "", fmt.Errorf("id uuid: %s: %w", *brigadeID, err)
 		}
 
-		return *chunked, *secondary, *brigadeID, id.String(), nil
+		return *chunked, *secondary, *force, *brigadeID, id.String(), nil
 	case *brigadeUUID != "" && *brigadeID == "":
 		id, err := uuid.Parse(*brigadeUUID)
 		if err != nil {
-			return false, false, "", "", fmt.Errorf("id uuid: %s: %w", *brigadeID, err)
+			return false, false, false, "", "", fmt.Errorf("id uuid: %s: %w", *brigadeID, err)
 		}
 
 		bid := base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(id[:])
 
-		return *chunked, *secondary, bid, id.String(), nil
+		return *chunked, *secondary, *force, bid, id.String(), nil
 	default:
-		return false, false, "", "", fmt.Errorf("both ids: %w", errInlalidArgs)
+		return false, false, false, "", "", fmt.Errorf("both ids: %w", errInlalidArgs)
 	}
 }
 

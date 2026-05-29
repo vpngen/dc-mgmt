@@ -464,8 +464,8 @@ EOF
                 echo "Brigade: $brigade_id, old: $old_instance_id new: $new_instance_id" >&2
 
                 bid="$(echo "${brigade_id}" | xxd -r -p -l 16 | base32 | tr -d "=")"
-                echo "_serega_@${control_ip} destroy -force -id ${bid}"
-
+                echo "sudo -u vgvpnapi ssh _serega_@${control_ip} destroy -force -id ${bid}"
+                sudo -u vgvpnapi ssh _serega_@"${control_ip}" destroy -force -id "${bid}" || true
         done
 
         exit 0

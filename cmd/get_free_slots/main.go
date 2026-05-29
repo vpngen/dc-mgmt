@@ -10,9 +10,11 @@ import (
 	"net"
 	"net/http"
 	"net/http/httputil"
+	"net/netip"
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -25,15 +27,12 @@ import (
 )
 
 const (
-	defaultBrigadesSchema = "brigades"
-	defaultPairsSchema    = "pairs"
-	defaultDCName         = "unknown"
-	defaultDCID           = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+	defaultDCName = "unknown"
+	defaultDCID   = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
 )
 
 const (
-	maxPostgresqlNameLen = 63
-	defaultDatabaseURL   = "postgresql:///vgrealm"
+	defaultDatabaseURL = "postgresql:///vgrealm"
 )
 
 const (
@@ -66,7 +65,7 @@ func main() {
 		log.Fatalf("%s: Can't parse args: %s\n", LogTag, err)
 	}
 
-	dbURL, pairsSchema, brigadesSchema, dcName, dcID, err := readConfigs()
+	dbURL, dcName, dcID, err := readConfigs()
 	if err != nil {
 		log.Fatalf("%s: Can't read configs: %s\n", LogTag, err)
 	}
@@ -85,7 +84,7 @@ func main() {
 
 		switch active {
 		case KeySlotsFreeTotal:
-			num, err = getFreeSlotsNumber(db, brigadesSchema, false)
+			num, err = getFreeSlotsNumber(db, false)
 			if err != nil {
 				log.Fatalf("%s: Can't get free slots number: %s\n", LogTag, err)
 			}
@@ -95,7 +94,7 @@ func main() {
 				log.Fatalf("%s: Can't format nums: %s\n", LogTag, err)
 			}
 		case KeySlotsFreeActive:
-			num, err = getFreeSlotsNumber(db, brigadesSchema, true)
+			num, err = getFreeSlotsNumber(db, true)
 			if err != nil {
 				log.Fatalf("%s: Can't get free slots number: %s\n", LogTag, err)
 			}
@@ -105,7 +104,7 @@ func main() {
 				log.Fatalf("%s: Can't format nums: %s\n", LogTag, err)
 			}
 		case KeySlotsAllTotal:
-			num, err = getAllSlotsNumber(db, pairsSchema, false)
+			num, err = getAllSlotsNumber(db, false)
 			if err != nil {
 				log.Fatalf("%s: Can't get all slots number: %s\n", LogTag, err)
 			}
@@ -115,7 +114,7 @@ func main() {
 				log.Fatalf("%s: Can't format nums: %s\n", LogTag, err)
 			}
 		case KeySlotsAllActive:
-			num, err = getAllSlotsNumber(db, pairsSchema, true)
+			num, err = getAllSlotsNumber(db, true)
 			if err != nil {
 				log.Fatalf("%s: Can't get all slots number: %s\n", LogTag, err)
 			}
@@ -148,10 +147,10 @@ func main() {
 
 	router := mux.NewRouter()
 	router.HandleFunc("/metrics/datacenter/free_slots", func(w http.ResponseWriter, r *http.Request) {
-		zabbixRequestFreeSlotsHandler(w, r, db, brigadesSchema, dcName, dcID)
+		zabbixRequestFreeSlotsHandler(w, r, db, dcName, dcID)
 	})
 	router.HandleFunc("/metrics/datacenter/all_slots", func(w http.ResponseWriter, r *http.Request) {
-		zabbixRequestAllSlotsHandler(w, r, db, pairsSchema, dcName, dcID)
+		zabbixRequestAllSlotsHandler(w, r, db, dcName, dcID)
 	})
 
 	server := &http.Server{
@@ -205,7 +204,7 @@ func main() {
 	<-done
 }
 
-func getFreeSlotsNumber(db *pgxpool.Pool, schema string, active bool) (int32, error) {
+func getFreeSlotsNumber(db *pgxpool.Pool, active bool) (int32, error) {
 	var num int32
 
 	ctx := context.Background()
@@ -217,7 +216,7 @@ func getFreeSlotsNumber(db *pgxpool.Pool, schema string, active bool) (int32, er
 
 	defer tx.Rollback(ctx)
 
-	sql := kdlib.GetFreeSlotsNumberStatement(schema, active)
+	sql := kdlib.GetFreeSlotsNumberStatement("brigades", active)
 
 	if err := tx.QueryRow(ctx,
 		sql,
@@ -228,7 +227,7 @@ func getFreeSlotsNumber(db *pgxpool.Pool, schema string, active bool) (int32, er
 	return num, nil
 }
 
-func getAllSlotsNumber(db *pgxpool.Pool, schema string, active bool) (int32, error) {
+func getAllSlotsNumber(db *pgxpool.Pool, active bool) (int32, error) {
 	var num int32
 
 	ctx := context.Background()
@@ -240,7 +239,7 @@ func getAllSlotsNumber(db *pgxpool.Pool, schema string, active bool) (int32, err
 
 	defer tx.Rollback(ctx)
 
-	sql := kdlib.GetAllSlotsNumberStatement(schema, active)
+	sql := kdlib.GetAllSlotsNumberStatement("pairs", active)
 
 	if err := tx.QueryRow(ctx,
 		sql,
@@ -267,7 +266,7 @@ func getFormattedAllSlotsNumber(num int32, active, jsonFormat bool) ([]byte, err
 	return fmt.Appendf([]byte{}, "%d", num), nil
 }
 
-func zabbixRequestAllSlotsHandler(w http.ResponseWriter, r *http.Request, db *pgxpool.Pool, schema, dcName, dcID string) {
+func zabbixRequestAllSlotsHandler(w http.ResponseWriter, r *http.Request, db *pgxpool.Pool, dcName, dcID string) {
 	if r.URL.Query().Get("format") != "zabbix" {
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte("Invalid request"))
@@ -296,7 +295,7 @@ func zabbixRequestAllSlotsHandler(w http.ResponseWriter, r *http.Request, db *pg
 			return
 		}
 
-		num, err := getAllSlotsNumber(db, schema, false)
+		num, err := getAllSlotsNumber(db, false)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			w.Write([]byte("Internal server error"))
@@ -319,7 +318,7 @@ func zabbixRequestAllSlotsHandler(w http.ResponseWriter, r *http.Request, db *pg
 			return
 		}
 
-		num, err := getAllSlotsNumber(db, schema, true)
+		num, err := getAllSlotsNumber(db, true)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			w.Write([]byte("Internal server error"))
@@ -339,7 +338,7 @@ func zabbixRequestAllSlotsHandler(w http.ResponseWriter, r *http.Request, db *pg
 	}
 }
 
-func zabbixRequestFreeSlotsHandler(w http.ResponseWriter, r *http.Request, db *pgxpool.Pool, schema, dcName, dcID string) {
+func zabbixRequestFreeSlotsHandler(w http.ResponseWriter, r *http.Request, db *pgxpool.Pool, dcName, dcID string) {
 	if r.URL.Query().Get("format") != "zabbix" {
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte("Invalid request"))
@@ -368,7 +367,7 @@ func zabbixRequestFreeSlotsHandler(w http.ResponseWriter, r *http.Request, db *p
 			return
 		}
 
-		num, err := getFreeSlotsNumber(db, schema, false)
+		num, err := getFreeSlotsNumber(db, false)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			w.Write([]byte("Internal server error"))
@@ -391,7 +390,7 @@ func zabbixRequestFreeSlotsHandler(w http.ResponseWriter, r *http.Request, db *p
 			return
 		}
 
-		num, err := getFreeSlotsNumber(db, schema, true)
+		num, err := getFreeSlotsNumber(db, true)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			w.Write([]byte("Internal server error"))
@@ -472,20 +471,10 @@ func parseArgs() (bool, bool, int, net.Listener, error) {
 	return *chunked, *jsonFormat, KeySlotsAllTotal, nil, nil
 }
 
-func readConfigs() (string, string, string, string, string, error) {
+func readConfigs() (string, string, string, error) {
 	dbURL := os.Getenv("DB_URL")
 	if dbURL == "" {
 		dbURL = defaultDatabaseURL
-	}
-
-	brigadesSchema := os.Getenv("BRIGADES_SCHEMA")
-	if brigadesSchema == "" {
-		brigadesSchema = defaultBrigadesSchema
-	}
-
-	pairsSchema := os.Getenv("PAIRS_SCHEMA")
-	if pairsSchema == "" {
-		pairsSchema = defaultPairsSchema
 	}
 
 	dcName := os.Getenv("DC_NAME")
@@ -498,5 +487,20 @@ func readConfigs() (string, string, string, string, string, error) {
 		dcID = defaultDCID
 	}
 
-	return dbURL, pairsSchema, brigadesSchema, dcName, dcID, nil
+	vipPrefixes := make([]netip.Prefix, 0)
+
+	for n := range strings.SplitSeq(os.Getenv("VIP_INTERNAL_NETWORKS"), ",") {
+		if n == "" {
+			continue
+		}
+
+		prefix, err := netip.ParsePrefix(n)
+		if err != nil {
+			return "", "", "", fmt.Errorf("vip internal net parse: %s: %w", n, err)
+		}
+
+		vipPrefixes = append(vipPrefixes, prefix)
+	}
+
+	return dbURL, dcName, dcID, nil
 }

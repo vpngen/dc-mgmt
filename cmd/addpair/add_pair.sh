@@ -4,8 +4,6 @@ set -e
 
 DBNAME=${DBNAME:-"vgrealm"}
 echo "dbname: $DBNAME"
-SCHEMA_PAIRS=${PSCHEMA:-"pairs"}
-echo "schema: $SCHEMA_PAIRS"
 
 pair_id="$1"
 control_ip="$2"
@@ -24,23 +22,56 @@ fi
 
 for ep in "$@" ; do
     endpoints="${endpoints}
-INSERT INTO :\"schema_name\".pairs_endpoints_ipv4 (pair_id, endpoint_ipv4) VALUES (:'pair_id', '${ep}');"
+INSERT INTO 
+        pairs.pairs_endpoints_ipv4 
+                (pair_id, endpoint_ipv4) 
+        SELECT
+                pair_id, '${ep}'
+        FROM 
+                pairs.pairs
+        WHERE 
+                control_ip = :'control_ip'
+ON CONFLICT (endpoint_ipv4) DO NOTHING
+;"
 done
 
 ON_ERROR_STOP=yes psql -v -a -d "${DBNAME}" \
-    --set schema_name="${SCHEMA_PAIRS}" \
     --set zone="${srvzone}" \
     --set pair_id="${pair_id}" \
     --set control_ip="${control_ip}" <<EOF
 BEGIN;
 
-INSERT INTO :"schema_name".pairs (pair_id,control_ip,zone,is_active) VALUES (:'pair_id', :'control_ip', :'zone', false);
+INSERT INTO 
+        pairs.isolation_groups 
+                (description, update_time)
+        SELECT 
+                network(set_masklen(:'control_ip', 24))::text, NOW() AT TIME ZONE 'UTC'
+        WHERE NOT EXISTS (
+                SELECT 
+                        1
+                FROM 
+                        pairs.isolation_groups
+                WHERE 
+                        description = network(set_masklen(:'control_ip', 24))::text
+        )
+;
+
+INSERT INTO 
+        pairs.pairs 
+                (control_ip, zone, is_active, pair_id, igrp_id)
+        SELECT 
+                :'control_ip', :'zone', false, :'pair_id', igrp_id
+        FROM
+                pairs.isolation_groups
+        WHERE   
+                description = network(set_masklen(:'control_ip', 24))::text
+ON CONFLICT (control_ip) DO UPDATE
+        SET
+                igrp_id = EXCLUDED.igrp_id,
+                zone = EXCLUDED.zone
+;
 ${endpoints}
 
--- WITH qid AS (
---    INSERT INTO :"schema_name".pairs_queue (payload) VALUES ( '{ "cmd":"new-pair", "pair_id":"':'pair_id''"}' :: json ) RETURNING queue_id
--- )
--- SELECT pg_notify('qpairs', (SELECT queue_id FROM qid) :: text);
 
 COMMIT;
 EOF

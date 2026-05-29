@@ -66,10 +66,18 @@ const defaultWireguardConfigs = "native"
 const DefaultServiceZone = ""
 
 type brigadeOpts struct {
-	id      string
-	name    string
+	id   string
+	name string
+
 	forceIP netip.Addr
-	person  namesgenerator.Person
+
+	externalNets    []netip.Prefix
+	notExternalNets []netip.Prefix
+	internalNets    []netip.Prefix
+	notInternalNets []netip.Prefix
+
+	person namesgenerator.Person
+	vip    bool
 }
 
 type dbEnv struct {
@@ -118,7 +126,8 @@ type envOpts struct {
 	delegationSyncEnv
 	delegationCheckEnv
 	vpnCfgs
-	Zone string
+	vipInets []netip.Prefix
+	Zone     string
 }
 
 // Args errors.
@@ -174,6 +183,30 @@ func main() {
 	sshKeyFilename, env, err := readConfigs()
 	if err != nil {
 		fatal(w, jout, "%s: Can't read configs: %s\n", LogTag, err)
+	}
+
+	if opts.vip && len(opts.internalNets) == 0 {
+		opts.internalNets = append(opts.internalNets, env.vipInets...)
+	}
+
+	if !opts.vip {
+		opts.notInternalNets = append(opts.notInternalNets, env.vipInets...)
+	}
+
+	if len(opts.internalNets) > 0 {
+		fmt.Fprintf(os.Stderr, "%s: IN INTERNAL NETS: %v\n", LogTag, opts.internalNets)
+	}
+
+	if len(opts.notInternalNets) > 0 {
+		fmt.Fprintf(os.Stderr, "%s: AVOID INTERNAL NETS: %v\n", LogTag, opts.notInternalNets)
+	}
+
+	if len(opts.externalNets) > 0 {
+		fmt.Fprintf(os.Stderr, "%s: IN EXTERNAL NETS: %v\n", LogTag, opts.externalNets)
+	}
+
+	if len(opts.notExternalNets) > 0 {
+		fmt.Fprintf(os.Stderr, "%s: AVOID EXTERNAL NETS: %v\n", LogTag, opts.notExternalNets)
 	}
 
 	sshconf, err := kdlib.CreateSSHConfig(sshKeyFilename, sshkeyRemoteUsername, kdlib.SSHDefaultTimeOut)
@@ -296,56 +329,36 @@ func createBrigade(
 		domainName       pgtype.Text
 	)
 
-	sqlPickPair := `
+	sqlNewPicPair := `
 	SELECT
-		pair_id,
-		control_ip,
-		endpoint_ipv4,
-		domain_name
-	FROM %s
-	WHERE
-	pair_id = (
-			SELECT 
-				pair_id 
-			FROM %s 
-			ORDER BY free_slots_count DESC 
-			LIMIT 1
-			)
-	ORDER BY domain_name NULLS LAST
-	LIMIT 1
-`
-	sqlPickPairForcedIP := `
-	SELECT
-		pair_id,
-		control_ip,
-		endpoint_ipv4,
-		domain_name
-	FROM %s
-	WHERE
-		control_ip=$1
-	ORDER BY domain_name NULLS LAST
+		s.pair_id,
+		s.control_ip,
+		s.endpoint_ipv4,
+		s.domain_name
+	FROM 
+		brigades.slots s
+	JOIN 
+		brigades.active_pairs ap ON s.pair_id = ap.pair_id
+	WHERE 
+		ap.free_slots_count > 0
+		AND ( coalesce(cardinality($1::cidr[]), 0) = 0 OR      s.control_ip <<= ANY($1::cidr[]) )
+		AND ( coalesce(cardinality($2::cidr[]), 0) = 0 OR NOT (s.control_ip <<= ANY($2::cidr[])) )
+		AND ( coalesce(cardinality($3::cidr[]), 0) = 0 OR      s.endpoint_ipv4 <<= ANY($3::cidr[]) )
+		AND ( coalesce(cardinality($4::cidr[]), 0) = 0 OR NOT (s.endpoint_ipv4 <<= ANY($4::cidr[])) )
+	ORDER BY 
+		ap.free_slots_count DESC,
+		s.domain_name NULLS LAST
 	LIMIT 1
 `
 
-	switch opts.forceIP {
-	case netip.Addr{}:
-		err = tx.QueryRow(
-			ctx,
-			fmt.Sprintf(
-				sqlPickPair,
-				pgx.Identifier{brigadesSchema, "slots"}.Sanitize(),
-				pgx.Identifier{brigadesSchema, "active_pairs"}.Sanitize(),
-			),
-		).Scan(&pairID, &pairControlIP, &pairEndpointIPv4, &domainName)
-	default:
-		err = tx.QueryRow(
-			ctx,
-			fmt.Sprintf(
-				sqlPickPairForcedIP,
-				pgx.Identifier{brigadesSchema, "slots"}.Sanitize()),
-			opts.forceIP.String(),
-		).Scan(&pairID, &pairControlIP, &pairEndpointIPv4, &domainName)
-	}
+	err = tx.QueryRow(
+		ctx,
+		sqlNewPicPair,
+		opts.internalNets,
+		opts.notInternalNets,
+		opts.externalNets,
+		opts.notExternalNets,
+	).Scan(&pairID, &pairControlIP, &pairEndpointIPv4, &domainName)
 
 	if err != nil {
 		return 0, fmt.Errorf("pair query: %w", err)
@@ -606,6 +619,10 @@ WHERE
 		domainName.String,
 	)
 
+	if opts.vip {
+		cmd += " -vip"
+	}
+
 	if vpnCfgs != nil {
 		if vpnCfgs.wg != "" {
 			cmd += fmt.Sprintf(" -wg %s", vpnCfgs.wg)
@@ -758,12 +775,18 @@ func parseArgs() (bool, bool, *brigadeOpts, error) {
 	personDesc := flag.String("desc", "", "personDesc :: base64")
 	personURL := flag.String("url", "", "personURL :: base64")
 	chunked := flag.Bool("ch", false, "chunked output")
-	nodeIP := flag.String("ip", "", "control IP for debug")
+	extNets := flag.String("enets", "", "external networks :: cidr,cidr,...")
+	notExtNets := flag.String("notenets", "", "not external networks :: cidr,cidr,...")
+	intNets := flag.String("inets", "", "internal networks :: cidr,cidr,...")
+	notIntNets := flag.String("notinets", "", "not internal networks :: cidr,cidr,...")
 	jout := flag.Bool("j", false, "json output")
+	vip := flag.Bool("vip", false, "VIP brigade")
 
 	flag.Parse()
 
-	opts := &brigadeOpts{}
+	opts := &brigadeOpts{
+		vip: *vip,
+	}
 
 	// brigadeID must be base32 decodable.
 	buf, err := base32.StdEncoding.WithPadding(base32.NoPadding).DecodeString(*brigadeID)
@@ -849,8 +872,48 @@ func parseArgs() (bool, bool, *brigadeOpts, error) {
 
 	opts.person.URL = u
 
-	if *nodeIP != "" {
-		opts.forceIP, _ = netip.ParseAddr(*nodeIP)
+	if *extNets != "" {
+		for n := range strings.SplitSeq(*extNets, ",") {
+			prefix, err := netip.ParsePrefix(n)
+			if err != nil {
+				return false, false, nil, fmt.Errorf("external net parse: %s: %w", n, err)
+			}
+
+			opts.externalNets = append(opts.externalNets, prefix)
+		}
+	}
+
+	if *notExtNets != "" {
+		for n := range strings.SplitSeq(*notExtNets, ",") {
+			prefix, err := netip.ParsePrefix(n)
+			if err != nil {
+				return false, false, nil, fmt.Errorf("not external net parse: %s: %w", n, err)
+			}
+
+			opts.notExternalNets = append(opts.notExternalNets, prefix)
+		}
+	}
+
+	if *intNets != "" {
+		for n := range strings.SplitSeq(*intNets, ",") {
+			prefix, err := netip.ParsePrefix(n)
+			if err != nil {
+				return false, false, nil, fmt.Errorf("internal net parse: %s: %w", n, err)
+			}
+
+			opts.internalNets = append(opts.internalNets, prefix)
+		}
+	}
+
+	if *notIntNets != "" {
+		for n := range strings.SplitSeq(*notIntNets, ",") {
+			prefix, err := netip.ParsePrefix(n)
+			if err != nil {
+				return false, false, nil, fmt.Errorf("not internal net parse: %s: %w", n, err)
+			}
+
+			opts.notInternalNets = append(opts.notInternalNets, prefix)
+		}
 	}
 
 	return *chunked, *jout, opts, nil
@@ -935,6 +998,19 @@ func readConfigs() (string, *envOpts, error) {
 	env.Zone = os.Getenv("SERVICE_ZONE")
 	if env.Zone == "" {
 		env.Zone = DefaultServiceZone
+	}
+
+	for n := range strings.SplitSeq(os.Getenv("VIP_INTERNAL_NETWORKS"), ",") {
+		if n == "" {
+			continue
+		}
+
+		prefix, err := netip.ParsePrefix(n)
+		if err != nil {
+			return "", nil, fmt.Errorf("vip internal net parse: %s: %w", n, err)
+		}
+
+		env.vipInets = append(env.vipInets, prefix)
 	}
 
 	return sshKeyFilename, env, nil

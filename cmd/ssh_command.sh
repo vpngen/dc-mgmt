@@ -45,6 +45,7 @@ if [ "addbrigade" = "${cmd}" ]; then
         OUTLINE_CONFIGS="${OUTLINE_CONFIGS}" \
         IPSEC_CONFIGS="${IPSEC_CONFIGS}" \
         PROTO0_CONFIGS="${PROTO0_CONFIGS}" \
+        VIP_INTERNAL_NETWORKS="${VIP_INTERNAL_NETWORKS}" \
         "${basedir}"/addbrigade "$@"
 elif [ "delbrigade" = "${cmd}" ]; then
         DC_ID="${DC_ID}" \
@@ -76,7 +77,11 @@ elif [ "getwasted" = "${cmd}" ]; then
 elif [ "checkbrigade" = "${cmd}" ]; then
         "${basedir}"/checkbrigade "$@"
 elif [ "get_free_slots" = "${cmd}" ]; then
-    "${basedir}"/get_free_slots "$@"
+        "${basedir}"/get_free_slots "$@"
+elif [ "${cmd}" = "vipon" ]; then
+        "${basedir}/turnon-vip" "$@" "-on"
+elif [ "${cmd}" = "vipoff" ]; then
+        "${basedir}/turnon-vip" "$@" "-off"
 else
     echo "Unknown command: ${cmd}"
     printdef

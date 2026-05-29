@@ -9,6 +9,7 @@ go build -C dc-mgmt/cmd/addbrigade/gen -o ../../../../bin/gen
 go build -C dc-mgmt/cmd/delbrigade -o ../../../bin/delbrigade
 go build -C dc-mgmt/cmd/checkbrigade -o ../../../bin/checkbrigade
 go build -C dc-mgmt/cmd/replacebrigadier -o ../../../bin/replacebrigadier
+go build -C dc-mgmt/cmd/turnon-vip -o ../../../bin/turnon-vip
 go build -C dc-mgmt/cmd/reset -o ../../../bin/reset
 go build -C dc-mgmt/cmd/lightrecode -o ../../../bin/lightrecode
 go build -C dc-mgmt/cmd/getwasted -o ../../../bin/getwasted

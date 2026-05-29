@@ -21,7 +21,7 @@ if [ -z "${AUTHFP}" ]; then
 fi
 
 if [ -z "${REALM_FP}" ]; then
-        echo "REALM_FP not set"                                                                                                                                                                                          exit 1
+        echo "REALM_FP not set"
 fi
 
 NETWORK=$1

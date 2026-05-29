@@ -644,6 +644,18 @@ contents:
     mode: 0005
     owner: root
     group: root
+- src: dc-mgmt/cmd/migracia/01-migr-one-propagade.sh
+  dst: /home/vgmigr/01-migr-one-propagade.sh
+  file_info:
+    mode: 0005
+    owner: root
+    group: root
+- src: dc-mgmt/cmd/migracia/02-migr-one-cleanup.sh
+  dst: /home/vgmigr/02-migr-one-cleanup.sh
+  file_info:
+    mode: 0005
+    owner: root
+    group: root
 
 overrides:
   deb:

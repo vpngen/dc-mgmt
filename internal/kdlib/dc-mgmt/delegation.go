@@ -65,19 +65,19 @@ func NewDelegationList(ctx context.Context, db *pgxpool.Pool, schema string) (st
 
 	sqlGetDelegationList := `
 SELECT 
-	domain_name,
-	endpoint_ipv4 
+	d.domain_name,
+	d.endpoint_ipv4 
 FROM 
-	%s
+	brigades.domains_endpoints_ipv4 d
+JOIN
+	pairs.pairs_endpoints_ipv4 pei ON d.endpoint_ipv4 = pei.endpoint_ipv4
+JOIN
+	pairs.pairs p ON pei.pair_id = p.pair_id
+WHERE
+	p.zone NOT IN ('astra', 'bfst', 'bmecte', 'feygin', 'kovcheg', 'insider', 'theins', 'zicer', 'zona', 'gena', 'headquaters', 'naki', 'dobro')
 	`
 
-	rows, err := tx.Query(
-		ctx,
-		fmt.Sprintf(
-			sqlGetDelegationList,
-			pgx.Identifier{schema, "domains_endpoints_ipv4"}.Sanitize(),
-		),
-	)
+	rows, err := tx.Query(ctx, sqlGetDelegationList)
 	if err != nil {
 		return "", fmt.Errorf("delegation query: %w", err)
 	}
