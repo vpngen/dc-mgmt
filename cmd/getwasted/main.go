@@ -224,6 +224,7 @@ func getInactive(db *pgxpool.Pool, igrp bool, days, months, num, min int) ([]byt
 func getNotVisited(db *pgxpool.Pool, igrp bool, days, num int) ([]byte, error) {
 	ctx := context.Background()
 	output := []byte{}
+	hours := days * 24
 
 	tx, err := db.Begin(ctx)
 	if err != nil {
@@ -246,7 +247,7 @@ func getNotVisited(db *pgxpool.Pool, igrp bool, days, num int) ([]byte, error) {
 	WHERE
 		bs.update_time > now() - ($1 * INTERVAL '1 hours')
 	AND
-		bs.created_at < now() - ($2 * INTERVAL '1 days') 
+		bs.created_at < now() - ($2 * INTERVAL '1 hours') 
 	AND
 		bs.total_users_count=1
 	AND 
@@ -262,7 +263,7 @@ func getNotVisited(db *pgxpool.Pool, igrp bool, days, num int) ([]byte, error) {
 		bs.created_at ASC
 	LIMIT $3::int
 	`
-	rows, err := tx.Query(ctx, sqlGetNotVisited, updateTimeFreshness, days, num)
+	rows, err := tx.Query(ctx, sqlGetNotVisited, updateTimeFreshness, hours, num)
 	if err != nil {
 		tx.Rollback(ctx)
 

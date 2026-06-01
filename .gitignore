@@ -1,3 +1,6 @@
 temp_dir
 *.deb
 *.back
+.DS_Store
+ARCHITECTURE.md
+erd.html

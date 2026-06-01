@@ -78,6 +78,7 @@ type brigadeOpts struct {
 
 	person namesgenerator.Person
 	vip    bool
+	mock   bool
 }
 
 type dbEnv struct {
@@ -180,7 +181,7 @@ func main() {
 		w = os.Stdout
 	}
 
-	sshKeyFilename, env, err := readConfigs()
+	sshKeyFilename, env, err := readConfigs(opts.mock)
 	if err != nil {
 		fatal(w, jout, "%s: Can't read configs: %s\n", LogTag, err)
 	}
@@ -209,19 +210,27 @@ func main() {
 		fmt.Fprintf(os.Stderr, "%s: AVOID EXTERNAL NETS: %v\n", LogTag, opts.notExternalNets)
 	}
 
-	sshconf, err := kdlib.CreateSSHConfig(sshKeyFilename, sshkeyRemoteUsername, kdlib.SSHDefaultTimeOut)
-	if err != nil {
-		fatal(w, jout, "%s: Can't create ssh configs: %s\n", LogTag, err)
-	}
+	var (
+		sshconf               *ssh.ClientConfig
+		delegationSyncSSHconf *ssh.ClientConfig
+		kdAddrSyncSSHconf     *ssh.ClientConfig
+	)
 
-	delegationSyncSSHconf, err := kdlib.CreateSSHConfig(sshKeyFilename, env.delegationUser, kdlib.SSHDefaultTimeOut)
-	if err != nil {
-		fatal(w, jout, "Can't create delegation sync ssh config: %s\n", err)
-	}
+	if !opts.mock {
+		sshconf, err = kdlib.CreateSSHConfig(sshKeyFilename, sshkeyRemoteUsername, kdlib.SSHDefaultTimeOut)
+		if err != nil {
+			fatal(w, jout, "%s: Can't create ssh configs: %s\n", LogTag, err)
+		}
 
-	kdAddrSyncSSHconf, err := kdlib.CreateSSHConfig(sshKeyFilename, env.kdAddrUser, kdlib.SSHDefaultTimeOut)
-	if err != nil {
-		fatal(w, jout, "Can't create keydesk address ssh config: %s\n", err)
+		delegationSyncSSHconf, err = kdlib.CreateSSHConfig(sshKeyFilename, env.delegationUser, kdlib.SSHDefaultTimeOut)
+		if err != nil {
+			fatal(w, jout, "Can't create delegation sync ssh config: %s\n", err)
+		}
+
+		kdAddrSyncSSHconf, err = kdlib.CreateSSHConfig(sshKeyFilename, env.kdAddrUser, kdlib.SSHDefaultTimeOut)
+		if err != nil {
+			fatal(w, jout, "Can't create keydesk address ssh config: %s\n", err)
+		}
 	}
 
 	db, err := createDBPool(env.dbURL)
@@ -234,14 +243,25 @@ func main() {
 		fatal(w, jout, "%s: Can't create brigade: %s\n", LogTag, err)
 	}
 
-	// wgconfx = chunked (wgconf + keydesk IP)
-	wgconf, keydeskIPv6, err := requestBrigade(db, sshconf, &env.delegationCheckEnv, opts, &env.vpnCfgs)
-	if err != nil {
-		if _, err := setOrphan(db, brigadesSchema, opts.id); err != nil {
-			fmt.Fprintf(os.Stderr, "%s: Can't set orphan: %s\n", LogTag, err)
-		}
+	var wgconf *models.Newuser
+	var keydeskIPv6 netip.Addr
 
-		fatal(w, jout, "%s: Can't request brigade: %s\n", LogTag, err)
+	if opts.mock {
+		wgconf, keydeskIPv6, err = mockBrigadeAnswer(db, opts.id)
+	} else {
+		// wgconfx = chunked (wgconf + keydesk IP)
+		wgconf, keydeskIPv6, err = requestBrigade(db, sshconf, &env.delegationCheckEnv, opts, &env.vpnCfgs)
+		if err != nil {
+			if _, err := setOrphan(db, brigadesSchema, opts.id); err != nil {
+				fmt.Fprintf(os.Stderr, "%s: Can't set orphan: %s\n", LogTag, err)
+			}
+
+			fatal(w, jout, "%s: Can't request brigade: %s\n", LogTag, err)
+		}
+	}
+
+	if err != nil {
+		fatal(w, jout, "%s: Can't get brigade answer: %s\n", LogTag, err)
 	}
 
 	switch jout {
@@ -361,7 +381,17 @@ func createBrigade(
 	).Scan(&pairID, &pairControlIP, &pairEndpointIPv4, &domainName)
 
 	if err != nil {
-		return 0, fmt.Errorf("pair query: %w", err)
+		if !errors.Is(err, pgx.ErrNoRows) || !opts.mock {
+			return 0, fmt.Errorf("pair query: %w", err)
+		}
+
+		// Mock mode: no pairs in DB — seed a mock pair so the brigade can be created.
+		pairID, pairControlIP, pairEndpointIPv4, err = seedMockPair(ctx, tx)
+		if err != nil {
+			return 0, fmt.Errorf("seed mock pair: %w", err)
+		}
+
+		fmt.Fprintf(os.Stderr, "%s: mock pair seeded: ep=%s ctrl=%s\n", LogTag, pairEndpointIPv4, pairControlIP)
 	}
 
 	fmt.Fprintf(os.Stderr, "%s: ep: %s ctrl: %s\n", LogTag, pairEndpointIPv4, pairControlIP)
@@ -464,6 +494,13 @@ RETURNING instance_id;
 		return 0, fmt.Errorf("commit: %w", err)
 	}
 
+	// In mock mode, skip all external service integrations.
+	if opts.mock {
+		fmt.Fprintf(os.Stderr, "%s: mock mode — skipping subdomain, delegation and keydesk sync\n", LogTag)
+
+		return num - 1, nil
+	}
+
 	if env.delegationMutex == "" {
 		env.delegationMutex = DefaultDelegationMutexPath
 	}
@@ -518,6 +555,62 @@ RETURNING instance_id;
 	}
 
 	return num - 1, nil
+}
+
+// mockPairID and mockEndpointIPv4 are well-known fixed values used in mock mode.
+// Using RFC 5737 TEST-NET-1 for the endpoint so it is clearly non-routable.
+const mockPairID = "00000000-0000-0000-0000-000000000001"
+
+var mockEndpointIPv4 = netip.MustParseAddr("192.0.2.1")
+var mockControlIP = netip.MustParseAddr("127.0.0.1")
+
+// seedMockPair inserts a minimal mock pair + endpoint into the DB if they do not
+// already exist, then returns the pair values so createBrigade can continue.
+func seedMockPair(ctx context.Context, tx pgx.Tx) (string, netip.Addr, netip.Addr, error) {
+	sqlUpsertPair := `
+INSERT INTO pairs.pairs (pair_id, control_ip, is_active)
+VALUES ($1, $2, true)
+ON CONFLICT (pair_id) DO NOTHING
+`
+	if _, err := tx.Exec(ctx, sqlUpsertPair, mockPairID, mockControlIP.String()); err != nil {
+		return "", netip.Addr{}, netip.Addr{}, fmt.Errorf("upsert mock pair: %w", err)
+	}
+
+	sqlUpsertEndpoint := `
+INSERT INTO pairs.pairs_endpoints_ipv4 (pair_id, endpoint_ipv4)
+VALUES ($1, $2)
+ON CONFLICT (endpoint_ipv4) DO NOTHING
+`
+	if _, err := tx.Exec(ctx, sqlUpsertEndpoint, mockPairID, mockEndpointIPv4.String()); err != nil {
+		return "", netip.Addr{}, netip.Addr{}, fmt.Errorf("upsert mock endpoint: %w", err)
+	}
+
+	return mockPairID, mockControlIP, mockEndpointIPv4, nil
+}
+
+// mockBrigadeAnswer reads the keydesk IPv6 we just stored for the brigade and
+// returns a minimal mock VPN config.  No SSH or external calls are made.
+func mockBrigadeAnswer(db *pgxpool.Pool, brigadeID string) (*models.Newuser, netip.Addr, error) {
+	ctx := context.Background()
+
+	var keydeskIPv6 netip.Addr
+
+	sqlFetchKeydesk := `SELECT keydesk_ipv6 FROM brigades.brigades WHERE brigade_id = $1`
+	if err := db.QueryRow(ctx, sqlFetchKeydesk, brigadeID).Scan(&keydeskIPv6); err != nil {
+		keydeskIPv6 = netip.MustParseAddr("fdc0::1")
+	}
+
+	fileName := "mock.conf"
+	fileContent := "[Interface]\nPrivateKey = mock\n"
+
+	cfg := &models.Newuser{
+		WireguardConfig: &models.NewuserWireguardConfig{
+			FileName:    &fileName,
+			FileContent: &fileContent,
+		},
+	}
+
+	return cfg, keydeskIPv6, nil
 }
 
 func requestBrigade(
@@ -781,6 +874,7 @@ func parseArgs() (bool, bool, *brigadeOpts, error) {
 	notIntNets := flag.String("notinets", "", "not internal networks :: cidr,cidr,...")
 	jout := flag.Bool("j", false, "json output")
 	vip := flag.Bool("vip", false, "VIP brigade")
+	mock := flag.Bool("mock", false, "mock brigade creation: seed missing DB prerequisites, skip external sync")
 
 	flag.Parse()
 
@@ -916,15 +1010,24 @@ func parseArgs() (bool, bool, *brigadeOpts, error) {
 		}
 	}
 
+	opts.mock = *mock
+
 	return *chunked, *jout, opts, nil
 }
 
-func readConfigs() (string, *envOpts, error) {
+func readConfigs(mock bool) (string, *envOpts, error) {
 	env := &envOpts{}
 
 	env.dbURL = os.Getenv("DB_URL")
 	if env.dbURL == "" {
 		env.dbURL = defaultDatabaseURL
+	}
+
+	// In mock mode, all external service integrations are skipped so SSH and
+	// service env vars are not required.
+	if mock {
+		env.vpnCfgs.wg = defaultWireguardConfigs
+		return "", env, nil
 	}
 
 	sshKeyFilename, err := kdlib.LookupForSSHKeyfile(os.Getenv("SSH_KEY"), sshkeyDefaultPath)
