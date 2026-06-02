@@ -481,11 +481,19 @@ RETURNING instance_id;
 		return 0, fmt.Errorf("create brigade: %w", err)
 	}
 
-	sqlInsertStats := `INSERT INTO %s (brigade_id, instance_id) VALUES ($1,$2);`
+	// In mock mode seed total_users_count=1 to simulate a brigadier account
+	// being created, so getwasted notvisited/inactive can find the brigade.
+	// In production collectstats updates this from the real keydesk.
+	var mockUsersCount int
+	if opts.mock {
+		mockUsersCount = 1
+	}
+
+	sqlInsertStats := `INSERT INTO %s (brigade_id, instance_id, total_users_count) VALUES ($1,$2,$3);`
 
 	if _, err = tx.Exec(ctx,
 		fmt.Sprintf(sqlInsertStats, (pgx.Identifier{brigadesStatsSchema, "brigades_stats"}.Sanitize())),
-		opts.id, instanceID,
+		opts.id, instanceID, mockUsersCount,
 	); err != nil {
 		return 0, fmt.Errorf("create stats: %w", err)
 	}
