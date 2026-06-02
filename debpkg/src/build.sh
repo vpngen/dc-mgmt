@@ -32,7 +32,7 @@ go build -C dc-mgmt/socket/cmd/delete_brigade -o ../../../../bin/delete_brigade
 go build -C dc-mgmt/socket/cmd/vgsocket_service -o ../../../../bin/vgsocket_service
 go build -C dc-mgmt/socket/cmd/vgsbrigades_service -o ../../../../bin/vgsbrigades_service
 
-go install github.com/goreleaser/nfpm/v2/cmd/nfpm@latest
+go install github.com/goreleaser/nfpm/v2/cmd/nfpm@v2.43.1
 
 nfpm package --config "dc-mgmt/debpkg/nfpm.yaml" --target "${SHARED_BASE}/pkg" --packager deb
 
