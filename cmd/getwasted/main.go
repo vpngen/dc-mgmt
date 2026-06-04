@@ -128,7 +128,7 @@ func getInactive(db *pgxpool.Pool, igrp bool, days, months, num, min int) ([]byt
 		firstDayOfMonth := time.Date(t.Year(), t.Month(), 1, 0, 0, 0, 0, time.UTC)
 		maxCreatedAt = firstDayOfMonth.AddDate(0, -months, 0)
 	default:
-		maxCreatedAt = t.Add(-time.Duration(days) * time.Minute)
+		maxCreatedAt = t.AddDate(0, 0, -days)
 	}
 
 	ctx := context.Background()
@@ -154,12 +154,12 @@ func getInactive(db *pgxpool.Pool, igrp bool, days, months, num, min int) ([]byt
 	LEFT JOIN 
 		brigades.reserved_endpoints_ipv4 AS rei ON b.endpoint_ipv4 = rei.endpoint_ipv4
 	WHERE
-		(bs.update_time > now() - ($1 * INTERVAL '1 minutes'))
+		(bs.update_time > now() - ($1 * INTERVAL '1 days'))
 	AND
 		(
 			(date_trunc('day',bs.created_at) = date_trunc('day',bs.instance_created_at) AND bs.created_at < $2)
 		OR
-			(date_trunc('day',bs.created_at) <> date_trunc('day',bs.instance_created_at) AND bs.instance_created_at < now() - ($3 * INTERVAL '1 minutes')) -- it's for resolve migrated brigades
+			(date_trunc('day',bs.created_at) <> date_trunc('day',bs.instance_created_at) AND bs.instance_created_at < now() - ($3 * INTERVAL '1 days')) -- it's for resolve migrated brigades
 		)
 	AND 
 		bs.active_users_count < $4::int
@@ -224,7 +224,7 @@ func getInactive(db *pgxpool.Pool, igrp bool, days, months, num, min int) ([]byt
 func getNotVisited(db *pgxpool.Pool, igrp bool, days, num int) ([]byte, error) {
 	ctx := context.Background()
 	output := []byte{}
-	minutes := days
+	hours := days
 
 	tx, err := db.Begin(ctx)
 	if err != nil {
@@ -247,7 +247,7 @@ func getNotVisited(db *pgxpool.Pool, igrp bool, days, num int) ([]byte, error) {
 	WHERE
 		bs.update_time > now() - ($1 * INTERVAL '1 hours')
 	AND
-		bs.created_at < now() - ($2 * INTERVAL '1 minutes')
+		bs.created_at < now() - ($2 * INTERVAL '1 hours')
 	AND
 		bs.total_users_count=1
 	AND 
@@ -263,7 +263,7 @@ func getNotVisited(db *pgxpool.Pool, igrp bool, days, num int) ([]byte, error) {
 		bs.created_at ASC
 	LIMIT $3::int
 	`
-	rows, err := tx.Query(ctx, sqlGetNotVisited, updateTimeFreshness, minutes, num)
+	rows, err := tx.Query(ctx, sqlGetNotVisited, updateTimeFreshness, hours, num)
 	if err != nil {
 		tx.Rollback(ctx)
 
@@ -409,7 +409,7 @@ func parseArgs() (bool, bool, string, int, int, int, int, error) {
 	switch flag.Args()[0] {
 	case CommandNotVisited:
 		notVisitedFlags := flag.NewFlagSet(CommandNotVisited, flag.ExitOnError)
-		days := notVisitedFlags.Int("d", defaultFirstVisitDaysLimit, "minutes limit to first visit")
+		days := notVisitedFlags.Int("d", defaultFirstVisitDaysLimit, "days limit to first visit")
 		num := notVisitedFlags.Int("n", defaultMaxResultRows, "how many max rows will return")
 		igrp := notVisitedFlags.Bool("igrp", false, "use isolated groups")
 		notVisitedFlags.Usage = func() {
@@ -427,7 +427,7 @@ func parseArgs() (bool, bool, string, int, int, int, int, error) {
 	case CommandInactive:
 		inactiveFlags := flag.NewFlagSet(CommandInactive, flag.ExitOnError)
 		months := inactiveFlags.Int("m", 0, "months limit from registration")
-		days := inactiveFlags.Int("d", 0, "minutes limit from registration")
+		days := inactiveFlags.Int("d", 0, "days limit from registration")
 		x := inactiveFlags.Int("x", defaultMinActiveUsers, "minmium active users count for live")
 		num := inactiveFlags.Int("n", defaultMaxResultRows, "how many max rows will return")
 		igrp := inactiveFlags.Bool("igrp", false, "use isolated groups")
