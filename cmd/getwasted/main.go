@@ -58,7 +58,7 @@ func setLogTag() string {
 func main() {
 	var w io.WriteCloser
 
-	chunked, igrp, cmd, days, months, num, x, err := parseArgs()
+	chunked, igrp, cmd, days, months, num, x, exactDay, err := parseArgs()
 	if err != nil {
 		log.Fatalf("%s: Can't parse args: %s\n", LogTag, err)
 	}
@@ -86,7 +86,7 @@ func main() {
 			fmt.Fprintf(os.Stderr, "WARNING!!! This command should be run on the first day of the month\n")
 		}
 
-		output, err = getInactive(db, igrp, days, months, num, x)
+		output, err = getInactive(db, igrp, days, months, num, x, exactDay)
 		if err != nil {
 			log.Fatalf("%s: Can't get brigades: %s\n", LogTag, err)
 		}
@@ -118,7 +118,7 @@ func main() {
 }
 
 // getInactive - returns list of inactive brigades.
-func getInactive(db *pgxpool.Pool, igrp bool, days, months, num, min int) ([]byte, error) {
+func getInactive(db *pgxpool.Pool, igrp bool, days, months, num, min int, exactDay bool) ([]byte, error) {
 	t := time.Now().UTC()
 
 	var maxCreatedAt time.Time
@@ -131,6 +131,12 @@ func getInactive(db *pgxpool.Pool, igrp bool, days, months, num, min int) ([]byt
 		maxCreatedAt = t.AddDate(0, 0, -days)
 	}
 
+	var minCreatedAt *time.Time
+	if exactDay && days > 0 {
+		min := t.AddDate(0, 0, -(days + 1))
+		minCreatedAt = &min
+	}
+
 	ctx := context.Background()
 
 	tx, err := db.Begin(ctx)
@@ -138,30 +144,30 @@ func getInactive(db *pgxpool.Pool, igrp bool, days, months, num, min int) ([]byt
 		return nil, fmt.Errorf("begin: %w", err)
 	}
 
-	fmt.Fprintf(os.Stderr, "maxCreatedAt: %s\nupdateTimeFreshness: %d\ndefaultActiveUserDeep: %d\n", maxCreatedAt, updateTimeFreshness, defaultActiveUserDeep)
+	fmt.Fprintf(os.Stderr, "maxCreatedAt: %s\nminCreatedAt: %v\nupdateTimeFreshness: %d\ndefaultActiveUserDeep: %d\n", maxCreatedAt, minCreatedAt, updateTimeFreshness, defaultActiveUserDeep)
 
 	sqlGetInactive := `
-	SELECT 
+	SELECT
 		bs.brigade_id, p.igrp_id
-	FROM 
+	FROM
 		stats.brigades_stats bs
-	JOIN 
+	JOIN
 		brigades.brigades b ON bs.brigade_id = b.brigade_id
-	JOIN 
+	JOIN
 		pairs.pairs AS p ON b.pair_id = p.pair_id
 	LEFT JOIN
 		brigades.brigades b2 ON b.brigade_id = b2.brigade_id AND b2.main = false
-	LEFT JOIN 
+	LEFT JOIN
 		brigades.reserved_endpoints_ipv4 AS rei ON b.endpoint_ipv4 = rei.endpoint_ipv4
 	WHERE
 		(bs.update_time > now() - ($1 * INTERVAL '1 days'))
 	AND
 		(
-			(date_trunc('day',bs.created_at) = date_trunc('day',bs.instance_created_at) AND bs.created_at < $2)
+			(date_trunc('day',bs.created_at) = date_trunc('day',bs.instance_created_at) AND bs.created_at < $2 AND ($6::timestamptz IS NULL OR bs.created_at >= $6))
 		OR
-			(date_trunc('day',bs.created_at) <> date_trunc('day',bs.instance_created_at) AND bs.instance_created_at < now() - ($3 * INTERVAL '1 days')) -- it's for resolve migrated brigades
+			(date_trunc('day',bs.created_at) <> date_trunc('day',bs.instance_created_at) AND bs.instance_created_at < now() - ($3 * INTERVAL '1 days') AND ($6::timestamptz IS NULL OR bs.instance_created_at >= $6)) -- it's for resolve migrated brigades
 		)
-	AND 
+	AND
 		bs.active_users_count < $4::int
 	AND
 		b.main = true
@@ -169,7 +175,7 @@ func getInactive(db *pgxpool.Pool, igrp bool, days, months, num, min int) ([]byt
 		rei.endpoint_ipv4 IS NULL
 	AND
 		b2.brigade_id IS NULL
-	ORDER BY 
+	ORDER BY
 		p.igrp_id ASC,
 		bs.created_at ASC
 	LIMIT $5::int
@@ -181,6 +187,7 @@ func getInactive(db *pgxpool.Pool, igrp bool, days, months, num, min int) ([]byt
 		defaultActiveUserDeep,
 		min,
 		num,
+		minCreatedAt,
 	)
 	if err != nil {
 		tx.Rollback(ctx)
@@ -394,7 +401,7 @@ func createDBPool(dbURL string) (*pgxpool.Pool, error) {
 	return pool, nil
 }
 
-func parseArgs() (bool, bool, string, int, int, int, int, error) {
+func parseArgs() (bool, bool, string, int, int, int, int, bool, error) {
 	flag.Usage = func() {
 		fmt.Fprintf(flag.CommandLine.Output(), "usage: %s %s|%s [options]\n", os.Args[0], CommandNotVisited, CommandInactive)
 		flag.PrintDefaults()
@@ -403,7 +410,7 @@ func parseArgs() (bool, bool, string, int, int, int, int, error) {
 	chunked := flag.Bool("ch", false, "chunked output")
 	flag.Parse()
 	if len(flag.Args()) < 1 {
-		return false, false, "", 0, 0, 0, 0, fmt.Errorf("no command specified")
+		return false, false, "", 0, 0, 0, 0, false, fmt.Errorf("no command specified")
 	}
 
 	switch flag.Args()[0] {
@@ -420,14 +427,15 @@ func parseArgs() (bool, bool, string, int, int, int, int, error) {
 		notVisitedFlags.Parse(flag.Args()[1:])
 
 		if *num < 1 || *days < 1 {
-			return false, false, "", 0, 0, 0, 0, fmt.Errorf("num/days: %w", errInlalidArgs)
+			return false, false, "", 0, 0, 0, 0, false, fmt.Errorf("num/days: %w", errInlalidArgs)
 		}
 
-		return *chunked, *igrp, CommandNotVisited, *days, 0, *num, 0, nil
+		return *chunked, *igrp, CommandNotVisited, *days, 0, *num, 0, false, nil
 	case CommandInactive:
 		inactiveFlags := flag.NewFlagSet(CommandInactive, flag.ExitOnError)
 		months := inactiveFlags.Int("m", 0, "months limit from registration")
 		days := inactiveFlags.Int("d", 0, "days limit from registration")
+		exactDay := inactiveFlags.Bool("D", false, "exact day match: only brigades exactly -d days old")
 		x := inactiveFlags.Int("x", defaultMinActiveUsers, "minmium active users count for live")
 		num := inactiveFlags.Int("n", defaultMaxResultRows, "how many max rows will return")
 		igrp := inactiveFlags.Bool("igrp", false, "use isolated groups")
@@ -439,10 +447,10 @@ func parseArgs() (bool, bool, string, int, int, int, int, error) {
 		inactiveFlags.Parse(flag.Args()[1:])
 
 		if *num < 1 || *x < 1 || (*months < 1 && *days < 1) {
-			return false, false, "", 0, 0, 0, 0, fmt.Errorf("num/x/d: %w", errInlalidArgs)
+			return false, false, "", 0, 0, 0, 0, false, fmt.Errorf("num/x/d: %w", errInlalidArgs)
 		}
 
-		return *chunked, *igrp, CommandInactive, *days, *months, *num, *x, nil
+		return *chunked, *igrp, CommandInactive, *days, *months, *num, *x, *exactDay, nil
 	case CommandNotUsed:
 		notusedFlags := flag.NewFlagSet(CommandNotUsed, flag.ExitOnError)
 		days := notusedFlags.Int("d", defaultLastSeenDaysLimit, "days limit to last seen")
@@ -461,12 +469,12 @@ func parseArgs() (bool, bool, string, int, int, int, int, error) {
 		notusedFlags.Parse(flag.Args()[1:])
 
 		if *num < 1 || *x < 1 || *days < 1 {
-			return false, false, "", 0, 0, 0, 0, fmt.Errorf("num/x: %w", errInlalidArgs)
+			return false, false, "", 0, 0, 0, 0, false, fmt.Errorf("num/x: %w", errInlalidArgs)
 		}
 
-		return *chunked, *igrp, CommandNotUsed, *days, 0, *num, *x, nil
+		return *chunked, *igrp, CommandNotUsed, *days, 0, *num, *x, false, nil
 	default:
-		return false, false, "", 0, 0, 0, 0, fmt.Errorf("unknown command: %w", errInlalidArgs)
+		return false, false, "", 0, 0, 0, 0, false, fmt.Errorf("unknown command: %w", errInlalidArgs)
 	}
 }
 
