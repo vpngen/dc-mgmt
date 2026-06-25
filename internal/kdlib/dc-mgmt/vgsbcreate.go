@@ -320,7 +320,7 @@ WHERE
 	}
 
 	// cmd := fmt.Sprintf("create -id %s -ep4 %s -int4 %s -int6 %s -dns4 %s -dns6 %s -kd6 %s -name %s -person %s -desc %s -url %s -dn %s -ch -j",
-	cmd := fmt.Sprintf("create -id %s -ep4 %s -int4 %s -int6 %s -dns4 %s -dns6 %s -kd6 %s -dn %s -j -mode vgsocket -maxusers %d",
+	cmd := fmt.Sprintf("create -id %s -ep4 %s -int4 %s -int6 %s -dns4 %s -dns6 %s -kd6 %s -j -mode vgsocket -maxusers %d",
 		base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(brigadeID),
 		endpointIPv4,
 		ipv4CGNAT,
@@ -328,9 +328,12 @@ WHERE
 		dnsIPv4,
 		dnsIPv6,
 		kdIPv6,
-		domain.String,
 		maxusers,
 	)
+
+	if domain.Valid && domain.String != "" {
+		cmd += fmt.Sprintf(" -dn %s", domain.String)
+	}
 
 	if vpnCfgs != nil {
 		if vpnCfgs.Wg != "" {

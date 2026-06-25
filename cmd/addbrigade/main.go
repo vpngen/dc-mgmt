@@ -705,7 +705,7 @@ WHERE
 	}
 
 	// cmd := fmt.Sprintf("create -id %s -ep4 %s -int4 %s -int6 %s -dns4 %s -dns6 %s -kd6 %s -name %s -person %s -desc %s -url %s -dn %s -ch -j",
-	cmd := fmt.Sprintf("create -id %s -ep4 %s -int4 %s -int6 %s -dns4 %s -dns6 %s -kd6 %s -name %s -person %s -desc %s -url %s -dn %s -j",
+	cmd := fmt.Sprintf("create -id %s -ep4 %s -int4 %s -int6 %s -dns4 %s -dns6 %s -kd6 %s -name %s -person %s -desc %s -url %s -j",
 		base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(brigadeID),
 		endpointIPv4,
 		ipv4CGNAT,
@@ -717,8 +717,11 @@ WHERE
 		base64.StdEncoding.WithPadding(base64.StdPadding).EncodeToString([]byte(person.Name)),
 		base64.StdEncoding.WithPadding(base64.StdPadding).EncodeToString([]byte(person.Desc)),
 		base64.StdEncoding.WithPadding(base64.StdPadding).EncodeToString([]byte(person.URL)),
-		domainName.String,
 	)
+
+	if domainName.Valid && domainName.String != "" {
+		cmd += fmt.Sprintf(" -dn %s", domainName.String)
+	}
 
 	if opts.vip {
 		cmd += " -vip"
