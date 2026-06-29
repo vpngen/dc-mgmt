@@ -106,9 +106,10 @@ type delegationSyncEnv struct {
 }
 
 type delegationCheckEnv struct {
-	kdDomain string
-	kdNS     []string
-	domainNS []string
+	skipDelegation bool
+	kdDomain       string
+	kdNS           []string
+	domainNS       []string
 }
 
 type vpnCfgs struct {
@@ -797,16 +798,20 @@ WHERE
 		nss = dlgenv.domainNS
 	}
 
-	fmt.Fprintf(os.Stderr, "%s: Waiting for delegation: %s, %s -> %s\n", LogTag, keydeskIPv6.String(), domainName.String, endpointIPv4)
-	if !waitForAllDelegations(
-		dlgenv.kdDomain,
-		keydeskIPv6,
-		dlgenv.kdNS,
-		domainName.String,
-		endpointIPv4,
-		nss,
-	) {
-		return nil, netip.Addr{}, fmt.Errorf("delegation: %w", ErrNotDelegated)
+	if dlgenv.skipDelegation {
+		fmt.Fprintf(os.Stderr, "%s: delegation check skipped\n", LogTag)
+	} else {
+		fmt.Fprintf(os.Stderr, "%s: Waiting for delegation: %s, %s -> %s\n", LogTag, keydeskIPv6.String(), domainName.String, endpointIPv4)
+		if !waitForAllDelegations(
+			dlgenv.kdDomain,
+			keydeskIPv6,
+			dlgenv.kdNS,
+			domainName.String,
+			endpointIPv4,
+			nss,
+		) {
+			return nil, netip.Addr{}, fmt.Errorf("delegation: %w", ErrNotDelegated)
+		}
 	}
 
 	wgconf := &keydesk.Answer{}
@@ -1075,20 +1080,22 @@ func readConfigs(mock bool) (string, *envOpts, error) {
 		return "", nil, fmt.Errorf("keydesk address sync connect: %w", err)
 	}
 
+	env.skipDelegation = os.Getenv("SKIP_DELEGATION_CHECK") != ""
+
 	env.kdDomain = os.Getenv("KEYDESK_DOMAIN")
-	if env.kdDomain == "" {
+	if env.kdDomain == "" && !env.skipDelegation {
 		return "", nil, errors.New("empty keydesk domain")
 	}
 
 	kdNameServers := os.Getenv("KEYDESK_NAMESERVERS")
-	if kdNameServers == "" {
+	if kdNameServers == "" && !env.skipDelegation {
 		return "", nil, errors.New("empty keydesk nameservers")
 	}
 
 	env.kdNS = strings.Split(kdNameServers, ",")
 
 	domainNameServers := os.Getenv("DOMAIN_NAMESERVERS")
-	if domainNameServers == "" {
+	if domainNameServers == "" && !env.skipDelegation {
 		return "", nil, errors.New("empty domain nameservers")
 	}
 
