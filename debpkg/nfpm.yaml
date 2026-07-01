@@ -644,6 +644,36 @@ contents:
     mode: 0005
     owner: root
     group: root
+- src: dc-mgmt/cmd/defragnet-massive/01-admin-defragnet-massive-prepare.sh
+  dst: /home/vgadmin/01-admin-defragnet-massive-prepare.sh
+  file_info:
+    mode: 0005
+    owner: root
+    group: root
+- src: dc-mgmt/cmd/defragnet-massive/01-migr-defragnet-massive-propagade.sh
+  dst: /home/vgmigr/01-migr-defragnet-massive-propagade.sh
+  file_info:
+    mode: 0005
+    owner: root
+    group: root
+- src: dc-mgmt/cmd/defragnet-massive/02-admin-defragnet-massive-cleanup.sh
+  dst: /home/vgadmin/02-admin-defragnet-massive-cleanup.sh
+  file_info:
+    mode: 0005
+    owner: root
+    group: root
+- src: dc-mgmt/cmd/defragnet-massive/02-migr-defragnet-massive-swith.sh
+  dst: /home/vgmigr/02-migr-defragnet-massive-swith.sh
+  file_info:
+    mode: 0005
+    owner: root
+    group: root
+- src: dc-mgmt/cmd/defragnet-massive/03-migr-defragnet-massive-cleanup.sh
+  dst: /home/vgmigr/03-migr-defragnet-massive-cleanup.sh
+  file_info:
+    mode: 0005
+    owner: root
+    group: root
 - src: dc-mgmt/cmd/migracia/01-migr-one-propagade.sh
   dst: /home/vgmigr/01-migr-one-propagade.sh
   file_info:
