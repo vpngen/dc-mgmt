@@ -14,6 +14,16 @@ set -e
 mkdir -p "${HOME}/migr-logs"
 mkdir -p "${HOME}/tmp"
 
+# log_fail <step> <brigade_id> <detail>
+# Appends a structured failure entry to FAIL_LOG and prints a one-liner to stdout.
+# FAIL_LOG must be set before this is called.
+log_fail() {
+	printf '%s\tstep=%-15s\tbrigade_id=%s\tdetail=%s\n' \
+		"$(date -Iseconds)" "$1" "$2" "$3" >> "${FAIL_LOG}"
+	echo "  [SKIP] $(date +%H:%M:%S)  step=$1  brigade_id=$2"
+	echo "         $3"
+}
+
 if [ -z "${AUTHFP}" ]; then
 	echo "ERROR: AUTHFP not set"
 	exit 1
@@ -110,6 +120,8 @@ echo "NET=${NET}  CTRL=${CTRL}"
 echo "TARGET_IN=${TARGET_IN}  TARGET_EN=${TARGET_EN:-"(any)"}"
 echo "TAG=${TAG}  MAX_COUNT=${MAX_COUNT:-"all"}"
 echo
+
+FAIL_LOG="${HOME}/migr-logs/$(date +"%Y%m%d%H%M")-${TAG}-failures.log"
 
 # ---------------------------------------------------------------------------
 # STEP 1: snapshot
@@ -246,13 +258,77 @@ echo
 
 # ---------------------------------------------------------------------------
 # STEP 5: snap_prepare (decrypt with realm key, re-encrypt for authority key)
+#
+# Try the full batch first (fast path).
+# If any brigade has corrupted data the binary fails on the first bad entry,
+# aborting the whole batch. Fallback: test each brigade individually, skip
+# the broken ones, log them to FAIL_LOG, then re-run on the clean subset.
 # ---------------------------------------------------------------------------
 
 echo ">>> STEP 5: SNAP PREPARE"
 
 PREPARED_FILE="${HOME}/tmp/${TAG}-migr-prepared-${DTMARK}.json"
+_PREP_ERR="${HOME}/tmp/.prep-err-$$.txt"
+
 echo "  /opt/vg-dc-snaps/snap_prepare -fp ${AUTHFP} < ${SNAPSHOT} > ${PREPARED_FILE}"
-/opt/vg-dc-snaps/snap_prepare -fp "${AUTHFP}" < "${SNAPSHOT}" > "${PREPARED_FILE}"
+
+if /opt/vg-dc-snaps/snap_prepare -fp "${AUTHFP}" \
+	< "${SNAPSHOT}" > "${PREPARED_FILE}" 2>"${_PREP_ERR}"; then
+	echo "  OK: all ${COUNT} brigade(s) prepared"
+	rm -f "${_PREP_ERR}"
+else
+	echo "  Full batch failed — entering per-brigade mode"
+	echo "  Error: $(cat "${_PREP_ERR}")"
+	rm -f "${_PREP_ERR}"
+
+	_SNAP_LEN="$(jq '.snaps | length' "${SNAPSHOT}")"
+	GOOD_INDICES=""
+	_i=0
+
+	while [ "${_i}" -lt "${_SNAP_LEN}" ]; do
+		_bid="$(jq -r --argjson i "${_i}" '.snaps[$i].brigade_id' "${SNAPSHOT}")"
+		_sing_err="${HOME}/tmp/.prep-single-${_i}-$$.txt"
+
+		if jq --argjson i "${_i}" \
+			'. + {snaps: [.snaps[$i]], total_count: 1, errors_count: 0}' \
+			"${SNAPSHOT}" | \
+			/opt/vg-dc-snaps/snap_prepare -fp "${AUTHFP}" \
+			> /dev/null 2>"${_sing_err}"; then
+			GOOD_INDICES="${GOOD_INDICES} ${_i}"
+		else
+			log_fail "snap_prepare" "${_bid}" \
+				"$(tr '\n' ' ' < "${_sing_err}")"
+		fi
+
+		rm -f "${_sing_err}"
+		_i=$(( _i + 1 ))
+	done
+
+	if [ -z "${GOOD_INDICES}" ]; then
+		echo "  ERROR: no brigades could be prepared — aborting"
+		echo "         See ${FAIL_LOG} for details"
+		exit 1
+	fi
+
+	# count good brigades
+	GOOD_COUNT=0
+	for _x in ${GOOD_INDICES}; do GOOD_COUNT=$(( GOOD_COUNT + 1 )); done
+	echo "  Good: ${GOOD_COUNT}  Skipped: $(( _SNAP_LEN - GOOD_COUNT ))"
+
+	# build filtered snapshot containing only the good brigades
+	_GOOD_JSON="[$(echo "${GOOD_INDICES}" | xargs | tr ' ' ',')]"
+	_FILTERED="${HOME}/tmp/${TAG}-migr-filtered-${DTMARK}.json"
+	jq --argjson idx "${_GOOD_JSON}" \
+		'.snaps = [.snaps[$idx[]]] | .total_count = ($idx | length) | .errors_count = 0' \
+		"${SNAPSHOT}" > "${_FILTERED}"
+
+	echo "  Running snap_prepare on ${GOOD_COUNT} good brigade(s)..."
+	/opt/vg-dc-snaps/snap_prepare -fp "${AUTHFP}" < "${_FILTERED}" > "${PREPARED_FILE}"
+
+	# update COUNT so reservation and plan reflect the reduced set
+	COUNT="${GOOD_COUNT}"
+fi
+
 echo "  PREPARED_FILE=${PREPARED_FILE}"
 echo
 
@@ -269,7 +345,8 @@ echo "  /opt/vg-dc-snaps/recodesnaps -tfp ${REALM_FP} -c ... -in ... -out ${PLAN
 	-c "${RESERVATION_CONFIG_FILE}" \
 	-rkeys "/etc/vg-dc-snaps/realms_keys" \
 	-in "${PREPARED_FILE}" \
-	-out "${PLAN_FILE}"
+	-out "${PLAN_FILE}" \
+	-force
 echo "  PLAN_FILE=${PLAN_FILE}"
 echo
 
@@ -331,12 +408,16 @@ if [ "${FAILED_BRIGADES}" -gt 0 ]; then
 		_n="$(jq --arg ip "${_ip}" \
 			'[.plan[] | select(.control_ip == $ip) | .snaps | length] | add // 0' \
 			"${PLAN_FILE}")"
+		_err="$(grep "^ERROR: control_ip: ${_ip}" "${LOG_FILE}" | head -1 || true)"
 		echo "  Router ${_ip} (${_n} brigade(s)):"
+		# print brigade IDs and write each one to FAIL_LOG
 		jq -r --arg ip "${_ip}" \
 			'.plan[] | select(.control_ip == $ip) | .snaps[].brigade_id' \
-			"${PLAN_FILE}" | sed 's/^/    /' || true
-		echo "  Error:"
-		grep "^ERROR: control_ip: ${_ip}" "${LOG_FILE}" | sed 's/^/    /' || true
+			"${PLAN_FILE}" | while read -r _bid; do
+			echo "    ${_bid}"
+			log_fail "restoresnaps" "${_bid}" "router=${_ip}  ${_err}"
+		done
+		echo "  Error: ${_err}"
 		echo
 	done
 fi
@@ -348,6 +429,7 @@ echo "  RESERVATION=${RESERVATION}"
 echo "  SNAPSHOT=${SNAPSHOT}"
 echo "  PLAN_FILE=${PLAN_FILE}"
 echo "  PREPARED_FILE=${PREPARED_FILE}"
+echo "  FAIL_LOG=${FAIL_LOG}"
 echo
 echo "Next steps:"
 echo "  1. Run: ./02-migr-defragnet-massive-swith.sh -tag ${TAG}"
@@ -355,3 +437,9 @@ echo "     (switches DNS to new instances + runs delegation-sync)"
 echo "  2. Wait ~24h for DNS propagation"
 echo "  3. Run: ./03-migr-defragnet-massive-cleanup.sh -tag ${TAG}"
 echo "     (destroys old brigade instances + releases reservation)"
+
+if [ -s "${FAIL_LOG}" ]; then
+	echo
+	echo "=== SKIPPED BRIGADES LOG: ${FAIL_LOG} ==="
+	cat "${FAIL_LOG}"
+fi
