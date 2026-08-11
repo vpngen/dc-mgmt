@@ -14,6 +14,7 @@ import (
 	"os"
 	"os/user"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -49,6 +50,18 @@ const (
 const (
 	ParallelCollectorsLimit = 16
 	sshTimeOut              = time.Duration(15 * time.Second)
+)
+
+// Deletion reprieve for popular brigades. A brigade seen with at least
+// defaultProtectionMinActiveUsers monthly active users is exempt from
+// getwasted's inactive sweep for the next protection period, counted from the
+// moment it was seen. The extra days mirror the age threshold purge_inactive.sh
+// applies to everyone else, so a brigade leaving protection is not deleted the
+// same day.
+const (
+	defaultProtectionMinActiveUsers = 30
+	defaultProtectionMonths         = 2
+	defaultProtectionDays           = 7
 )
 
 // InstanceMain - instance with main flag.
@@ -125,6 +138,8 @@ func main() {
 	if err != nil {
 		log.Fatalf("%s: Can't read configs: %s\n", LogTag, err)
 	}
+
+	readProtectionPolicy()
 
 	storePath, err := parseArgs()
 	if err != nil {
@@ -213,6 +228,44 @@ func collectStats(sshconf *ssh.ClientConfig, addr netip.Addr, brigades map[uuid.
 	stream <- instancedStats
 }
 
+// Active protection policy, resolved once at startup by readProtectionPolicy.
+var (
+	protectionMinActiveUsers = defaultProtectionMinActiveUsers
+	protectionMonths         = defaultProtectionMonths
+	protectionDays           = defaultProtectionDays
+)
+
+// readProtectionPolicy - lets ops retune the reprieve without a redeploy.
+// A non-numeric or negative value keeps the compiled-in default: silently
+// protecting nothing is a worse failure than ignoring a typo in the unit file.
+func readProtectionPolicy() {
+	for _, v := range []struct {
+		env    string
+		target *int
+	}{
+		{"PROTECTION_MIN_ACTIVE_USERS", &protectionMinActiveUsers},
+		{"PROTECTION_MONTHS", &protectionMonths},
+		{"PROTECTION_DAYS", &protectionDays},
+	} {
+		raw := os.Getenv(v.env)
+		if raw == "" {
+			continue
+		}
+
+		n, err := strconv.Atoi(raw)
+		if err != nil || n < 0 {
+			fmt.Fprintf(os.Stderr, "%s: ignoring invalid %s=%q, keeping %d\n", LogTag, v.env, raw, *v.target)
+
+			continue
+		}
+
+		*v.target = n
+	}
+
+	fmt.Fprintf(os.Stderr, "%s: protection policy: >=%d active users -> %d months %d days\n",
+		LogTag, protectionMinActiveUsers, protectionMonths, protectionDays)
+}
+
 // updateStats - update stats in the database.
 func updateStats(db *pgxpool.Pool, statsSchema string, stats *Stats) error {
 	ctx := context.Background()
@@ -229,9 +282,14 @@ func updateStats(db *pgxpool.Pool, statsSchema string, stats *Stats) error {
 		return fmt.Errorf("decode brigade id: %w", err)
 	}
 
+	// $11 (stats.UpdateTime) is the moment this sample was taken, in UTC, and is
+	// the anchor for protected_until - not now(), so a reprieve reflects when the
+	// users were actually seen. The AS bs alias is what lets the SET clause read
+	// the row already in the table; the target of an INSERT cannot be referenced
+	// schema-qualified there.
 	sqlUpdateStats := `
-	INSERT INTO %s (
-		brigade_id, 
+	INSERT INTO %s AS bs (
+		brigade_id,
 		instance_id,
 		created_at,
 		first_visit,
@@ -241,10 +299,20 @@ func updateStats(db *pgxpool.Pool, statsSchema string, stats *Stats) error {
 		total_traffic_rx,
 		total_traffic_tx,
 		last_seen,
-		update_time
-	) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+		update_time,
+		peak_active_users,
+		peak_active_users_at,
+		protected_until
+	) VALUES (
+		$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,
+		$7,
+		CASE WHEN $7 >= $12::int THEN $11::timestamp END,
+		CASE WHEN $7 >= $12::int
+			THEN $11::timestamp + make_interval(months => $13::int, days => $14::int)
+		END
+	)
 	ON CONFLICT (brigade_id, instance_id) DO UPDATE
-	SET 
+	SET
 		created_at=$3,
 		first_visit=$4,
 		total_users_count=$5,
@@ -253,7 +321,22 @@ func updateStats(db *pgxpool.Pool, statsSchema string, stats *Stats) error {
 		total_traffic_rx=$8,
 		total_traffic_tx=$9,
 		last_seen=$10,
-		update_time=$11
+		update_time=$11,
+		peak_active_users=GREATEST(bs.peak_active_users, $7),
+		peak_active_users_at=CASE
+			WHEN $7 >= $12::int THEN GREATEST(
+				COALESCE(bs.peak_active_users_at, '-infinity'::timestamp),
+				$11::timestamp
+			)
+			ELSE bs.peak_active_users_at
+		END,
+		protected_until=CASE
+			WHEN $7 >= $12::int THEN GREATEST(
+				COALESCE(bs.protected_until, '-infinity'::timestamp),
+				$11::timestamp + make_interval(months => $13::int, days => $14::int)
+			)
+			ELSE bs.protected_until
+		END
 	`
 
 	_, err = tx.Exec(
@@ -270,6 +353,9 @@ func updateStats(db *pgxpool.Pool, statsSchema string, stats *Stats) error {
 		stats.TotalTraffic.Tx,
 		stats.LastActivity,
 		stats.UpdateTime,
+		protectionMinActiveUsers,
+		protectionMonths,
+		protectionDays,
 	)
 	if err != nil {
 		return fmt.Errorf("update stats: %w", err)

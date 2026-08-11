@@ -170,6 +170,11 @@ func getInactive(db *pgxpool.Pool, igrp bool, days, months, num, min int, exactD
 	AND
 		bs.active_users_count < $4::int
 	AND
+		-- Brigades that were popular recently are off limits until their
+		-- reprieve runs out. collectstats sets protected_until in UTC, so the
+		-- comparison has to be in UTC too and not depend on the session TimeZone.
+		(bs.protected_until IS NULL OR bs.protected_until <= (now() AT TIME ZONE 'UTC'))
+	AND
 		b.main = true
 	AND
 		rei.endpoint_ipv4 IS NULL

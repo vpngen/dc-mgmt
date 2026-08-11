@@ -464,8 +464,10 @@ EOF
                 echo "Brigade: $brigade_id, old: $old_instance_id new: $new_instance_id" >&2
 
                 bid="$(echo "${brigade_id}" | xxd -r -p -l 16 | base32 | tr -d "=")"
-                echo "sudo -u vgvpnapi ssh _serega_@${control_ip} destroy -force -id ${bid}"
-                sudo -u vgvpnapi ssh _serega_@"${control_ip}" destroy -force -id "${bid}" || true
+                echo "sudo -u vgvpnapi ssh -n _serega_@${control_ip} destroy -force -id ${bid}"
+                # -n is required: without it ssh consumes the jq pipe feeding this
+                # loop and only the first brigade gets purged.
+                sudo -u vgvpnapi ssh -n _serega_@"${control_ip}" destroy -force -id "${bid}" || true
         done
 
         exit 0
