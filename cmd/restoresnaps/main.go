@@ -502,17 +502,57 @@ func recreateBrigade(db *pgxpool.Pool, rid string, data *storage.Brigade, caddr,
 		}
 	}
 
+	// A migration gives the brigade a new instance_id, so this starts a fresh
+	// stats row. Left at its column defaults it reads peak_active_users=0 and
+	// protected_until=NULL, which makes a busy brigade look empty to getwasted --
+	// the exact case 038-stats-protection was added to prevent. Cleanup then
+	// deletes the old instance and the ON DELETE CASCADE from
+	// 012-brigades-instance removes the only record of the brigade's real usage.
+	//
+	// So seed the protection columns from the brigade's existing rows. The SELECT
+	// cannot see this INSERT, so it aggregates prior instances only; the aggregate
+	// form always yields exactly one row, including for a brigade that has none
+	// (max() over an empty set is NULL, and peak is NOT NULL so it needs COALESCE).
+	// A LIMIT 1 would return no row there and silently leave a new brigade with no
+	// stats row at all.
+	//
+	// max() rather than "the most recent instance": peak_active_users is a
+	// high-water mark, so max is its definition, and protected_until is a safety
+	// deadline where the longer value is the safe one. Ordering by
+	// instance_created_at would also be unreliable -- 036-stats-add-instance-created-at
+	// added that column with DEFAULT now(), so every row predating the patch carries
+	// the same timestamp and ties break arbitrarily.
+	//
+	// update_time bounds it to instances still being collected, so a row left behind
+	// by an instance that died without cleanup cannot donate a stale protection date.
+	// The comparison is in UTC because collectstats writes these columns in UTC and
+	// they are timestamp-without-time-zone; a bare now() would be off by the session
+	// offset.
+	//
+	// These three columns only: collectstats reassigns every other one from node
+	// state on each run, and the node's counters were reset by the restore.
 	sqlInsertStats := `
-		INSERT INTO 
-			%s 
-			(brigade_id, instance_id) 
-		VALUES 
-			($1,$2) 
+		INSERT INTO
+			%s
+			(brigade_id, instance_id, peak_active_users, peak_active_users_at, protected_until)
+		SELECT
+			$1,
+			$2,
+			COALESCE(max(peak_active_users), 0),
+			max(peak_active_users_at),
+			max(protected_until)
+		FROM
+			%s
+		WHERE
+			brigade_id=$1
+			AND update_time > (now() AT TIME ZONE 'UTC') - INTERVAL '30 days'
 		ON CONFLICT (brigade_id, instance_id) DO NOTHING;
 		`
 
+	statsTable := (pgx.Identifier{defaultBrigadesStatsSchema, "brigades_stats"}.Sanitize())
+
 	if _, err = tx.Exec(ctx,
-		fmt.Sprintf(sqlInsertStats, (pgx.Identifier{defaultBrigadesStatsSchema, "brigades_stats"}.Sanitize())),
+		fmt.Sprintf(sqlInsertStats, statsTable, statsTable),
 		uuid.UUID(brigadeID), instanceID,
 	); err != nil {
 		return fmt.Errorf("create stats: %w", err)

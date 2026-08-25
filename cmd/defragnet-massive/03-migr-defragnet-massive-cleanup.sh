@@ -6,6 +6,8 @@
 
 set -e
 
+DB_URL=${DB_URL:-"postgres:///vgrealm"}
+
 mkdir -p "${HOME}/migr-logs"
 
 print_usage() {
@@ -76,6 +78,52 @@ echo ">>> STEP 1: PURGE OLD BRIGADE INSTANCES (SSH)"
 	-r "${RESERVATION}" \
 	-f "${PREPARED_FILE}" 2>&1 || \
 	echo "WARNING: purge returned non-zero — some source-server configs may remain"
+
+echo
+
+# ---------------------------------------------------------------------------
+# STEP 1b: carry stats forward — move the protection columns from the old
+# (non-main) instances onto the new main BEFORE STEP 2 cascades them away.
+#
+# stats.brigades_stats is keyed (brigade_id, instance_id) and patch 012 hangs an
+# ON DELETE CASCADE FK on brigades.brigades. A migrated brigade therefore starts
+# a fresh stats row with peak_active_users and protected_until at zero, while its
+# real history sits on the parked instance STEP 2 is about to remove. Until then
+# the brigade is shielded by getwasted's "b2.brigade_id IS NULL" clause, so this
+# is the exact moment that shield and the history disappear together.
+#
+# Only peak_active_users, peak_active_users_at and protected_until are worth
+# copying: collectstats reassigns every other column from node state on each run,
+# and the node's counters were reset by the restore. GREATEST ignores NULLs and
+# can only raise a value, so this is idempotent and deliberately not scoped to
+# this batch — running it fleet-wide on every cleanup is harmless and also
+# repairs batches cleaned up before this step existed.
+# ---------------------------------------------------------------------------
+
+echo ">>> STEP 1b: CARRY STATS FORWARD TO NEW INSTANCES"
+
+# Needs sql/patches/039-stats-migr-carryforward-grant.sql applied: 021 gave the
+# migration role only SELECT/INSERT/DELETE on the stats schema, so without 039
+# this fails with "permission denied for table brigades_stats".
+psql "${DB_URL}" -q <<'EOSQL' || echo "WARNING: stats carry-forward returned non-zero"
+UPDATE stats.brigades_stats sm
+SET peak_active_users    = GREATEST(sm.peak_active_users,    agg.peak),
+    peak_active_users_at = GREATEST(sm.peak_active_users_at, agg.peak_at),
+    protected_until      = GREATEST(sm.protected_until,      agg.prot)
+FROM brigades.brigades bm,
+LATERAL (
+        SELECT max(so.peak_active_users)    AS peak,
+               max(so.peak_active_users_at) AS peak_at,
+               max(so.protected_until)      AS prot
+        FROM brigades.brigades bo
+        JOIN stats.brigades_stats so USING (brigade_id, instance_id)
+        WHERE bo.brigade_id = bm.brigade_id AND bo.main = false
+) agg
+WHERE sm.brigade_id  = bm.brigade_id
+  AND sm.instance_id = bm.instance_id
+  AND bm.main = true
+  AND agg.peak IS NOT NULL;
+EOSQL
 
 echo
 

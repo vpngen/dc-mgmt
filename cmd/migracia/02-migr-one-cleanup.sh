@@ -2,6 +2,8 @@
 
 set -e
 
+DB_URL=${DB_URL:-"postgres:///vgrealm"}
+
 if [ ! -d "${HOME}/migr-logs" ]; then
         mkdir -p "${HOME}/migr-logs"
 fi
@@ -92,6 +94,33 @@ echo "PREPARED_FILE: ${PREPARED_FILE}"
 echo "/opt/vg-dc-snaps/switch_local_migr.sh purge -r \"${RESERVATION}\" -f \"${PREPARED_FILE}\""
 /opt/vg-dc-snaps/switch_local_migr.sh  purge -r "${RESERVATION}" -f "${PREPARED_FILE}" || \
 	echo "!!! SWITCH CLEANUP LOCAL FAILED: ${PREPARED_FILE}"
+
+# Carry the protection columns from the old (non-main) instances onto the new
+# main before the delete below cascades them away. See the long note in
+# cmd/defragnet-massive/03-migr-defragnet-massive-cleanup.sh. GREATEST ignores
+# NULLs and only ever raises a value, so this is idempotent and intentionally
+# not scoped to this brigade.
+echo "CARRY STATS FORWARD TO NEW INSTANCES"
+# Needs sql/patches/039-stats-migr-carryforward-grant.sql applied.
+psql "${DB_URL}" -q <<'EOSQL' || echo "!!! STATS CARRY-FORWARD FAILED"
+UPDATE stats.brigades_stats sm
+SET peak_active_users    = GREATEST(sm.peak_active_users,    agg.peak),
+    peak_active_users_at = GREATEST(sm.peak_active_users_at, agg.peak_at),
+    protected_until      = GREATEST(sm.protected_until,      agg.prot)
+FROM brigades.brigades bm,
+LATERAL (
+        SELECT max(so.peak_active_users)    AS peak,
+               max(so.peak_active_users_at) AS peak_at,
+               max(so.protected_until)      AS prot
+        FROM brigades.brigades bo
+        JOIN stats.brigades_stats so USING (brigade_id, instance_id)
+        WHERE bo.brigade_id = bm.brigade_id AND bo.main = false
+) agg
+WHERE sm.brigade_id  = bm.brigade_id
+  AND sm.instance_id = bm.instance_id
+  AND bm.main = true
+  AND agg.peak IS NOT NULL;
+EOSQL
 
 echo "/opt/vg-dc-snaps/switch_local_migr.sh delete -r \"${RESERVATION}\" -f \"${PREPARED_FILE}\""
 /opt/vg-dc-snaps/switch_local_migr.sh  delete -r "${RESERVATION}" -f "${PREPARED_FILE}" || \

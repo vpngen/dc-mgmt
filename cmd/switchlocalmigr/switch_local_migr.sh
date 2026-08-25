@@ -467,7 +467,22 @@ EOF
                 echo "sudo -u vgvpnapi ssh -n _serega_@${control_ip} destroy -force -id ${bid}"
                 # -n is required: without it ssh consumes the jq pipe feeding this
                 # loop and only the first brigade gets purged.
-                sudo -u vgvpnapi ssh -n _serega_@"${control_ip}" destroy -force -id "${bid}" || true
+                #
+                # The ssh options keep this non-interactive so the whole purge can
+                # run detached over dozens of source nodes:
+                #   BatchMode=yes            never prompt for a password/passphrase
+                #   StrictHostKeyChecking=accept-new
+                #                            auto-accept a FIRST-time host key, but still
+                #                            refuse if a known key CHANGED (fails fast
+                #                            instead of hanging on a yes/no prompt)
+                #   ConnectTimeout=10        don't stall on a dead node
+                # A failure here is non-fatal (|| true): that brigade keeps its parked
+                # instance and can be purged later.
+                sudo -u vgvpnapi ssh -n \
+                        -o BatchMode=yes \
+                        -o StrictHostKeyChecking=accept-new \
+                        -o ConnectTimeout=10 \
+                        _serega_@"${control_ip}" destroy -force -id "${bid}" || true
         done
 
         exit 0

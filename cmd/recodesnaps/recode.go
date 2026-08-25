@@ -374,13 +374,40 @@ func decodeSnap(payload string, brigadeID string, secret []byte) (*storage.Briga
 	return &brigade, nil
 }
 
+// cleanBrigade strips the state that must not follow a brigade to a new pair.
+//
+// Endpoints is an endpoint-scoped cache (keydesk GetStats refreshes it on an
+// endpointsTTL) and means nothing on the new pair.
+//
+// Quotas.OS*Counters hold the last raw reading taken from the endpoint and are
+// the baseline for the next delta -- keydesk's handleTrafficStat computes
+// traffic.Rx - osCounters.Rx. The new endpoint's interface counters start at
+// zero, so the baseline has to start there with them.
+//
+// Everything else is deliberately preserved. This function used to also wipe
+// StatsCountersStack, BrigadeCounters and the whole of each user's Quota, which
+// made every migrated brigade look brand new:
+//
+//   - StatsCountersStack is the brigade's 12-month history and the only source of
+//     the year chart in the keydesk -- after a migration the brigadier saw eleven
+//     empty months.
+//   - The per-user Counters* series and Last*Activity are what active_users_count
+//     and the traffic totals are computed from. Zeroing them restarted the 30-day
+//     activity window, and getwasted deletes a brigade reading under five active
+//     users from the eighth day after migration onwards -- so a busy brigade could
+//     be swept for having been moved.
+//
+// None of that data is endpoint-specific: the snapshot payload is the brigade.json
+// file itself, and the counters are plain accumulators.
 func cleanBrigade(brigade *storage.Brigade) error {
-	brigade.BrigadeCounters = storage.BrigadeCounters{}
-	brigade.StatsCountersStack = storage.StatsCountersStack{}
 	brigade.Endpoints = storage.UsersNetworks{}
 
 	for _, user := range brigade.Users {
-		user.Quotas = storage.Quota{Ver: user.Quotas.Ver}
+		user.Quotas.OSWgCounters = storage.RxTx{}
+		user.Quotas.OSIPSecCounters = storage.RxTx{}
+		user.Quotas.OSOvcCounters = storage.RxTx{}
+		user.Quotas.OSOutlineCounters = storage.RxTx{}
+		user.Quotas.OSProto0Counters = storage.RxTx{}
 	}
 
 	return nil
