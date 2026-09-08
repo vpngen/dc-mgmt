@@ -5,3 +5,11 @@ temp_dir
 ARCHITECTURE.md
 erd.html
 .claude
+RUNBOOK-massive-migration.md
+RUNBOOK-parallel-migration.md
+RUNBOOK-onboard-servers.md
+MIGRATION-HISTORY-2026-08.md
+RUNBOOK-diagnose-brigade-key.md
+ORPHANED-SLOTS-10.30.52-2026-08-14.md
+PLAN-rotation-automation.md
+RUNBOOK-node-disk-space.md
