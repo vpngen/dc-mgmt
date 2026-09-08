@@ -164,6 +164,16 @@ contents:
 - dst: /etc/vg-dc-stats/stats-sync.env
   type: ghost
 
+- src: dc-mgmt/debpkg/src/endpoints-feed.env-sample
+  dst: /etc/vg-dc-stats/endpoints-feed.env-sample
+  file_info:
+    mode: 0444
+    owner: root
+    group: root
+
+- dst: /etc/vg-dc-stats/endpoints-feed.env
+  type: ghost
+
 - dst: /etc/vg-dc-migr
   type: dir
   file_info:
@@ -298,6 +308,12 @@ contents:
     mode: 0005
     owner: root
     group: root
+- src: bin/turnon-vip
+  dst: /opt/vg-dc-vpnapi/turnon-vip
+  file_info:
+    mode: 0005
+    owner: root
+    group: root
 - src: dc-mgmt/cmd/vpn-works-keydesks-sync.sh
   dst: /opt/vg-dc-vpnapi/vpn-works-keydesks-sync.sh
   file_info:
@@ -364,6 +380,25 @@ contents:
   dst: /opt/vg-dc-stats/stats-sync.sh
   file_info:
     mode: 0005
+    owner: root
+    group: root
+- src: dc-mgmt/cmd/endpoints-feed.sh
+  dst: /opt/vg-dc-stats/endpoints-feed.sh
+  file_info:
+    mode: 0005
+    owner: root
+    group: root
+
+- src: dc-mgmt/systemd/vg-dc-endpoints-feed.timer
+  dst: /etc/systemd/system/vg-dc-endpoints-feed.timer
+  file_info:
+    mode: 0644
+    owner: root
+    group: root
+- src: dc-mgmt/systemd/vg-dc-endpoints-feed.service
+  dst: /etc/systemd/system/vg-dc-endpoints-feed.service
+  file_info:
+    mode: 0644
     owner: root
     group: root
 
@@ -670,6 +705,12 @@ contents:
     group: root
 - src: dc-mgmt/cmd/defragnet-massive/03-migr-defragnet-massive-cleanup.sh
   dst: /home/vgmigr/03-migr-defragnet-massive-cleanup.sh
+  file_info:
+    mode: 0005
+    owner: root
+    group: root
+- src: dc-mgmt/cmd/defragnet-massive/04-migr-defragnet-massive-protect.sh
+  dst: /home/vgmigr/04-migr-defragnet-massive-protect.sh
   file_info:
     mode: 0005
     owner: root

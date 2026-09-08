@@ -1,0 +1,12 @@
+[Unit]
+Description=Publish endpoints list to the monitoring feed
+Requires=vg-dc-endpoints-feed.service
+
+[Timer]
+Unit=vg-dc-endpoints-feed.service
+OnCalendar=daily
+RandomizedDelaySec=15m
+Persistent=true
+
+[Install]
+WantedBy=timers.target

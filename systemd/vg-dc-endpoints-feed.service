@@ -1,0 +1,14 @@
+[Unit]
+Description=Publish endpoints list to the monitoring feed
+Wants=vg-dc-endpoints-feed.timer
+
+[Service]
+Type=oneshot
+User=vgstats
+Group=vgstats
+EnvironmentFile=/etc/vg-dc-stats/endpoints-feed.env
+WorkingDirectory=/home/vgstats
+ExecStart=/opt/vg-dc-stats/endpoints-feed.sh
+
+[Install]
+WantedBy=multi-user.target
