@@ -1,0 +1,15 @@
+[Unit]
+Description=Record endpoint reachability verdicts from the monitoring feed
+Requires=vg-dc-reachability-ingest.service
+
+[Timer]
+Unit=vg-dc-reachability-ingest.service
+# The monitor needs ~12h to work through the list it was handed by
+# vg-dc-endpoints-feed.timer at 00:00-00:15 UTC. Ingesting earlier records
+# verdicts about a partially-checked fleet. 14:00 leaves ~2h of margin.
+OnCalendar=*-*-* 14:00:00
+RandomizedDelaySec=15m
+Persistent=true
+
+[Install]
+WantedBy=timers.target

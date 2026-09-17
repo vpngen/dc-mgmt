@@ -1,0 +1,14 @@
+[Unit]
+Description=Record endpoint reachability verdicts from the monitoring feed
+Wants=vg-dc-reachability-ingest.timer
+
+[Service]
+Type=oneshot
+User=vgstats
+Group=vgstats
+EnvironmentFile=/etc/vg-dc-stats/endpoints-feed.env
+WorkingDirectory=/home/vgstats
+ExecStart=/opt/vg-dc-stats/reachability-ingest.sh
+
+[Install]
+WantedBy=multi-user.target

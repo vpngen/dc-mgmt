@@ -389,6 +389,26 @@ contents:
     owner: root
     group: root
 
+- src: dc-mgmt/cmd/reachability-ingest.sh
+  dst: /opt/vg-dc-stats/reachability-ingest.sh
+  file_info:
+    mode: 0005
+    owner: root
+    group: root
+
+- src: dc-mgmt/systemd/vg-dc-reachability-ingest.timer
+  dst: /etc/systemd/system/vg-dc-reachability-ingest.timer
+  file_info:
+    mode: 0644
+    owner: root
+    group: root
+- src: dc-mgmt/systemd/vg-dc-reachability-ingest.service
+  dst: /etc/systemd/system/vg-dc-reachability-ingest.service
+  file_info:
+    mode: 0644
+    owner: root
+    group: root
+
 - src: dc-mgmt/systemd/vg-dc-endpoints-feed.timer
   dst: /etc/systemd/system/vg-dc-endpoints-feed.timer
   file_info:
