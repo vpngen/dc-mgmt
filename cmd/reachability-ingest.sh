@@ -128,8 +128,11 @@ if [ -n "${DRY_RUN}" ]; then
         exit 0
 fi
 
-psql -d "${DBNAME}" -q -v ON_ERROR_STOP=1 \
-     -v stats_schema="${STATS_SCHEMA}" -v csv="${CSV}" <<'EOSQL'
+# The CSV is streamed inline rather than read with \copy: psql does not expand
+# :variables in \copy's filename argument, so the path has to come through the
+# data channel instead.
+{
+cat <<'EOSQL'
 CREATE TEMP TABLE ingest (
         ip              inet PRIMARY KEY,
         verdict         text,
@@ -140,8 +143,11 @@ CREATE TEMP TABLE ingest (
         ru_total        int
 );
 
-\copy ingest FROM :'csv' WITH (FORMAT csv)
-
+COPY ingest FROM STDIN WITH (FORMAT csv);
+EOSQL
+cat "${CSV}"
+printf '\\.\n'
+cat <<'EOSQL'
 -- Problem addresses: verbatim from the monitor.
 INSERT INTO :"stats_schema".endpoint_reachability AS r
         (endpoint_ipv4, observed_on, verdict, reference,
@@ -175,6 +181,7 @@ FROM :"stats_schema".endpoint_reachability
 WHERE observed_on = (now() AT TIME ZONE 'UTC')::date
 GROUP BY verdict ORDER BY 2 DESC;
 EOSQL
+} | psql -d "${DBNAME}" -q -v ON_ERROR_STOP=1 -v stats_schema="${STATS_SCHEMA}"
 
 if [ "${PROBE}" != "1" ]; then
         echo "[i] PROBE=0, skipping port 80 checks" >&2
@@ -199,11 +206,14 @@ if [ "${targets}" -gt 0 ]; then
                 'if nc -z -w '"${NC_TIMEOUT}"' "$1" 80 >/dev/null 2>&1; then echo "$1,t"; else echo "$1,f"; fi' \
                 _ {} < "${WORKDIR}/targets.txt" > "${PROBES}"
 
-        psql -d "${DBNAME}" -q -v ON_ERROR_STOP=1 \
-             -v stats_schema="${STATS_SCHEMA}" -v csv="${PROBES}" <<'EOSQL'
+        {
+        cat <<'EOSQL'
 CREATE TEMP TABLE probe (ip inet PRIMARY KEY, ok boolean);
-\copy probe FROM :'csv' WITH (FORMAT csv)
-
+COPY probe FROM STDIN WITH (FORMAT csv);
+EOSQL
+        cat "${PROBES}"
+        printf '\\.\n'
+        cat <<'EOSQL'
 UPDATE :"stats_schema".endpoint_reachability r
 SET nc80_ok = p.ok
 FROM probe p
@@ -217,6 +227,7 @@ WHERE observed_on = (now() AT TIME ZONE 'UTC')::date
   AND verdict = 'blocked_ru'
 GROUP BY 1 ORDER BY 1;
 EOSQL
+        } | psql -d "${DBNAME}" -q -v ON_ERROR_STOP=1 -v stats_schema="${STATS_SCHEMA}"
 fi
 
 echo "[i] done" >&2
