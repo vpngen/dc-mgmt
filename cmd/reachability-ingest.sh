@@ -151,29 +151,36 @@ cat <<'EOSQL'
 -- Problem addresses: verbatim from the monitor.
 INSERT INTO :"stats_schema".endpoint_reachability AS r
         (endpoint_ipv4, observed_on, verdict, reference,
-         ru_reachable, ru_unreachable, ru_no_data, ru_total)
+         ru_reachable, ru_unreachable, ru_no_data, ru_total,
+         generated_at, median_probe_age_s)
 SELECT i.ip, (now() AT TIME ZONE 'UTC')::date, i.verdict, nullif(i.reference, ''),
-       i.ru_reachable, i.ru_unreachable, i.ru_no_data, i.ru_total
+       i.ru_reachable, i.ru_unreachable, i.ru_no_data, i.ru_total,
+       (:'gen_at')::timestamptz AT TIME ZONE 'UTC', (:'median_age')::int
 FROM ingest i
 ON CONFLICT (endpoint_ipv4, observed_on) DO UPDATE
-SET verdict        = EXCLUDED.verdict,
-    reference      = EXCLUDED.reference,
-    ru_reachable   = EXCLUDED.ru_reachable,
-    ru_unreachable = EXCLUDED.ru_unreachable,
-    ru_no_data     = EXCLUDED.ru_no_data,
-    ru_total       = EXCLUDED.ru_total,
-    observed_at    = (now() AT TIME ZONE 'UTC');
+SET verdict            = EXCLUDED.verdict,
+    reference          = EXCLUDED.reference,
+    ru_reachable       = EXCLUDED.ru_reachable,
+    ru_unreachable     = EXCLUDED.ru_unreachable,
+    ru_no_data         = EXCLUDED.ru_no_data,
+    ru_total           = EXCLUDED.ru_total,
+    generated_at       = EXCLUDED.generated_at,
+    median_probe_age_s = EXCLUDED.median_probe_age_s,
+    observed_at        = (now() AT TIME ZONE 'UTC');
 
 -- Everything else we own is reachable. Recorded explicitly so a streak can be
 -- counted; without these rows "absent" and "never observed" are the same thing.
 INSERT INTO :"stats_schema".endpoint_reachability AS r
-        (endpoint_ipv4, observed_on, verdict)
-SELECT pei.endpoint_ipv4, (now() AT TIME ZONE 'UTC')::date, 'ok'
+        (endpoint_ipv4, observed_on, verdict, generated_at, median_probe_age_s)
+SELECT pei.endpoint_ipv4, (now() AT TIME ZONE 'UTC')::date, 'ok',
+       (:'gen_at')::timestamptz AT TIME ZONE 'UTC', (:'median_age')::int
 FROM pairs.pairs_endpoints_ipv4 pei
 WHERE NOT EXISTS (SELECT 1 FROM ingest i WHERE i.ip = pei.endpoint_ipv4)
 ON CONFLICT (endpoint_ipv4, observed_on) DO UPDATE
-SET verdict     = EXCLUDED.verdict,
-    observed_at = (now() AT TIME ZONE 'UTC');
+SET verdict            = EXCLUDED.verdict,
+    generated_at       = EXCLUDED.generated_at,
+    median_probe_age_s = EXCLUDED.median_probe_age_s,
+    observed_at        = (now() AT TIME ZONE 'UTC');
 
 \echo '--- recorded today ---'
 SELECT verdict, count(*)
@@ -181,7 +188,8 @@ FROM :"stats_schema".endpoint_reachability
 WHERE observed_on = (now() AT TIME ZONE 'UTC')::date
 GROUP BY verdict ORDER BY 2 DESC;
 EOSQL
-} | psql -d "${DBNAME}" -q -v ON_ERROR_STOP=1 -v stats_schema="${STATS_SCHEMA}"
+} | psql -d "${DBNAME}" -q -v ON_ERROR_STOP=1 -v stats_schema="${STATS_SCHEMA}" \
+      -v gen_at="${generated_at}" -v median_age="${median_age_s}"
 
 if [ "${PROBE}" != "1" ]; then
         echo "[i] PROBE=0, skipping port 80 checks" >&2

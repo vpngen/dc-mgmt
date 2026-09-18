@@ -729,6 +729,12 @@ contents:
     mode: 0005
     owner: root
     group: root
+- src: dc-mgmt/cmd/reclaim-slots.sh
+  dst: /home/vgmigr/reclaim-slots.sh
+  file_info:
+    mode: 0005
+    owner: root
+    group: root
 - src: dc-mgmt/cmd/defragnet-massive/04-migr-defragnet-massive-protect.sh
   dst: /home/vgmigr/04-migr-defragnet-massive-protect.sh
   file_info:
