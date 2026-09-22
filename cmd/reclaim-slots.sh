@@ -17,12 +17,21 @@
 #   reclaim-slots.sh --ip 1.2.3.4 --apply     reclaim just that address
 #   reclaim-slots.sh --ip 1.2.3.4 --apply --force
 #                                             skip the clean-days policy checks
+#   reclaim-slots.sh --max-active 3           allow reclaim up to 3 active users
 #
 # --force relaxes POLICY (how long the address has looked clean, how old the
 # instance is). It does NOT relax SAFETY: the instance must still be non-main,
-# the brigade must still have a live main elsewhere, and the address must not
-# be reserved. Those three prevent deleting a live brigade or a migration in
-# flight, and are never skipped.
+# the brigade must still have a live main elsewhere, the address must not be
+# reserved, and the instance must carry no more than --max-active users.
+# Those four prevent deleting a live brigade, a migration in flight, or an
+# instance people are still connecting through, and are never skipped.
+#
+# On that last one: 404 of 738 parked instances were found carrying live users
+# (5,516 people, 2026-09-22). They connect with old configs to the parked
+# endpoint, and are counted under the PARKED instance -- which MAU excludes,
+# because MAU counts mains only. So destroying such an instance cuts off real
+# users while the dashboard shows nothing at all. Default is 0: reclaim only
+# what genuinely has nobody on it.
 
 set -e
 
@@ -115,6 +124,10 @@ MIN_CLEAN_DAYS=${MIN_CLEAN_DAYS:-"3"}
 # restored target of a migration that has not switched yet.
 MIN_INSTANCE_AGE_DAYS=${MIN_INSTANCE_AGE_DAYS:-"2"}
 
+# Highest active_users_count a parked instance may carry and still be treated
+# as abandoned. SAFETY, not policy: --force does not skip it.
+MAX_ACTIVE_USERS=${MAX_ACTIVE_USERS:-"0"}
+
 print_usage() {
         sed -n '3,30p' "$0"
         exit 1
@@ -128,12 +141,13 @@ while [ $# -gt 0 ]; do
                 --limit)           LIMIT="$2";           shift 2 ;;
                 --parallel)        PARALLEL="$2";        shift 2 ;;
                 --min-clean-days)  MIN_CLEAN_DAYS="$2";  shift 2 ;;
+                --max-active)      MAX_ACTIVE_USERS="$2"; shift 2 ;;
                 -h|--help)         print_usage ;;
                 *) echo "Unknown option: $1" >&2; print_usage ;;
         esac
 done
 
-for n in "${LIMIT}" "${PARALLEL}" "${MIN_CLEAN_DAYS}" "${MIN_INSTANCE_AGE_DAYS}"; do
+for n in "${LIMIT}" "${PARALLEL}" "${MIN_CLEAN_DAYS}" "${MIN_INSTANCE_AGE_DAYS}" "${MAX_ACTIVE_USERS}"; do
         echo "${n}" | grep -Eq '^[0-9]+$' || { echo "[-] not a number: ${n}" >&2; exit 1; }
 done
 [ "${PARALLEL}" -ge 1 ] || { echo "[-] --parallel must be >= 1" >&2; exit 1; }
@@ -168,12 +182,19 @@ RUN_START="$(date -u +'%Y-%m-%d %H:%M:%S')"
 #
 #   brigade has a live main -- otherwise we delete a brigade's only instance.
 #
+#   no live users -- a parked instance carrying active_users_count > --max-active
+#   is not an abandoned probe. Those users are invisible in MAU (mains only),
+#   so destroying it harms people with nothing in the metric to show for it.
+#   A NULL count is treated as unsafe: absence of a stats row is not evidence
+#   of absence of users.
+#
 # The POLICY clauses (clean streak, instance age) are what --force skips.
 # ---------------------------------------------------------------------------
 psql -d "${DBNAME}" -qtA -F'|' -v ON_ERROR_STOP=1 \
      -v stats_schema="${STATS_SCHEMA}" \
      -v min_clean="${MIN_CLEAN_DAYS}" \
      -v min_age="${MIN_INSTANCE_AGE_DAYS}" \
+     -v max_active="${MAX_ACTIVE_USERS}" \
      -v one_ip="${ONE_IP}" \
      -v force="${FORCE:-no}" <<'EOSQL' > "${CANDIDATES}"
 SELECT b.brigade_id,
@@ -193,6 +214,12 @@ WHERE NOT b.main
                WHERE m.brigade_id = b.brigade_id AND m.main)
   AND NOT EXISTS (SELECT 1 FROM brigades.reserved_endpoints_ipv4 re
                    WHERE re.endpoint_ipv4 = b.endpoint_ipv4)
+  -- SAFETY: people are still connecting through this instance with old
+  -- configs. They are counted under the parked instance, which MAU excludes,
+  -- so cutting them off is invisible in the metric. NULL means no stats row
+  -- at all, which is not evidence of emptiness -- treat it as unsafe.
+  AND st.active_users_count IS NOT NULL
+  AND st.active_users_count <= (:'max_active')::int
   AND NOT (p.control_ip <<= '10.30.33.0/24')
   AND NOT (p.control_ip <<= '10.30.53.0/24')
   AND ((:'one_ip') = '' OR host(b.endpoint_ipv4) = (:'one_ip'))
