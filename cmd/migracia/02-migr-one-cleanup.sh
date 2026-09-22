@@ -54,7 +54,9 @@ BASENET_INFRANET=${INFRANET%%/*}
 BASENET_NETWORK=${NETWORK%%/*}
 BASENET_TARGETNET=${TARGETNET%%/*}
 
-BASENET="${BASENET_NETWORK}-${BASENET_INFRANET}-${BASENET_TARGETNET}"
+# Honour an inherited tag so this can be pointed at a specific run
+# (see migr-one-rkn-block.sh). Unset behaves exactly as before.
+BASENET="${BASENET:-${BASENET_NETWORK}-${BASENET_INFRANET}-${BASENET_TARGETNET}}"
 
 echo "NETWORK=${NETWORK} INFRANET=${INFRANET} TARGETNET=${TARGETNET} BASENET=${BASENET}"
 

@@ -1,4 +1,4 @@
-  #!/bin/sh
+#!/bin/sh
 
 if [ -s "${HOME}/.secret/local_migration.env" ]; then
         # shellcheck source=/dev/null
@@ -67,7 +67,9 @@ BASENET_INFRANET=${INFRANET%%/*}
 BASENET_NETWORK=${NETWORK%%/*}
 BASENET_TARGETNET=${TARGETNET%%/*}
 
-BASENET="${BASENET_NETWORK}-${BASENET_INFRANET}-${BASENET_TARGETNET}"
+# Allow the caller to supply its own tag so each run gets private working
+# files. With BASENET unset this is byte-for-byte the previous value.
+BASENET="${BASENET:-${BASENET_NETWORK}-${BASENET_INFRANET}-${BASENET_TARGETNET}}"
 
 echo "NETWORK=${NETWORK} INFRANET=${INFRANET} TARGETNET=${TARGETNET} BASENET=${BASENET}"
 
@@ -166,11 +168,17 @@ echo "PLAN_FILE: ${PLAN_FILE}"
 echo "PREPARED_FILE: ${PREPARED_FILE}"
 
 echo "/opt/vg-dc-snaps/switch_local_migr.sh switch -r \"${RESERVATION}\" -f \"${PREPARED_FILE}\""
-/opt/vg-dc-snaps/switch_local_migr.sh switch -r "${RESERVATION}" -f "${PREPARED_FILE}" || \
-        echo "!!! SWITCH LOCAL FAILED: ${PREPARED_FILE}"
+if ! /opt/vg-dc-snaps/switch_local_migr.sh switch -r "${RESERVATION}" -f "${PREPARED_FILE}"; then
+        echo "!!! SWITCH LOCAL FAILED: ${PREPARED_FILE}" >&2
+
+        exit 2
+fi
 
 echo sudo -u vgvpnapi SSH_KEY=/home/vgvpnapi/.ssh/id_ed25519 /opt/vg-dc-vpnapi/delegation-sync.sh
-sudo -u vgvpnapi SSH_KEY=/home/vgvpnapi/.ssh/id_ed25519 /opt/vg-dc-vpnapi/delegation-sync.sh || \
-        echo "!!! SWITCH LOCAL DELEGATION SYNC FAILED: ${PREPARED_FILE}"
+if ! sudo -u vgvpnapi SSH_KEY=/home/vgvpnapi/.ssh/id_ed25519 /opt/vg-dc-vpnapi/delegation-sync.sh; then
+        echo "!!! SWITCH LOCAL DELEGATION SYNC FAILED: ${PREPARED_FILE}" >&2
+
+        exit 3
+fi
 
 echo "SWITCH LOCAL COMPLETE: ${PREPARED_FILE}"

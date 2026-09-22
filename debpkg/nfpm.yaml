@@ -13,6 +13,7 @@ depends:
 - sudo
 - postgresql
 - jq
+- curl
 
 maintainer: "Ingmund Ollson <ingmund@proton.me>"
 description: VPNGen datacenter management
@@ -749,6 +750,18 @@ contents:
     group: root
 - src: dc-mgmt/cmd/migracia/02-migr-one-cleanup.sh
   dst: /home/vgmigr/02-migr-one-cleanup.sh
+  file_info:
+    mode: 0005
+    owner: root
+    group: root
+- src: dc-mgmt/cmd/migracia/01-migr-one-propagade-x.sh
+  dst: /home/vgmigr/01-migr-one-propagade-x.sh
+  file_info:
+    mode: 0005
+    owner: root
+    group: root
+- src: dc-mgmt/cmd/migracia/migr-one-rkn-block.sh
+  dst: /home/vgmigr/migr-one-rkn-block.sh
   file_info:
     mode: 0005
     owner: root
