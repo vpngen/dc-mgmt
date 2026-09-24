@@ -9,7 +9,7 @@
 -- Sections
 --   A  MAU health .................. what the number is and where it sits
 --   B  Deletion risk (getwasted) ... what is about to be destroyed
---   C  RKN blocking monitor ........ blocked, new, recovered, by network
+--   C  Blocking monitor       ........ blocked, new, recovered, by network
 --   D  Slot capacity & reclaim ..... what we have, what we freed
 --   E  Blocking x MAU .............. does blocking explain the drop
 --   F  Data quality ................ can these numbers be trusted
@@ -172,7 +172,7 @@ GROUP BY 1 ORDER BY 2 DESC;
 
 
 -- ============================================================================
--- C. RKN BLOCKING MONITOR
+-- C. BLOCKING MONITOR
 -- ============================================================================
 
 -- C1. Daily verdict history. The top-line blocking trend.
@@ -207,7 +207,7 @@ WHERE r.blocked_days >= 2
 ORDER BY s.active_users_count DESC;
 
 
--- C3. Blocking pressure by /24. Where RKN is actually hitting — the map
+-- C3. Blocking pressure by /24. Where blocking is actually hitting — the map
 --     for deciding which ranges to stop buying from.
 SELECT network(set_masklen(endpoint_ipv4::inet, 24))     AS net_24,
        count(*)                                          AS addresses,

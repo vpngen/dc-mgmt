@@ -1,5 +1,5 @@
 #!/bin/sh
-# migr-one-rkn-block.sh — move one brigade off an RKN-blocked endpoint address.
+# migr-one-blocked.sh — move one brigade off an the censor-blocked endpoint address.
 #
 # Driven by a support ticket that names a brigade by domain or by its current
 # endpoint address. Resolves the brigade, confirms with the external monitor
@@ -10,9 +10,9 @@
 #
 # Run as vgmigr on the head node, inside screen or tmux.
 #
-#   ./migr-one-rkn-block.sh api.jaggyslawa.org
-#   ./migr-one-rkn-block.sh 141.98.4.154 -n
-#   ./migr-one-rkn-block.sh crm.example.org -vip -attempts 3
+#   ./migr-one-blocked.sh api.example.org
+#   ./migr-one-blocked.sh 192.0.2.10 -n
+#   ./migr-one-blocked.sh crm.example.org -vip -attempts 3
 #
 # WHAT IT DELIBERATELY DOES NOT DO
 #
@@ -31,17 +31,30 @@ set -e
 
 SELFDIR="$(cd "$(dirname "$0")" && pwd)"
 
-MONITOR_URL=${MONITOR_URL:-"https://monitor.baza-info.org/api/v1/check"}
+if [ -s "${HOME}/.secret/local_migration.env" ]; then
+	# shellcheck source=/dev/null
+	. "${HOME}/.secret/local_migration.env"
+fi
+
+# The reachability monitor. Deliberately has no default: the endpoint is
+# operational information and does not belong in a public repository. Set it in
+# ${HOME}/.secret/local_migration.env -- see debpkg/src/local-migration.env-sample.
+MONITOR_URL=${MONITOR_URL:-""}
 MONITOR_TIMEOUT=${MONITOR_TIMEOUT:-"30"}
 MONITOR_TRIES=${MONITOR_TRIES:-"3"}
 DBNAME=${DBNAME:-"vgrealm"}
 PROPAGADE=${PROPAGADE:-"${SELFDIR}/01-migr-one-propagade-x.sh"}
 RESERVATION_TOOL=${RESERVATION_TOOL:-"/opt/vg-dc-snaps/create_reservation.sh"}
+CLEANUP_TOOL=${CLEANUP_TOOL:-"${SELFDIR}/02-migr-one-cleanup.sh"}
 MNT_MIN=${MNT_MIN:-"15"}
 # How many blocked addresses a /24 needs before the whole range is skipped.
 BADNET_MIN_BLOCKED=${BADNET_MIN_BLOCKED:-"10"}
+# Refuse to migrate when the fleet-wide free pool is this low or lower. A
+# migration consumes a slot; draining the last of them leaves nothing for
+# organic placement or for the next blocked brigade. 0 disables the floor.
+MIN_FREE_SLOTS=${MIN_FREE_SLOTS:-"100"}
 LOGDIR=${LOGDIR:-"${HOME}/migr-logs"}
-JOURNAL="${LOGDIR}/rkn-block-journal.tsv"
+JOURNAL="${LOGDIR}/blocked-migr-journal.tsv"
 
 ATTEMPTS="2"
 DRYRUN=""
@@ -50,17 +63,31 @@ PACK=""
 FORCE=""
 ASSUME_YES=""
 CTRL_OVERRIDE=""
+EXCEPT_NETS=""
+CLEANUP=""
 TARGET=""
 
 usage () {
 	cat <<'EOF'
-Usage: migr-one-rkn-block.sh <domain|ip> [options]
+Usage: migr-one-blocked.sh <domain|ip> [options]
 
   -n, --dry-run     resolve, check and choose, then print what would run
   -attempts N       how many migrations to try if the new address is also
                     blocked (default 2). 0 means check and report only.
   -mnt MIN          keydesk maintenance window in minutes (default 15)
   -ctrl CIDR        force the first target pair, e.g. 10.30.38.10/32
+  -cleanup          after a successful move, destroy the parked instance on
+                    the OLD address and free its slot, instead of leaving it
+                    as a probe. Only sensible when the address was not
+                    blocked -- a parked instance on a blocked address is what
+                    lets the monitor tell us when the ban lifts.
+  -min-free N       stop when the fleet has N or fewer free slots left
+                    (default 100, 0 disables). Exits 7 without migrating.
+  -except LIST      never migrate onto these control networks, comma
+                    separated, e.g. -except 10.30.17.0/24,10.30.22.0/24
+                    (applies to the CONTROL address of the target pair, not
+                    to endpoint ranges -- those are skipped automatically
+                    once BADNET_MIN_BLOCKED addresses in a /24 are blocked)
   -vip              prefer pairs inside VIP_INTERNAL_NETWORKS
   -pack             fill the fullest healthy pair instead of the emptiest
   -force            proceed even if the monitor says the current address
@@ -85,6 +112,9 @@ while [ $# -gt 0 ]; do
 		-attempts)     ATTEMPTS="$2";     shift 2 ;;
 		-mnt)          MNT_MIN="$2";      shift 2 ;;
 		-ctrl)         CTRL_OVERRIDE="$2"; shift 2 ;;
+		-except)       EXCEPT_NETS="$2";   shift 2 ;;
+		-min-free)     MIN_FREE_SLOTS="$2"; shift 2 ;;
+		-cleanup)      CLEANUP="x";        shift ;;
 		-*)            die "unknown option: $1" ;;
 		*)
 			if [ -n "${TARGET}" ]; then
@@ -97,6 +127,16 @@ while [ $# -gt 0 ]; do
 done
 
 [ -n "${TARGET}" ] || { usage; exit 1; }
+
+case "${MIN_FREE_SLOTS}" in
+	''|*[!0-9]*) die "-min-free must be a non-negative integer: ${MIN_FREE_SLOTS}" ;;
+esac
+
+[ -n "${MONITOR_URL}" ] || die "MONITOR_URL is not set. Put it in ${HOME}/.secret/local_migration.env -- see local-migration.env-sample"
+
+if [ -n "${CLEANUP}" ] && [ ! -x "${CLEANUP_TOOL}" ]; then
+	die "-cleanup: ${CLEANUP_TOOL} not found or not executable"
+fi
 
 echo "${TARGET}" | grep -Eq '^[A-Za-z0-9.-]+$' \
 	|| die "target must be a domain or an IPv4 address: ${TARGET}"
@@ -243,7 +283,7 @@ FROM (
 	       bool_or(${VIP_EXPR}) AS is_vip
 	FROM brigades.slots s
 	JOIN brigades.active_pairs p ON s.pair_id = p.pair_id
-	WHERE s.domain_name IS NULL ${_notin} ${_nonet}
+	WHERE s.domain_name IS NULL ${_notin} ${_nonet} ${EXCEPT_SQL}
 	GROUP BY s.control_ip
 ) c
 ORDER BY ${_order} ASC, ${_load}, c.control_ip ASC
@@ -281,7 +321,7 @@ LIMIT 1;"
 	       bool_or(${VIP_EXPR}) AS is_vip
 	FROM brigades.slots s
 	JOIN brigades.active_pairs p ON s.pair_id = p.pair_id
-	WHERE s.domain_name IS NULL ${_notin} ${_nonet}
+	WHERE s.domain_name IS NULL ${_notin} ${_nonet} ${EXCEPT_SQL}
 	GROUP BY 1, 2
 )
 SELECT host(c.control_ip), c.free_slots,
@@ -305,6 +345,35 @@ journal () {
 VIP_INTERNAL_NETWORKS=${VIP_INTERNAL_NETWORKS:-"10.30.33.0/24,10.30.53.0/24"}
 
 VIP_EXPR="$(build_vip_expr)"
+
+# -except: control networks the operator has ruled out by hand. Separate from
+# BADNETS, which is derived from blocking data and applies to endpoint ranges.
+# This one is about where we are willing to PUT a brigade -- an overloaded node,
+# a box being rebuilt, a range we are giving up on.
+EXCEPT_SQL=""
+if [ -n "${EXCEPT_NETS}" ]; then
+	_saved_ifs="${IFS}"
+	IFS=','
+	for _xn in ${EXCEPT_NETS}; do
+		IFS="${_saved_ifs}"
+		_xn="$(echo "${_xn}" | tr -d ' ')"
+		[ -n "${_xn}" ] || { IFS=','; continue; }
+
+		if ! psql -d "${DBNAME}" -q -t -A -v ON_ERROR_STOP=1 \
+			-c "SELECT '${_xn}'::inet;" >/dev/null 2>&1; then
+			die "-except: not a valid address or network: ${_xn}"
+		fi
+
+		if [ -n "${EXCEPT_SQL}" ]; then
+			EXCEPT_SQL="${EXCEPT_SQL} OR "
+		fi
+		EXCEPT_SQL="${EXCEPT_SQL}s.control_ip <<= '${_xn}'::inet"
+		IFS=','
+	done
+	IFS="${_saved_ifs}"
+
+	EXCEPT_SQL="AND NOT (${EXCEPT_SQL})"
+fi
 
 # stats.endpoint_reachability is filled by reachability-ingest. If it is
 # missing or stale this degrades to density-only selection rather than failing.
@@ -467,9 +536,10 @@ WHERE b.brigade_id = '${BID}';" | tr ' ' '|'); do
 
 	# Excluding a whole /24 is right when the range is genuinely under
 	# attack and wrong when one address in a healthy range was blocked.
-	# RKN blocks individual addresses: measured 2026-09-21, 194.87.51.142
-	# was dark while 9 of the 16 slots on its own node had Russian clients
-	# within the hour. Only widen to the range when the range looks targeted.
+	# Blocking is per-address: measured 2026-09-21, a single endpoint was
+	# dark while 9 of the 16 slots on its own node still had clients inside
+	# the censored country within the hour. Only widen to the whole range
+	# when the range itself looks targeted.
 	_blk="0"
 
 	if [ -n "${REACH}" ]; then
@@ -504,13 +574,41 @@ if [ -n "${BADNETS}" ]; then
 else
 	info "no range is targeted enough to exclude; avoiding this brigade's own pairs only"
 fi
+
+if [ -n "${EXCEPT_NETS}" ]; then
+	info "excluding these control networks (-except):"
+	echo "${EXCEPT_NETS}" | tr ',' '\n' | tr -d ' ' | grep -v '^$' | sed 's/^/    /'
+fi
 rule
 STATUS="unknown"
 FINAL_IP="${B_IP}"
 
+FREE_NOW="$(psql -d "${DBNAME}" -q -t -A -v ON_ERROR_STOP=1 \
+	-c "SELECT count(*) FROM brigades.slots;" 2>/dev/null || true)"
+
+case "${FREE_NOW}" in
+	''|*[!0-9]*) FREE_NOW="" ;;
+esac
+
+if [ -n "${FREE_NOW}" ]; then
+	info "free slots fleet-wide: ${FREE_NOW} (floor ${MIN_FREE_SLOTS})"
+else
+	warn "could not read the free slot count; the -min-free floor is not enforced"
+fi
+
 if [ "${ATTEMPTS}" -eq 0 ]; then
 	info "-attempts 0: report only, nothing migrated"
 	exit 0
+fi
+
+# Checked once per brigade rather than per attempt: one migration cannot cross
+# the floor on its own, and a batch re-checks on the next domain anyway.
+if [ "${MIN_FREE_SLOTS}" -gt 0 ] && [ -n "${FREE_NOW}" ] && \
+   [ "${FREE_NOW}" -le "${MIN_FREE_SLOTS}" ]; then
+	warn "only ${FREE_NOW} free slot(s) left, floor is ${MIN_FREE_SLOTS} -- not migrating"
+	warn "raise it with -min-free N, or reclaim slots first"
+	journal "${BID}" "${B_DOM}" "${B_IP}" "-" "-" "-" "slot_floor"
+	exit 7
 fi
 
 while [ "${ATTEMPT}" -lt "${ATTEMPTS}" ]; do
@@ -527,6 +625,7 @@ while [ "${ATTEMPT}" -lt "${ATTEMPTS}" ]; do
 		if [ -z "${PICK}" ]; then
 			warn "no pair left with a free slot"
 			STATUS="no_slots"
+			journal "${BID}" "${B_DOM}" "${CUR_IP}" "-" "-" "-" "no_slots"
 			break
 		fi
 
@@ -548,7 +647,7 @@ while [ "${ATTEMPT}" -lt "${ATTEMPTS}" ]; do
 	# reservation left behind by an earlier run with the same address and pair.
 	RUN_TAG="${CUR_IP}-${PAIR_IP}-0.0.0.0-$(date -u +%Y%m%d%H%M%S)"
 	MNT_TO="$(date -d "+${MNT_MIN} min" +%s)"
-	LOG="${LOGDIR}/rkn-${B_DOM:-${CUR_IP}}-$(date -u +%Y%m%d%H%M%S).log"
+	LOG="${LOGDIR}/migr-${B_DOM:-${CUR_IP}}-$(date -u +%Y%m%d%H%M%S).log"
 
 	# Belt and braces: with a timestamped tag these cannot exist, but a plain
 	# tag left by a hand-run would be reused silently, so say so.
@@ -646,7 +745,32 @@ WHERE brigade_id = '${BID}' AND NOT main AND endpoint_ipv4 = '${CUR_IP}'::inet;"
 	# reservations row, nothing else; it cannot touch a brigade. The -f matters:
 	# without it the parent delete hits the foreign key and the whole
 	# transaction rolls back, because the address is now brigade-held.
-	if [ -n "${RESV}" ]; then
+	if [ -n "${CLEANUP}" ]; then
+		# -cleanup: destroy the parked instance on the old address and free its
+		# slot. 02-migr-one-cleanup.sh releases the reservation itself as its
+		# last step, so this REPLACES the plain release below rather than
+		# running alongside it. BASENET is inherited so the cleanup finds the
+		# working files this run created and no others.
+		#
+		# Think before using this on a blocked address: the parked instance is
+		# what keeps 80/443 answering so the monitor can report when the ban
+		# lifts, and destroying it also re-exposes the slot to organic
+		# placement.
+		info "-cleanup: cleaning up the old address ${CUR_IP}"
+
+		if BASENET="${RUN_TAG}" "${CLEANUP_TOOL}" \
+			-ip "${CUR_IP}" -ctrl "${PAIR_IP}/32" >> "${LOG}" 2>&1; then
+			info "cleanup complete (reservation released by the cleanup)"
+			journal "${BID}" "${B_DOM}" "${CUR_IP}" "${NEW_IP}" "${PAIR_IP}" "${RESV:--}" "cleaned"
+		else
+			warn "cleanup FAILED, finish by hand:"
+			warn "    BASENET=${RUN_TAG} ${CLEANUP_TOOL} -ip ${CUR_IP} -ctrl ${PAIR_IP}/32"
+			if [ -n "${RESV}" ]; then
+				warn "    ${RESERVATION_TOOL} delete -f ${RESV}"
+			fi
+			journal "${BID}" "${B_DOM}" "${CUR_IP}" "${NEW_IP}" "${PAIR_IP}" "${RESV:--}" "cleanup_failed"
+		fi
+	elif [ -n "${RESV}" ]; then
 		info "releasing reservation ${RESV}"
 
 		if "${RESERVATION_TOOL}" delete -f "${RESV}" >> "${LOG}" 2>&1; then

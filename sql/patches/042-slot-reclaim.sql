@@ -6,7 +6,7 @@ SELECT _v.register_patch( '042-slot-reclaim', ARRAY[ '001-init', '002-roles', '0
 
 -- Audit trail for freeing a slot held by a parked (main = false) instance.
 --
--- Those instances exist to keep ports 80/443 answering on an address that RKN
+-- Those instances exist to keep ports 80/443 answering on an address that the censor
 -- blocked, so the external monitor can tell us when the ban lifts. Once it has,
 -- the probe has done its job and the slot can go back into the pool.
 --

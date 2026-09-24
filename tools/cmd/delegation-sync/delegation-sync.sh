@@ -14,7 +14,7 @@ fi
 
 basedir=$(dirname "$0")
 
-SSH_KEY=${SSH_KEY:-"${CONFDIR}/.ssh/id_ed25519"} \
+SSH_KEY=${SSH_KEY:-"${CONF_DIR}/.ssh/id_ed25519"} \
 BRIGADES_SCHEMA=${BRIGADES_SCHEMA:-"brigades"} \
 DB_URL=${DB_URL:-"postgres:///vgrealm"} \
 DC_ID="${DC_ID}" \

@@ -2,7 +2,7 @@
 #
 # Free slots held by parked instances whose address is no longer blocked.
 #
-# A parked (main = false) instance sits on an address RKN blocked, keeping
+# A parked (main = false) instance sits on an address the censor blocked, keeping
 # ports 80/443 answering so the external monitor can tell us when the ban
 # lifts. Once it has, the probe has done its job: destroy the instance, delete
 # its rows, re-enable the endpoint, and the slot is reservable again.
@@ -13,9 +13,9 @@
 #   reclaim-slots.sh                          report candidates, change nothing
 #   reclaim-slots.sh --apply                  reclaim, serially, up to --limit
 #   reclaim-slots.sh --apply --parallel 8     the same, 8 at a time
-#   reclaim-slots.sh --ip 1.2.3.4             report just that address
-#   reclaim-slots.sh --ip 1.2.3.4 --apply     reclaim just that address
-#   reclaim-slots.sh --ip 1.2.3.4 --apply --force
+#   reclaim-slots.sh --ip 192.0.2.10             report just that address
+#   reclaim-slots.sh --ip 192.0.2.10 --apply     reclaim just that address
+#   reclaim-slots.sh --ip 192.0.2.10 --apply --force
 #                                             skip the clean-days policy checks
 #   reclaim-slots.sh --max-active 3           allow reclaim up to 3 active users
 #

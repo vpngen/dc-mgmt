@@ -165,6 +165,12 @@ contents:
 - dst: /etc/vg-dc-stats/stats-sync.env
   type: ghost
 
+- src: dc-mgmt/debpkg/src/local-migration.env-sample
+  dst: /home/vgmigr/local-migration.env-sample
+  file_info:
+    mode: 0005
+    owner: root
+    group: root
 - src: dc-mgmt/debpkg/src/endpoints-feed.env-sample
   dst: /etc/vg-dc-stats/endpoints-feed.env-sample
   file_info:
@@ -760,8 +766,8 @@ contents:
     mode: 0005
     owner: root
     group: root
-- src: dc-mgmt/cmd/migracia/migr-one-rkn-block.sh
-  dst: /home/vgmigr/migr-one-rkn-block.sh
+- src: dc-mgmt/cmd/migracia/migr-one-blocked.sh
+  dst: /home/vgmigr/migr-one-blocked.sh
   file_info:
     mode: 0005
     owner: root
