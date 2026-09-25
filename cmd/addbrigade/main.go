@@ -187,10 +187,9 @@ func main() {
 		fatal(w, jout, "%s: Can't read configs: %s\n", LogTag, err)
 	}
 
-	// Temporarily disabled: VIP brigades are no longer restricted to VIP subnets.
-	// if opts.vip && len(opts.internalNets) == 0 {
-	// 	opts.internalNets = append(opts.internalNets, env.vipInets...)
-	// }
+	if opts.vip && len(opts.internalNets) == 0 {
+		opts.internalNets = append(opts.internalNets, env.vipInets...)
+	}
 
 	if !opts.vip {
 		opts.notInternalNets = append(opts.notInternalNets, env.vipInets...)
